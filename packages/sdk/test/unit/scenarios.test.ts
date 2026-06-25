@@ -31,4 +31,50 @@ describe('scenarios', () => {
 
     await expect(makeClient().scenarios.delete('scn-1')).rejects.toBeInstanceOf(ConflictError);
   });
+
+  it('lists scenarios filtered by type and status', async () => {
+    let seenUrl = '';
+    server.use(
+      http.get(`${API_BASE}/scenarios`, ({ request }) => {
+        seenUrl = request.url;
+        return HttpResponse.json([{ uuid: 'scn-1', name: 'one' }]);
+      })
+    );
+
+    const scenarios = await makeClient().scenarios.list({
+      scenario_type: 'interview',
+      status: 'SUCCESS',
+    });
+
+    expect(scenarios).toHaveLength(1);
+    expect(seenUrl).toContain('scenario_type=interview');
+    expect(seenUrl).toContain('status=SUCCESS');
+  });
+
+  it('gets and updates a scenario', async () => {
+    server.use(
+      http.get(`${API_BASE}/scenarios/scn-1`, () =>
+        HttpResponse.json({ uuid: 'scn-1', name: 'one' })
+      ),
+      http.patch(`${API_BASE}/scenarios/scn-1`, () =>
+        HttpResponse.json({ uuid: 'scn-1', name: 'renamed' })
+      )
+    );
+
+    const client = makeClient();
+    expect((await client.scenarios.get('scn-1')).name).toBe('one');
+    expect((await client.scenarios.update('scn-1', { name: 'renamed' })).name).toBe('renamed');
+  });
+
+  it('fetches the generation job tied to a scenario', async () => {
+    server.use(
+      http.get(`${API_BASE}/scenarios/scn-1/job`, () =>
+        HttpResponse.json({ uuid: 'job-1', current_status: 'COMPLETED' })
+      )
+    );
+
+    const job = await makeClient().scenarios.getJob('scn-1');
+
+    expect(job.current_status).toBe('COMPLETED');
+  });
 });

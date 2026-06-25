@@ -54,3 +54,43 @@ describe('jobs.pollUntilTerminal', () => {
     ).rejects.toBeInstanceOf(TimeoutError);
   });
 });
+
+describe('jobs CRUD', () => {
+  it('lists jobs filtered by status', async () => {
+    let seenUrl = '';
+    server.use(
+      http.get(`${API_BASE}/jobs`, ({ request }) => {
+        seenUrl = request.url;
+        return HttpResponse.json([{ uuid: 'job-1', current_status: 'PROCESSING' }]);
+      })
+    );
+
+    const jobs = await makeClient().jobs.list({ current_status: 'PROCESSING' });
+
+    expect(jobs).toHaveLength(1);
+    expect(seenUrl).toContain('current_status=PROCESSING');
+  });
+
+  it('gets a single job', async () => {
+    server.use(
+      http.get(`${API_BASE}/jobs/job-1`, () =>
+        HttpResponse.json({ uuid: 'job-1', current_status: 'COMPLETED' })
+      )
+    );
+
+    expect((await makeClient().jobs.get('job-1')).current_status).toBe('COMPLETED');
+  });
+
+  it('cancels, retries, and deletes a job', async () => {
+    server.use(
+      http.post(`${API_BASE}/jobs/job-1/cancel`, () => new HttpResponse(null, { status: 204 })),
+      http.post(`${API_BASE}/jobs/job-1/retry`, () => new HttpResponse(null, { status: 204 })),
+      http.delete(`${API_BASE}/jobs/job-1`, () => new HttpResponse(null, { status: 204 }))
+    );
+
+    const client = makeClient();
+    await expect(client.jobs.cancel('job-1')).resolves.toBeUndefined();
+    await expect(client.jobs.retry('job-1')).resolves.toBeUndefined();
+    await expect(client.jobs.delete('job-1')).resolves.toBeUndefined();
+  });
+});

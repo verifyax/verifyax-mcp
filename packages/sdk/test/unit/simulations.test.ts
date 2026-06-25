@@ -63,4 +63,52 @@ describe('simulations', () => {
       makeClient().simulations.waitForRun('run-2', { intervalMs: 1 })
     ).rejects.toBeInstanceOf(JobFailedError);
   });
+
+  it('lists runs filtered by status and agent', async () => {
+    let seenUrl = '';
+    server.use(
+      http.get(`${API_BASE}/simulations`, ({ request }) => {
+        seenUrl = request.url;
+        return HttpResponse.json([{ uuid: 'run-1', status: 'COMPLETED' }]);
+      })
+    );
+
+    const runs = await makeClient().simulations.list({ status: 'COMPLETED', agent_uuid: 'agt-1' });
+
+    expect(runs).toHaveLength(1);
+    expect(seenUrl).toContain('status=COMPLETED');
+    expect(seenUrl).toContain('agent_uuid=agt-1');
+  });
+
+  it('cancels and deletes a run', async () => {
+    server.use(
+      http.post(
+        `${API_BASE}/simulations/run-1/cancel`,
+        () => new HttpResponse(null, { status: 204 })
+      ),
+      http.delete(`${API_BASE}/simulations/run-1`, () => new HttpResponse(null, { status: 204 }))
+    );
+
+    const client = makeClient();
+    await expect(client.simulations.cancel('run-1')).resolves.toBeUndefined();
+    await expect(client.simulations.delete('run-1')).resolves.toBeUndefined();
+  });
+
+  it('triggers evaluation and fetches results', async () => {
+    server.use(
+      http.post(`${API_BASE}/engine/evaluate/trigger`, () =>
+        HttpResponse.json({ evaluation_job_uuid: 'eval-1' })
+      ),
+      http.get(`${API_BASE}/simulations/evaluations/eval-1`, () =>
+        HttpResponse.json({ overall_score: 0.82 })
+      )
+    );
+
+    const client = makeClient();
+    const triggered = await client.simulations.triggerEvaluation('run-1');
+    expect(triggered.evaluation_job_uuid).toBe('eval-1');
+
+    const evaluation = await client.simulations.getEvaluation('eval-1');
+    expect(evaluation).toMatchObject({ overall_score: 0.82 });
+  });
 });

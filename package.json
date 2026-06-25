@@ -14,6 +14,7 @@
     "typecheck": "tsc -b",
     "clean": "tsc -b --clean",
     "test": "pnpm -r test",
+    "test:integration": "pnpm --filter @verifyax/sdk test:integration",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

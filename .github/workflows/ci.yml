@@ -33,3 +33,23 @@ jobs:
 
       - name: Unit tests
         run: pnpm test
+
+  integration:
+    # Hits the live API. Runs on pushes to main (not PRs, where secrets are
+    # unavailable). The suite self-skips when VERIFYAX_TEST_KEY is empty.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Integration tests
+        run: pnpm test:integration
+        env:
+          VERIFYAX_TEST_KEY: ${{ secrets.VERIFYAX_TEST_KEY }}
+          VERIFYAX_TEST_AGENT_URL: ${{ secrets.VERIFYAX_TEST_AGENT_URL }}

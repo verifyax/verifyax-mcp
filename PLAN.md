@@ -8,7 +8,8 @@ Update the **Status** field at the top of each phase as work progresses. Don't s
 
 ## Phase 1 — SDK foundation
 
-**Status:** in progress — SDK implemented and unit-tested; integration suite + README remain
+**Status:** complete — SDK implemented, unit + integration suites in place, README written.
+Live integration run against a real workspace still pending (no test key wired into CI yet).
 **Target:** 1–2 days of focused work
 **Goal:** A typed TypeScript client for the VerifyAX REST API. No MCP yet. Just a clean SDK.
 
@@ -25,12 +26,19 @@ Update the **Status** field at the top of each phase as work progresses. Don't s
 - [x] Implement `pollJob(jobUuid, opts)` helper in `src/polling.ts`
 - [x] Typed error hierarchy in `src/errors.ts`: `VerifyaxError`, `AuthError`, `NotFoundError`, `ConflictError`, `JobFailedError` (carries `error_details`), `TimeoutError`, `RateLimitError`
 - [x] Map HTTP status codes to error types in the request layer
-- [~] Unit tests with `msw` — transport, error mapping, tags web-base, and async polling
-      (happy + failure + timeout) covered; per-method coverage for the remaining simple
-      list/CRUD wrappers still to fill in
-- [ ] Integration test suite that hits the real API, gated on `VERIFYAX_TEST_KEY`
-- [ ] Integration tests clean up after themselves (deterministic resource names, teardown helpers)
-- [ ] SDK README with usage examples
+- [x] Unit tests with `msw` — transport, error mapping per status, tags web-base, async
+      polling (happy + failure + timeout), and per-method coverage across every resource
+      (40 tests)
+- [x] Integration test suite that hits the real API, gated on `VERIFYAX_TEST_KEY`
+      (self-skips without a key; isolated from msw via a separate vitest config)
+- [x] Integration tests clean up after themselves (deterministic `mcp-test-{uuid}` names,
+      `afterAll` teardown of created agents/scenarios)
+- [x] SDK README with usage examples
+
+> Not yet exercised: the live integration run requires a `VERIFYAX_TEST_KEY` (and, for the
+> full pipeline, a reachable `VERIFYAX_TEST_AGENT_URL`) to be added as repo secrets. The CI
+> `integration` job is wired and will run on pushes to `main` once those secrets exist; until
+> then the suite skips. Expect skill-vs-reality drift to surface on the first live run.
 
 ### Decisions made this pass (not pre-specified in CLAUDE.md)
 
