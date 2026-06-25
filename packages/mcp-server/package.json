@@ -3,6 +3,24 @@
   "version": "0.1.0",
   "description": "MCP server exposing the VerifyAX agent-evaluation platform as conversational tools.",
   "license": "Apache-2.0",
+  "author": "Conscium",
+  "homepage": "https://github.com/verifyax/verifyax-mcp/tree/main/packages/mcp-server#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/verifyax/verifyax-mcp.git",
+    "directory": "packages/mcp-server"
+  },
+  "bugs": {
+    "url": "https://github.com/verifyax/verifyax-mcp/issues"
+  },
+  "keywords": [
+    "verifyax",
+    "mcp",
+    "model-context-protocol",
+    "agent-evaluation",
+    "ai-eval",
+    "conscium"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -10,7 +28,9 @@
     "verifyax-mcp-server": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20"

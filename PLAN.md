@@ -217,19 +217,30 @@ A teammate installs the package cold, configures their API key, and completes th
 
 ## Phase 5 — Ship
 
-**Status:** not started
+**Status:** prep complete — packages are publish-ready and dry-run-verified; the steps that need
+npm auth / org access / the second repo are pending (and need a human).
 **Target:** 1 day
 **Goal:** Publicly available.
 
-### Tasks
+### Prep done (this pass)
 
-- [ ] Publish `@verifyax/sdk` to npm (`pnpm publish --filter @verifyax/sdk`)
-- [ ] Publish `@verifyax/mcp-server` to npm
-- [ ] Add `verifyax-mcp` plugin folder to the `verifyax/claude-plugins` marketplace repo, with the MCP server declaration in its `plugin.json`
-- [ ] Cut v1.0.0 release on `verifyax/verifyax-mcp` GitHub repo with CHANGELOG.md, release notes
-- [ ] Update the existing skill's frontmatter description in the `claude-plugins` repo to mention the MCP option
-- [ ] Write `docs/using-verifyax-with-claude.md` on the VerifyAX site covering both surfaces with choice criteria
-- [ ] Smoke-test the published version on a clean machine (different from dev machine)
+- [x] Package metadata for both: `repository` (with `directory`), `homepage`, `bugs`, `keywords`, `author`
+- [x] Per-package `LICENSE` + `README` included in the published tarball; `files` pinned to `dist` + docs
+- [x] `bin` shebang verified to survive the build (`dist/index.js` starts with `#!/usr/bin/env node`)
+- [x] `.github/workflows/publish.yml` — manual (`workflow_dispatch`), builds + tests, with a `dry_run` toggle
+- [x] `pnpm -r publish --dry-run` verified: SDK = 47 files / 24kB, MCP server = 83 files / 26kB,
+      no `src`/`test` leakage, `workspace:*` will be rewritten to the real version on publish
+
+### Pending (needs npm auth / org / second repo — human in the loop)
+
+- [ ] Decide v1.0.0 vs staying 0.1.0 for first publish; bump both in lockstep if v1.0.0
+- [ ] Add `NPM_TOKEN` secret and confirm `@verifyax` npm org membership
+- [ ] Publish `@verifyax/sdk` then `@verifyax/mcp-server` (run the publish workflow with dry_run off, or `pnpm -r publish`)
+- [ ] Add a `verifyax-mcp` plugin folder to `verifyax/claude-plugins` declaring the MCP server in `plugin.json`
+- [ ] Cut the GitHub release + tag (`vX.Y.Z`) with CHANGELOG notes
+- [ ] Update the skill's frontmatter in `claude-plugins` to mention the MCP option
+- [ ] Write `docs/using-verifyax-with-claude.md` on the VerifyAX site (both surfaces + choice criteria)
+- [ ] Smoke-test the published package on a clean machine
 - [ ] Announce internally; collect feedback for v1.1
 
 ### Exit criteria

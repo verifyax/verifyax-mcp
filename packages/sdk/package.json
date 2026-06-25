@@ -3,6 +3,24 @@
   "version": "0.1.0",
   "description": "Typed TypeScript client for the VerifyAX agent-evaluation REST API.",
   "license": "Apache-2.0",
+  "author": "Conscium",
+  "homepage": "https://github.com/verifyax/verifyax-mcp/tree/main/packages/sdk#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/verifyax/verifyax-mcp.git",
+    "directory": "packages/sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/verifyax/verifyax-mcp/issues"
+  },
+  "keywords": [
+    "verifyax",
+    "agent-evaluation",
+    "ai-eval",
+    "simulation",
+    "conscium",
+    "sdk"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -13,7 +31,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20"
