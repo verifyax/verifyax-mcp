@@ -3,6 +3,7 @@
 // Reads config from the environment, wires the SDK client + logger into the
 // server, and serves the MCP protocol over stdio.
 
+import { realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { VerifyaxClient, type VerifyaxClientOptions } from '@verifyax/sdk';
@@ -32,9 +33,23 @@ export async function main(): Promise<void> {
   logger.info('verifyax-mcp-server started');
 }
 
-// Run only when executed as the bin, not when imported by tests.
-const invokedPath = process.argv[1];
-if (invokedPath && import.meta.url === pathToFileURL(invokedPath).href) {
+// Run only when executed as the bin, not when imported by tests. Resolve the
+// real path of argv[1] first: Node sets import.meta.url to the realpath, so a
+// launch via a symlink/junction (e.g. pnpm global, npx cache) would otherwise
+// fail this check and the server would never start.
+function isMainModule(): boolean {
+  const invoked = process.argv[1];
+  if (!invoked) {
+    return false;
+  }
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(invoked)).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   main().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${JSON.stringify({ level: 'error', msg: 'fatal', error: message })}\n`);
