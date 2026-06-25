@@ -73,13 +73,29 @@ describe('MCP conformance (spawned server)', () => {
     await new Promise<void>((resolve) => stub.close(() => resolve()));
   });
 
-  it('lists the registered tools', async () => {
+  it('lists the full v1 tool catalogue', async () => {
     const { tools } = await client.listTools();
-    const names = tools.map((t) => t.name);
-    expect(names).toContain('list_compatible_tags');
-    const tool = tools.find((t) => t.name === 'list_compatible_tags');
-    expect(tool?.description).toBeTruthy();
-    expect(tool?.inputSchema).toBeDefined();
+    const names = tools.map((t) => t.name).sort();
+    expect(names).toEqual(
+      [
+        'delete_agent',
+        'delete_scenario',
+        'evaluate_agent',
+        'generate_scenario',
+        'get_run_details',
+        'get_usage_summary',
+        'list_agents',
+        'list_compatible_tags',
+        'list_recent_runs',
+        'list_scenarios',
+        'preview_run_cost',
+        'register_agent',
+      ].sort()
+    );
+    for (const tool of tools) {
+      expect(tool.description).toBeTruthy();
+      expect(tool.inputSchema).toBeDefined();
+    }
   });
 
   it('calls list_compatible_tags and returns structured, filtered tags', async () => {

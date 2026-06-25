@@ -111,23 +111,38 @@ Add the MCP server to local Claude Code MCP config, restart, and have Claude cal
 
 ## Phase 3 — Build out the remaining tools
 
-**Status:** not started
+**Status:** complete — all 12 tools implemented, unit-tested, and asserted in the conformance suite
 **Target:** 2–3 days
 **Goal:** All 12 tools implemented and tested.
 
 ### Tasks (in implementation order, easy → hard)
 
-- [ ] `list_agents` — simple wrap, paginated
-- [ ] `list_scenarios` — simple wrap, paginated, filterable by status
-- [ ] `list_recent_runs` — simple wrap, multiple filter dimensions
-- [ ] `get_run_details` — fetch run + evaluation if available, return curated combined view
-- [ ] `get_usage_summary` — aggregate `/usage/events` client-side into per-agent/per-scenario totals
-- [ ] `preview_run_cost` — simple wrap of credit-preview endpoint
-- [ ] `delete_agent` — include explicit confirmation in description ("permanently deletes...")
-- [ ] `delete_scenario` — note 409 if runs still reference it; surface as `suggested_fix`
-- [ ] `register_agent` — chains `agents.testAgentCard` then `agents.create`; if card test fails, don't create
-- [ ] `generate_scenario` — first blocking async tool; polls job, returns final scenario or structured FAILED error
-- [ ] `evaluate_agent` — the boss tool. Pipeline: `creditPreview` → `simulate` → `pollRun` → `pollEval` → `getEvaluation`. Returns `{ simulation_uuid, evaluation: {...curated...}, credits_used }`
+- [x] `list_agents` — simple wrap, paginated
+- [x] `list_scenarios` — simple wrap, paginated, filterable by status
+- [x] `list_recent_runs` — simple wrap, multiple filter dimensions
+- [x] `get_run_details` — fetch run + evaluation if available, return curated combined view
+- [x] `get_usage_summary` — aggregate `/usage/events` client-side (counts by product area + credit total)
+- [x] `preview_run_cost` — simple wrap of credit-preview endpoint
+- [x] `delete_agent` — explicit "permanently deletes" wording + destructive annotation
+- [x] `delete_scenario` — 409 surfaced as a ConflictError with a `suggested_fix`
+- [x] `register_agent` — chains `agents.testAgentCard` then `agents.create`; if card test fails, don't create
+- [x] `generate_scenario` — blocking; polls the job, returns scenario uuid or structured FAILED error
+- [x] `evaluate_agent` — the boss tool. Pipeline: `creditPreview` → `simulate` → `waitForRun` → poll eval job → `getEvaluation`. Returns `{ simulation_uuid, run_status, credits_estimate, evaluation }`
+
+### Decisions made this pass
+
+- **Dropped `exactOptionalPropertyTypes`** from tsconfig. It isn't part of TS `strict` and was
+  fighting zod-inferred optionals (`T | undefined`) at every SDK param boundary. `strict`, `no-any`,
+  and the rest of the strictness stay; the conditional-spread code written earlier is unaffected.
+- **`get_usage_summary` aggregation** is counts-by-product-area + a credit total summed from a
+  numeric `credits` field when present (the reference under-specifies the event shape). Per-agent /
+  per-scenario rollups can come later once the live event shape is confirmed.
+- **`get_run_details` evaluation fetch is best-effort** — a run with no (or not-yet-ready)
+  evaluation returns `evaluation: null` rather than erroring.
+- **Each tool exports a `createXHandler(ctx)` factory** plus its `registerX`, so handlers are unit-
+  tested directly against a routed fetch stub (no live API, no spawned process).
+- **`evaluate_agent` credit preview is advisory** — a preview failure is logged at debug and does
+  not abort the evaluation; real auth errors still surface at the simulate step.
 
 ### Per-tool checklist
 

@@ -1,9 +1,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ScenarioType, Tag } from '@verifyax/sdk';
 import { z } from 'zod';
-import { translateError } from '../error-translation.js';
 import type { ToolContext } from './context.js';
-import { toolResult } from './result.js';
+import { runTool } from './result.js';
 
 const NAME = 'list_compatible_tags';
 
@@ -51,17 +50,11 @@ export function registerListCompatibleTags(server: McpServer, ctx: ToolContext):
   server.registerTool(
     NAME,
     { title: 'List compatible skill tags', description: DESCRIPTION, inputSchema },
-    async ({ scenario_type }) => {
-      try {
+    ({ scenario_type }) =>
+      runTool(ctx, NAME, async () => {
         const tags = await ctx.client.tags.list();
         const compatible = filterCompatibleTags(tags, scenario_type);
-        ctx.logger.debug('listed compatible tags', {
-          scenario_type,
-          total: tags.length,
-          compatible: compatible.length,
-        });
-        return toolResult({
-          success: true,
+        return {
           scenario_type,
           count: compatible.length,
           tags: compatible.map((tag) => ({
@@ -71,11 +64,7 @@ export function registerListCompatibleTags(server: McpServer, ctx: ToolContext):
             benchmark_family: tag.benchmark_family ?? null,
             must_be_sole_tag: tag.benchmark_family === 'qna',
           })),
-        });
-      } catch (error) {
-        ctx.logger.error('list_compatible_tags failed', { scenario_type });
-        return toolResult(translateError(error), true);
-      }
-    }
+        };
+      })
   );
 }

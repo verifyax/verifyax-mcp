@@ -1,0 +1,53 @@
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { z } from 'zod';
+import type { ToolContext } from './context.js';
+import { runTool } from './result.js';
+
+const NAME = 'get_run_details';
+
+const DESCRIPTION =
+  'Fetches the full details of a single simulation run by its uuid, including its status and the ' +
+  'evaluation results when they are available. Use after a run to inspect scores and outcome.';
+
+const inputObject = z.object({
+  simulation_uuid: z.string().describe('The run’s uuid.'),
+});
+type Input = z.infer<typeof inputObject>;
+const inputSchema = inputObject.shape;
+
+export function createGetRunDetailsHandler(ctx: ToolContext) {
+  return (args: Input) =>
+    runTool(ctx, NAME, async () => {
+      const run = await ctx.client.simulations.get(args.simulation_uuid);
+
+      // Fetch the evaluation if one has been queued — best effort, since it may
+      // not be ready yet. A failure here shouldn't fail the whole tool.
+      let evaluation: unknown = null;
+      const evalJobUuid = run.evaluation_job_uuid;
+      if (typeof evalJobUuid === 'string' && evalJobUuid.length > 0) {
+        try {
+          evaluation = await ctx.client.simulations.getEvaluation(evalJobUuid);
+        } catch (error) {
+          ctx.logger.debug('evaluation not available yet', {
+            simulation_uuid: args.simulation_uuid,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      return {
+        simulation_uuid: run.uuid,
+        status: run.status,
+        run,
+        evaluation,
+      };
+    });
+}
+
+export function registerGetRunDetails(server: McpServer, ctx: ToolContext): void {
+  server.registerTool(
+    NAME,
+    { title: 'Get run details', description: DESCRIPTION, inputSchema },
+    createGetRunDetailsHandler(ctx)
+  );
+}

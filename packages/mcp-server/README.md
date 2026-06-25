@@ -58,11 +58,24 @@ Restart the client, then try: _“List the skill tags I can use for an interview
 
 ## Tools
 
-Phase 2 ships the first tool; the rest follow in Phase 3 (see [PLAN.md](../../PLAN.md)).
+The full v1 catalogue of 12 tools:
 
-| Tool                   | Description                                                                      |
-| ---------------------- | -------------------------------------------------------------------------------- |
-| `list_compatible_tags` | Lists skill tags usable for a given scenario type (`info_exchange`/`interview`). |
+| Tool                   | Description                                                                      | Blocking |
+| ---------------------- | -------------------------------------------------------------------------------- | -------- |
+| `list_compatible_tags` | Lists skill tags usable for a given scenario type (`info_exchange`/`interview`). | no       |
+| `register_agent`       | Registers an agent (A2A or API); verifies the A2A card before creating.          | no       |
+| `list_agents`          | Lists registered agents, optionally filtered by type.                            | no       |
+| `delete_agent`         | Permanently deletes an agent by uuid.                                            | no       |
+| `generate_scenario`    | Generates a scenario and waits for it to finish.                                 | **yes**  |
+| `list_scenarios`       | Lists scenarios, optionally filtered by type/status.                             | no       |
+| `delete_scenario`      | Permanently deletes a scenario by uuid.                                          | no       |
+| `evaluate_agent`       | Runs an agent against a scenario and returns the evaluation, end to end.         | **yes**  |
+| `list_recent_runs`     | Lists recent simulation runs, optionally filtered.                               | no       |
+| `get_run_details`      | Fetches a run plus its evaluation when available.                                | no       |
+| `get_usage_summary`    | Summarizes usage events (counts by area, total credits).                         | no       |
+| `preview_run_cost`     | Estimates the credit cost of a run before triggering it.                         | no       |
+
+Blocking tools poll internally and return only when the work completes (typically 30s–5min).
 
 ## Privacy
 
