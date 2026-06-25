@@ -1,0 +1,6 @@
+{
+  // Root solution file. Holds no sources itself; orchestrates the package
+  // projects via references so `tsc -b` builds them in dependency order.
+  "files": [],
+  "references": [{ "path": "packages/sdk" }, { "path": "packages/mcp-server" }]
+}

@@ -1,0 +1,10 @@
+dist
+node_modules
+coverage
+pnpm-lock.yaml
+
+# Hand-maintained docs — not reformatted by Prettier.
+# docs/verifyax-api.md is a verbatim copy of the skill's SKILL.md (see CLAUDE.md).
+CLAUDE.md
+PLAN.md
+docs/verifyax-api.md

@@ -1,0 +1,9 @@
+# Normalize line endings to LF in the repo for all text files.
+# Keeps Prettier (endOfLine: lf) consistent across Linux CI and Windows checkouts.
+* text=auto eol=lf
+
+# Binary files Git should not touch.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
