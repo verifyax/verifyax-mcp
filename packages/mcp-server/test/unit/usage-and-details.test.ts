@@ -69,4 +69,26 @@ describe('get_run_details', () => {
     );
     expect(payload.evaluation).toBeNull();
   });
+
+  it('still returns the run when the evaluation fetch fails (not ready)', async () => {
+    const { ctx } = stubContext([
+      {
+        method: 'GET',
+        match: '/simulations/evaluations/',
+        status: 404,
+        body: { message: 'not ready' },
+      },
+      {
+        method: 'GET',
+        match: '/simulations/r3',
+        body: { uuid: 'r3', status: 'COMPLETED', evaluation_job_uuid: 'e1' },
+      },
+    ]);
+    const payload = payloadOf<{ success: boolean; status: string; evaluation: unknown }>(
+      await createGetRunDetailsHandler(ctx)({ simulation_uuid: 'r3' })
+    );
+    expect(payload.success).toBe(true);
+    expect(payload.status).toBe('COMPLETED');
+    expect(payload.evaluation).toBeNull();
+  });
 });

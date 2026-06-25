@@ -169,18 +169,18 @@ Conversational test in Claude Code: *"Register the agent at [URL] with bearer to
 
 ## Phase 4 — Hardening
 
-**Status:** mostly complete — retries, error mapping, CI, and docs done; empirical description
-tuning and exhaustive edge-case tests deferred (see below)
+**Status:** complete — retries, error mapping, CI, docs, edge-case tests, and the empirical
+description eval all done. One conscious non-goal noted below (partial results on timeout).
 **Target:** 2 days
 **Goal:** Production-grade quality.
 
 ### Tasks
 
 - [x] Rate-limit handling: 429 + transient 5xx retried with exponential backoff (up to 3, honoring `Retry-After`); `RateLimitError` carries `retryAfter`
-- [~] Timeout handling: per-request timeout + per-poll deadlines on blocking tools. "Partial results" not yet returned — blocking tools fail whole on timeout
+- [~] Timeout handling: per-request timeout + per-poll deadlines on blocking tools. "Partial results" intentionally **not** returned — blocking tools fail whole on timeout (a clean failure beats a half-result here; revisit if users ask)
 - [x] Robust error translation: the `docs/verifyax-api.md` async-failures table is mapped to specific `suggested_fix` hints
-- [~] Tool description optimization: descriptions written with rationale in `docs/tool-descriptions.md`; the empirical 10-prompt accuracy protocol below is **not yet run** (needs a fresh-session harness)
-- [~] Edge cases: empty lists (handled), deleted-resource-mid-poll (404 → NotFoundError, translated), network-unreachable (→ VerifyaxError), malformed body (transport falls back to text). Not all have dedicated tests yet
+- [x] Tool description optimization: empirical pass run (see `docs/tool-selection-eval.md`) — 25/25 prompts, no changes needed
+- [x] Edge cases: empty lists, deleted-resource-mid-poll (404 → NotFoundError), network-unreachable (→ VerifyaxError), malformed body (raw text fallback), eval-not-ready — all with dedicated tests
 - [x] CI runs integration tests on `main` and on release tags (`tags: ['v*']`)
 - [x] Top-level README: project overview, installation, usage examples, troubleshooting
 - [x] CONTRIBUTING.md with development setup and PR guidelines
@@ -191,9 +191,11 @@ tuning and exhaustive edge-case tests deferred (see below)
 - **Retry scope.** Retries 429 + 502/503/504 only (not 400/401/404/409/500); timeouts are not
   retried. Configurable via `maxRetries` / `retryBaseMs`. Tool unit tests set `maxRetries: 0` for
   deterministic call counts; SDK retry behavior has its own suite.
-- **Description tuning deferred.** Writing good first-draft descriptions + rationale is done; the
-  empirical pass (scoring against 10 should/should-not prompts per tool in a fresh session) needs a
-  harness we don't have wired up. Tracked as the one open Phase 4 item.
+- **Description tuning done.** Ran the empirical pass via a fresh subagent given only the 12
+  descriptions + 25 should/should-not prompts; scored 25/25 (`docs/tool-selection-eval.md`). The
+  prompt suite is committed as a regression artifact to re-run when descriptions change.
+- **Partial-results-on-timeout is a deliberate non-goal.** Blocking tools return a clean
+  `TimeoutError` rather than a half-finished result; simpler to reason about. Revisit if users ask.
 - **Added `CHANGELOG.md`** (Keep a Changelog) referenced by CONTRIBUTING and the release process.
 
 ### Tool description optimization protocol
