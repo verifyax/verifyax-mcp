@@ -7,6 +7,15 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-25
+
+### Fixed
+
+- `@verifyax/mcp-server`: the bin failed to start when launched via a symlink or junction (some
+  pnpm-global / npx-cache layouts) — the main-module check compared `import.meta.url` (a realpath)
+  against the raw `process.argv[1]`. It now resolves `realpath(argv[1])` first, so symlinked
+  launches start correctly. Added a conformance regression test that launches through a junction.
+
 ## [0.1.0] - 2026-06-25
 
 First public release. `@verifyax/sdk` and `@verifyax/mcp-server` published to npm.
@@ -23,5 +32,6 @@ First public release. `@verifyax/sdk` and `@verifyax/mcp-server` published to np
 - Documentation: top-level README, per-package READMEs, `docs/tool-descriptions.md`,
   `CONTRIBUTING.md`.
 
-[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/verifyax/verifyax-mcp/releases/tag/v0.1.1
 [0.1.0]: https://github.com/verifyax/verifyax-mcp/releases/tag/v0.1.0
