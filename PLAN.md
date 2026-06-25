@@ -8,16 +8,16 @@ Update the **Status** field at the top of each phase as work progresses. Don't s
 
 ## Phase 1 — SDK foundation
 
-**Status:** not started
+**Status:** in progress — monorepo scaffold landed; SDK implementation next
 **Target:** 1–2 days of focused work
 **Goal:** A typed TypeScript client for the VerifyAX REST API. No MCP yet. Just a clean SDK.
 
 ### Tasks
 
-- [ ] Scaffold monorepo with `pnpm` workspaces (`packages/sdk`, `packages/mcp-server`)
-- [ ] Configure `tsconfig.base.json`, `prettier`, `eslint`, `vitest` at the root
-- [ ] Set up GitHub Actions CI: lint, build, unit tests on every PR
-- [ ] Create `@verifyax/sdk` package skeleton with `package.json`, `tsconfig.json`, entry points
+- [x] Scaffold monorepo with `pnpm` workspaces (`packages/sdk`, `packages/mcp-server`)
+- [x] Configure `tsconfig.base.json`, `prettier`, `eslint`, `vitest` at the root
+- [x] Set up GitHub Actions CI: lint, build, unit tests on every PR
+- [x] Create `@verifyax/sdk` package skeleton with `package.json`, `tsconfig.json`, entry points
 - [ ] Define typed request/response interfaces in `src/types.ts` for all endpoints in `docs/verifyax-api.md`
 - [ ] Implement `VerifyaxClient` class with constructor `new VerifyaxClient({ apiKey, baseUrl? })`
 - [ ] Implement resource accessors: `client.agents`, `client.scenarios`, `client.simulations`, `client.jobs`, `client.tags`, `client.usage`
