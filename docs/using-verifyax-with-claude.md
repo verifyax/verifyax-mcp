@@ -31,4 +31,4 @@ Claude or your own code. They overlap on purpose — pick by how you work, not b
 - The MCP server and the skill are complementary, not competing — the same person might use the MCP
   tools for quick evals and the SDK for a CI integration.
 - Source & issues: [verifyax/verifyax-mcp](https://github.com/verifyax/verifyax-mcp) (SDK + MCP
-  server), [verifyax/claude-plugins](https://github.com/verifyax/claude-plugins) (the marketplace).
+  server), [verifyax/verifyax-plugins](https://github.com/verifyax/verifyax-plugins) (the marketplace).

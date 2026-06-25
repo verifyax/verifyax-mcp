@@ -11,7 +11,7 @@ Two packages in one monorepo:
 - **`@verifyax/sdk`** — typed TypeScript client for the VerifyAX REST API. Reusable by any consumer, not MCP-specific.
 - **`@verifyax/mcp-server`** — MCP server exposing ~12 tools mapped to user intents. Depends on the SDK.
 
-The MCP server complements (does not replace) the existing `verifyax-api` skill at `https://github.com/verifyax/claude-plugins`. The skill is for developers writing code; the MCP server is for conversational workflows.
+The MCP server complements (does not replace) the existing `verifyax-api` skill at `https://github.com/verifyax/verifyax-plugins`. The skill is for developers writing code; the MCP server is for conversational workflows.
 
 ## v1 scope and constraints
 
@@ -188,11 +188,11 @@ If a user asks for any of these, write it down in `docs/v2-backlog.md` and move 
 - **Versioning.** Both packages follow semver. Bump in lockstep for v1.x. Independent versioning is a v2 concern.
 - **Publishing.** Manual via `pnpm publish` until release volume justifies CI publishing. Tag releases as `vX.Y.Z` on the repo.
 - **Release notes.** Every release gets a `CHANGELOG.md` entry. Format: Keep a Changelog.
-- **The skill stays the canonical API reference.** When the API changes, update `docs/verifyax-api.md` first (and the skill in the `claude-plugins` repo), then update the SDK, then the MCP server.
+- **The skill stays the canonical API reference.** When the API changes, update `docs/verifyax-api.md` first (and the skill in the `verifyax-plugins` repo), then update the SDK, then the MCP server.
 
 ## Quick context for new Claude Code sessions
 
-If you're reading this fresh: we have a working API skill in production at `verifyax/claude-plugins`. It teaches Claude how to drive the VerifyAX API via Python scripts. This repo is the next layer — turning that same capability into native MCP tools so Claude can execute the workflow directly instead of writing scripts for the user to run.
+If you're reading this fresh: we have a working API skill in production at `verifyax/verifyax-plugins`. It teaches Claude how to drive the VerifyAX API via Python scripts. This repo is the next layer — turning that same capability into native MCP tools so Claude can execute the workflow directly instead of writing scripts for the user to run.
 
 The skill is at `docs/verifyax-api.md` in this repo. Read it before writing any API-touching code.
 

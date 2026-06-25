@@ -6,7 +6,7 @@ register agents, generate scenarios, run simulations, and read evaluations by ju
 what you want.
 
 Built on [`@verifyax/sdk`](../sdk). For developers who want to script the API directly, use the
-SDK or the [`verifyax-api` skill](https://github.com/verifyax/claude-plugins) instead.
+SDK or the [`verifyax-api` skill](https://github.com/verifyax/verifyax-plugins) instead.
 
 ## Requirements
 

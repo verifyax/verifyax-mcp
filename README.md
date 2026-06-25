@@ -8,7 +8,7 @@ the typed SDK it is built on. Two packages in one pnpm monorepo:
 | [`@verifyax/sdk`](packages/sdk)               | Typed TypeScript client for the VerifyAX REST API. Reusable by any consumer.    |
 | [`@verifyax/mcp-server`](packages/mcp-server) | MCP server exposing 12 VerifyAX tools mapped to user intents. Built on the SDK. |
 
-This complements (does not replace) the [`verifyax-api` skill](https://github.com/verifyax/claude-plugins):
+This complements (does not replace) the [`verifyax-api` skill](https://github.com/verifyax/verifyax-plugins):
 the skill is for developers writing code; the MCP server is for conversational workflows.
 
 ## Install the MCP server

@@ -218,7 +218,7 @@ A teammate installs the package cold, configures their API key, and completes th
 ## Phase 5 — Ship
 
 **Status:** published — both packages are live on npm at 0.1.0 and the published artifact is
-smoke-tested. Remaining: GitHub release/tag (in progress), the claude-plugins folder, and the
+smoke-tested. Remaining: GitHub release/tag (in progress), the verifyax-plugins folder, and the
 site doc.
 **Target:** 1 day
 **Goal:** Publicly available.
@@ -243,11 +243,8 @@ site doc.
 
 ### Pending (needs the second repo / external surfaces)
 
-- [~] Add a `verifyax-mcp` plugin folder to `verifyax/claude-plugins` — PR opened
-      (verifyax/claude-plugins#1); needs a local `/plugin install` check of the `userConfig`
-      key-prompt before merge
-- [~] Update the skill's frontmatter in `claude-plugins` to mention the MCP option — PR opened
-      (verifyax/claude-plugins#2)
+- [x] Add a `verifyax-mcp` plugin folder to `verifyax/verifyax-plugins` (merged, #1)
+- [x] Update the skill's frontmatter in `verifyax-plugins` to mention the MCP option (merged, #2)
 - [~] Surface-choice guide written at `docs/using-verifyax-with-claude.md` (in this repo, canonical);
       porting to the VerifyAX site is pending
 - [ ] Smoke-test on a genuinely clean machine (different from dev)
