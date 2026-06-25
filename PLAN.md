@@ -246,8 +246,10 @@ site doc.
 - [~] Add a `verifyax-mcp` plugin folder to `verifyax/claude-plugins` — PR opened
       (verifyax/claude-plugins#1); needs a local `/plugin install` check of the `userConfig`
       key-prompt before merge
-- [ ] Update the skill's frontmatter in `claude-plugins` to mention the MCP option
-- [ ] Write `docs/using-verifyax-with-claude.md` on the VerifyAX site (both surfaces + choice criteria)
+- [~] Update the skill's frontmatter in `claude-plugins` to mention the MCP option — PR opened
+      (verifyax/claude-plugins#2)
+- [~] Surface-choice guide written at `docs/using-verifyax-with-claude.md` (in this repo, canonical);
+      porting to the VerifyAX site is pending
 - [ ] Smoke-test on a genuinely clean machine (different from dev)
 - [ ] Announce internally; collect feedback for v1.1
 
