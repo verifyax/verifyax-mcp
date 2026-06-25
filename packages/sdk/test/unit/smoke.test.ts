@@ -4,7 +4,7 @@ import { SDK_VERSION } from '../../src/index.js';
 
 function readPackageVersion(): string {
   const packageJson: unknown = JSON.parse(
-    readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+    readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
   );
   if (
     typeof packageJson !== 'object' ||
