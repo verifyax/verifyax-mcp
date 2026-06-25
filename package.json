@@ -15,6 +15,7 @@
     "clean": "tsc -b --clean",
     "test": "pnpm -r test",
     "test:integration": "pnpm --filter @verifyax/sdk test:integration",
+    "test:conformance": "pnpm --filter @verifyax/mcp-server test:conformance",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

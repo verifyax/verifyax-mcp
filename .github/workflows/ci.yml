@@ -34,6 +34,9 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      - name: Conformance test (spawns the built MCP server)
+        run: pnpm test:conformance
+
   integration:
     # Hits the live API. Runs on pushes to main (not PRs, where secrets are
     # unavailable). The suite self-skips when VERIFYAX_TEST_KEY is empty.

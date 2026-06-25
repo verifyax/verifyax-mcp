@@ -68,23 +68,35 @@ A 20-line TypeScript script that does the full pipeline (register → generate �
 
 ## Phase 2 — MCP server skeleton
 
-**Status:** not started
+**Status:** complete — server builds, serves `list_compatible_tags` over stdio, conformance test green in CI
 **Target:** 1 day
 **Goal:** A running MCP server exposing one tool (`list_compatible_tags`) and installable into Claude Code.
 
 ### Tasks
 
-- [ ] Create `@verifyax/mcp-server` package depending on `@verifyax/sdk` and `@modelcontextprotocol/sdk`
-- [ ] Implement `src/auth.ts` reading `VERIFYAX_API_KEY` from env, throwing a clear error if missing
-- [ ] Implement `src/logging.ts` writing structured JSON to stderr, level controlled by `VERIFYAX_MCP_LOG_LEVEL`
-- [ ] Implement `src/server.ts` with MCP boilerplate: server initialization, capabilities, request handlers
-- [ ] Implement `src/error-translation.ts` mapping SDK errors → MCP structured tool errors
-- [ ] Implement first tool: `list_compatible_tags` in `src/tools/list-compatible-tags.ts`
-- [ ] Tool description optimized for Claude's selection (first draft; will refine in Phase 4)
-- [ ] Implement `src/tools/index.ts` that registers all tools (just one for now)
-- [ ] Add `bin` entry in `package.json` exposing `verifyax-mcp-server` command
-- [ ] MCP conformance test: spawn server as subprocess, send `list_tools` and `call_tool`, assert responses
-- [ ] Server README with installation steps for Claude Code and Claude Desktop
+- [x] Create `@verifyax/mcp-server` package depending on `@verifyax/sdk` and `@modelcontextprotocol/sdk` (1.29.0)
+- [x] Implement `src/auth.ts` reading `VERIFYAX_API_KEY` from env, throwing a clear error if missing
+- [x] Implement `src/logging.ts` writing structured JSON to stderr, level controlled by `VERIFYAX_MCP_LOG_LEVEL`
+- [x] Implement `src/server.ts` with MCP boilerplate: server initialization, capabilities, request handlers
+- [x] Implement `src/error-translation.ts` mapping SDK errors → MCP structured tool errors
+- [x] Implement first tool: `list_compatible_tags` in `src/tools/list-compatible-tags.ts`
+- [x] Tool description optimized for Claude's selection (first draft; will refine in Phase 4)
+- [x] Implement `src/tools/index.ts` that registers all tools (just one for now)
+- [x] Add `bin` entry in `package.json` exposing `verifyax-mcp-server` command
+- [x] MCP conformance test: spawn server as subprocess, send `list_tools` and `call_tool`, assert responses
+- [x] Server README with installation steps for Claude Code and Claude Desktop
+
+### Decisions made this pass
+
+- **Tool result shape.** Handlers return JSON in a text content block; failures set `isError: true`
+  and carry the structured `{ success: false, reason, suggested_fix }` from error-translation.
+  (No `outputSchema`/`structuredContent` yet — can add in Phase 4 if useful.)
+- **Base-URL env overrides.** `VERIFYAX_BASE_URL` / `VERIFYAX_WEB_BASE_URL` let the conformance
+  test point the spawned server at a local stub, and support self-hosting later.
+- **Conformance is hermetic.** It stubs the tag endpoint over loopback HTTP — no live API, no
+  key needed — and runs in its own vitest config (built subprocess, not source).
+- **Dependency injection.** `createServer({ client, logger })` does no I/O, so tools are unit-
+  testable and the entry point owns all environment reads.
 
 ### Exit criteria
 

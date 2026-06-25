@@ -17,10 +17,13 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:conformance": "tsc -b && vitest run --config vitest.conformance.config.ts"
   },
   "dependencies": {
-    "@verifyax/sdk": "workspace:*"
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@verifyax/sdk": "workspace:*",
+    "zod": "^3.24.1"
   },
   "publishConfig": {
     "access": "public"
