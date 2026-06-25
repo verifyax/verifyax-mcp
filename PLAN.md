@@ -243,7 +243,9 @@ site doc.
 
 ### Pending (needs the second repo / external surfaces)
 
-- [ ] Add a `verifyax-mcp` plugin folder to `verifyax/claude-plugins` declaring the MCP server in `plugin.json`
+- [~] Add a `verifyax-mcp` plugin folder to `verifyax/claude-plugins` — PR opened
+      (verifyax/claude-plugins#1); needs a local `/plugin install` check of the `userConfig`
+      key-prompt before merge
 - [ ] Update the skill's frontmatter in `claude-plugins` to mention the MCP option
 - [ ] Write `docs/using-verifyax-with-claude.md` on the VerifyAX site (both surfaces + choice criteria)
 - [ ] Smoke-test on a genuinely clean machine (different from dev)
