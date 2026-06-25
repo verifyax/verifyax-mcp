@@ -1,6 +1,31 @@
 // Public entry point for @verifyax/sdk.
-// Resources, the client, types, errors, and the polling helper are implemented in
-// Phase 1 (see PLAN.md). For now this exposes the package version so the build,
-// type-check, and test pipeline has something real to compile.
 
 export const SDK_VERSION = '0.1.0';
+
+export { VerifyaxClient } from './client.js';
+export type {
+  FetchLike,
+  QueryParams,
+  QueryValue,
+  RequestOptions,
+  VerifyaxClientOptions,
+} from './client.js';
+
+export {
+  AuthError,
+  ConflictError,
+  JobFailedError,
+  NotFoundError,
+  RateLimitError,
+  TimeoutError,
+  VerifyaxError,
+  errorFromResponse,
+} from './errors.js';
+export type { VerifyaxErrorBody } from './errors.js';
+
+export { pollJob, pollUntilTerminal } from './polling.js';
+export type { PollOptions } from './polling.js';
+
+export type { ListAgentsParams } from './resources/agents.js';
+
+export type * from './types.js';

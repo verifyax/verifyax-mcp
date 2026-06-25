@@ -8,7 +8,7 @@ Update the **Status** field at the top of each phase as work progresses. Don't s
 
 ## Phase 1 — SDK foundation
 
-**Status:** in progress — monorepo scaffold landed; SDK implementation next
+**Status:** in progress — SDK implemented and unit-tested; integration suite + README remain
 **Target:** 1–2 days of focused work
 **Goal:** A typed TypeScript client for the VerifyAX REST API. No MCP yet. Just a clean SDK.
 
@@ -18,17 +18,33 @@ Update the **Status** field at the top of each phase as work progresses. Don't s
 - [x] Configure `tsconfig.base.json`, `prettier`, `eslint`, `vitest` at the root
 - [x] Set up GitHub Actions CI: lint, build, unit tests on every PR
 - [x] Create `@verifyax/sdk` package skeleton with `package.json`, `tsconfig.json`, entry points
-- [ ] Define typed request/response interfaces in `src/types.ts` for all endpoints in `docs/verifyax-api.md`
-- [ ] Implement `VerifyaxClient` class with constructor `new VerifyaxClient({ apiKey, baseUrl? })`
-- [ ] Implement resource accessors: `client.agents`, `client.scenarios`, `client.simulations`, `client.jobs`, `client.tags`, `client.usage`
-- [ ] Implement each resource's methods (one file per resource under `src/resources/`)
-- [ ] Implement `pollJob(jobUuid, opts)` helper in `src/polling.ts`
-- [ ] Typed error hierarchy in `src/errors.ts`: `VerifyaxError`, `AuthError`, `NotFoundError`, `ConflictError`, `JobFailedError` (carries `error_details`), `TimeoutError`, `RateLimitError`
-- [ ] Map HTTP status codes to error types in the request layer
-- [ ] Unit tests with `msw` mocking each endpoint — happy path + at least one error path per method
+- [x] Define typed request/response interfaces in `src/types.ts` for all endpoints in `docs/verifyax-api.md`
+- [x] Implement `VerifyaxClient` class with constructor `new VerifyaxClient({ apiKey, baseUrl? })`
+- [x] Implement resource accessors: `client.agents`, `client.scenarios`, `client.simulations`, `client.jobs`, `client.tags`, `client.usage`
+- [x] Implement each resource's methods (one file per resource under `src/resources/`)
+- [x] Implement `pollJob(jobUuid, opts)` helper in `src/polling.ts`
+- [x] Typed error hierarchy in `src/errors.ts`: `VerifyaxError`, `AuthError`, `NotFoundError`, `ConflictError`, `JobFailedError` (carries `error_details`), `TimeoutError`, `RateLimitError`
+- [x] Map HTTP status codes to error types in the request layer
+- [~] Unit tests with `msw` — transport, error mapping, tags web-base, and async polling
+      (happy + failure + timeout) covered; per-method coverage for the remaining simple
+      list/CRUD wrappers still to fill in
 - [ ] Integration test suite that hits the real API, gated on `VERIFYAX_TEST_KEY`
 - [ ] Integration tests clean up after themselves (deterministic resource names, teardown helpers)
 - [ ] SDK README with usage examples
+
+### Decisions made this pass (not pre-specified in CLAUDE.md)
+
+- **Base-URL split.** Client takes `baseUrl` (`/api/v1`) and a separate `webBaseUrl`
+  (`/web/api/v1`); the tags resource targets the web base with `auth: false` and unwraps
+  the `{ success, data }` envelope.
+- **Run polling.** Added `simulations.waitForRun` alongside `jobs.pollUntilTerminal` — runs
+  carry status on the record (CREATED/IN_PROGRESS), not via a job. Both share the generic
+  `pollUntilTerminal` core in `polling.ts`.
+- **Peripheral endpoints deferred.** scenario copy / generate-copy / artifacts, validation,
+  and one-time-login-token are not yet wrapped — no v1 MCP tool needs them. (Tracked for a
+  later SDK pass; none are in the v1 tool catalogue.)
+- **Forward-compatible response types** use documented fields + an `[key: string]: unknown`
+  index signature rather than `any`, since the reference under-specifies some shapes.
 
 ### Exit criteria
 
