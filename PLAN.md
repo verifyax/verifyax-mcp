@@ -217,8 +217,9 @@ A teammate installs the package cold, configures their API key, and completes th
 
 ## Phase 5 — Ship
 
-**Status:** prep complete — packages are publish-ready and dry-run-verified; the steps that need
-npm auth / org access / the second repo are pending (and need a human).
+**Status:** published — both packages are live on npm at 0.1.0 and the published artifact is
+smoke-tested. Remaining: GitHub release/tag (in progress), the claude-plugins folder, and the
+site doc.
 **Target:** 1 day
 **Goal:** Publicly available.
 
@@ -231,16 +232,21 @@ npm auth / org access / the second repo are pending (and need a human).
 - [x] `pnpm -r publish --dry-run` verified: SDK = 47 files / 24kB, MCP server = 83 files / 26kB,
       no `src`/`test` leakage, `workspace:*` will be rewritten to the real version on publish
 
-### Pending (needs npm auth / org / second repo — human in the loop)
+### Done
 
-- [ ] Decide v1.0.0 vs staying 0.1.0 for first publish; bump both in lockstep if v1.0.0
-- [ ] Add `NPM_TOKEN` secret and confirm `@verifyax` npm org membership
-- [ ] Publish `@verifyax/sdk` then `@verifyax/mcp-server` (run the publish workflow with dry_run off, or `pnpm -r publish`)
+- [x] First publish at **0.1.0** (chose 0.1.0 over 1.0.0 — early release, reserve 1.0.0 for post-use)
+- [x] npm auth via automation token (2FA-on-publish requires it; account 2FA is off)
+- [x] Published `@verifyax/sdk@0.1.0` then `@verifyax/mcp-server@0.1.0`; `workspace:*` rewritten to `0.1.0`
+- [x] Smoke-tested the published artifact: fresh `npm install` from the registry, 12 tools exposed,
+      `list_compatible_tags` returned 46 live tags
+- [x] Cut the GitHub release + tag `v0.1.0` with CHANGELOG notes
+
+### Pending (needs the second repo / external surfaces)
+
 - [ ] Add a `verifyax-mcp` plugin folder to `verifyax/claude-plugins` declaring the MCP server in `plugin.json`
-- [ ] Cut the GitHub release + tag (`vX.Y.Z`) with CHANGELOG notes
 - [ ] Update the skill's frontmatter in `claude-plugins` to mention the MCP option
 - [ ] Write `docs/using-verifyax-with-claude.md` on the VerifyAX site (both surfaces + choice criteria)
-- [ ] Smoke-test the published package on a clean machine
+- [ ] Smoke-test on a genuinely clean machine (different from dev)
 - [ ] Announce internally; collect feedback for v1.1
 
 ### Exit criteria

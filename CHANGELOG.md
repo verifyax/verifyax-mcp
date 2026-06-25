@@ -7,6 +7,10 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-06-25
+
+First public release. `@verifyax/sdk` and `@verifyax/mcp-server` published to npm.
+
 ### Added
 
 - `@verifyax/sdk`: typed REST client with resource accessors (agents, scenarios, simulations,
@@ -19,4 +23,5 @@ packages are versioned in lockstep for v1.x. Format follows
 - Documentation: top-level README, per-package READMEs, `docs/tool-descriptions.md`,
   `CONTRIBUTING.md`.
 
-[Unreleased]: https://github.com/verifyax/verifyax-mcp/commits/main
+[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/verifyax/verifyax-mcp/releases/tag/v0.1.0
