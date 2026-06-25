@@ -14,6 +14,12 @@ import { UsageResource } from './resources/usage.js';
 const DEFAULT_BASE_URL = 'https://console.verifyax.com/api/v1';
 const DEFAULT_WEB_BASE_URL = 'https://console.verifyax.com/web/api/v1';
 const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_MAX_RETRIES = 3;
+const DEFAULT_RETRY_BASE_MS = 500;
+const MAX_BACKOFF_MS = 20_000;
+
+/** HTTP statuses worth retrying: rate limiting and transient gateway errors. */
+const RETRYABLE_STATUSES = new Set([429, 502, 503, 504]);
 
 /** Minimal fetch signature the client depends on (overridable for tests). */
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
@@ -26,6 +32,10 @@ export interface VerifyaxClientOptions {
   webBaseUrl?: string;
   /** Per-request timeout in milliseconds. Defaults to 30s. */
   timeoutMs?: number;
+  /** Max automatic retries for 429/transient failures. Defaults to 3. */
+  maxRetries?: number;
+  /** Base backoff delay in ms (doubled per attempt). Defaults to 500. */
+  retryBaseMs?: number;
   /** Inject a fetch implementation. Defaults to the global `fetch`. */
   fetch?: FetchLike;
 }
@@ -55,6 +65,8 @@ export class VerifyaxClient {
   private readonly baseUrl: string;
   private readonly webBaseUrl: string;
   private readonly timeoutMs: number;
+  private readonly maxRetries: number;
+  private readonly retryBaseMs: number;
   private readonly fetchImpl: FetchLike;
 
   constructor(options: VerifyaxClientOptions) {
@@ -65,6 +77,8 @@ export class VerifyaxClient {
     this.baseUrl = stripTrailingSlash(options.baseUrl ?? DEFAULT_BASE_URL);
     this.webBaseUrl = stripTrailingSlash(options.webBaseUrl ?? DEFAULT_WEB_BASE_URL);
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
+    this.retryBaseMs = options.retryBaseMs ?? DEFAULT_RETRY_BASE_MS;
     this.fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
 
     this.agents = new AgentsResource(this);
@@ -77,8 +91,9 @@ export class VerifyaxClient {
 
   /**
    * Perform an HTTP request and return the parsed JSON body as `T`.
-   * Translates non-2xx responses into the typed error hierarchy and request
-   * timeouts into {@link TimeoutError}. Returns `undefined` for empty bodies.
+   * Retries 429 and transient gateway errors with exponential backoff (honoring
+   * Retry-After), translates non-2xx responses into the typed error hierarchy,
+   * and request timeouts into {@link TimeoutError}. Returns `undefined` for empty bodies.
    */
   async request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
     const base = options.base === 'web' ? this.webBaseUrl : this.baseUrl;
@@ -88,28 +103,51 @@ export class VerifyaxClient {
     if (options.auth !== false) {
       headers.Authorization = `Bearer ${this.apiKey}`;
     }
-
-    const init: RequestInit = { method, headers };
-    if (options.body !== undefined) {
+    const body = options.body !== undefined ? JSON.stringify(options.body) : undefined;
+    if (body !== undefined) {
       headers['Content-Type'] = 'application/json';
-      init.body = JSON.stringify(options.body);
     }
 
+    for (let attempt = 0; ; attempt++) {
+      const response = await this.fetchOnce(method, url, path, headers, body, options.signal);
+      const parsed = await parseBody(response);
+
+      if (response.ok) {
+        return parsed as T;
+      }
+
+      const retryAfter = retryAfterSeconds(response);
+      if (RETRYABLE_STATUSES.has(response.status) && attempt < this.maxRetries) {
+        await sleep(this.backoffMs(attempt, retryAfter), options.signal);
+        continue;
+      }
+      throw errorFromResponse(response.status, parsed, retryAfter);
+    }
+  }
+
+  /** One fetch attempt with its own timeout, mapping aborts/network failures. */
+  private async fetchOnce(
+    method: string,
+    url: string,
+    path: string,
+    headers: Record<string, string>,
+    body: string | undefined,
+    externalSignal: AbortSignal | undefined
+  ): Promise<Response> {
     const controller = new AbortController();
-    const timer = setTimeout(() => {
-      controller.abort();
-    }, this.timeoutMs);
-    if (options.signal) {
-      forwardAbort(options.signal, controller);
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    if (externalSignal) {
+      forwardAbort(externalSignal, controller);
     }
-    init.signal = controller.signal;
-
-    let response: Response;
+    const init: RequestInit = { method, headers, signal: controller.signal };
+    if (body !== undefined) {
+      init.body = body;
+    }
     try {
-      response = await this.fetchImpl(url, init);
+      return await this.fetchImpl(url, init);
     } catch (cause) {
-      if (controller.signal.aborted && !isExternalAbort(options.signal)) {
-        throw new TimeoutError(`Request to ${path} timed out after ${this.timeoutMs}ms`, {
+      if (controller.signal.aborted && !isExternalAbort(externalSignal)) {
+        throw new TimeoutError(`Request to ${path} timed out after ${String(this.timeoutMs)}ms`, {
           timeoutMs: this.timeoutMs,
           cause,
         });
@@ -118,13 +156,37 @@ export class VerifyaxClient {
     } finally {
       clearTimeout(timer);
     }
-
-    const parsed = await parseBody(response);
-    if (!response.ok) {
-      throw errorFromResponse(response.status, parsed, retryAfterSeconds(response));
-    }
-    return parsed as T;
   }
+
+  /** Backoff delay: Retry-After header if present, else exponential from the base. */
+  private backoffMs(attempt: number, retryAfterSecs: number | undefined): number {
+    if (retryAfterSecs !== undefined) {
+      return Math.min(retryAfterSecs * 1000, MAX_BACKOFF_MS);
+    }
+    return Math.min(this.retryBaseMs * 2 ** attempt, MAX_BACKOFF_MS);
+  }
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new VerifyaxError('Request aborted'));
+      return;
+    }
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+    const onAbort = (): void => {
+      cleanup();
+      reject(new VerifyaxError('Request aborted'));
+    };
+    const cleanup = (): void => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 function stripTrailingSlash(url: string): string {

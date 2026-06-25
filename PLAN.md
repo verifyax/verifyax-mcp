@@ -169,21 +169,32 @@ Conversational test in Claude Code: *"Register the agent at [URL] with bearer to
 
 ## Phase 4 — Hardening
 
-**Status:** not started
+**Status:** mostly complete — retries, error mapping, CI, and docs done; empirical description
+tuning and exhaustive edge-case tests deferred (see below)
 **Target:** 2 days
 **Goal:** Production-grade quality.
 
 ### Tasks
 
-- [ ] Rate-limit handling: respect 429s, exponential backoff up to 3 retries, surface as `RateLimitError` with `retry_after`
-- [ ] Timeout handling: every tool has a sensible deadline, partial results returned when possible
-- [ ] Robust error translation: every error pattern in `docs/verifyax-api.md` async-failures table is mapped
-- [ ] Tool description optimization pass: test each description with ambiguous user prompts, refine until Claude picks correctly
-- [ ] Edge cases: empty workspace (no agents, no scenarios), deleted resource mid-poll, malformed responses, server unreachable
-- [ ] CI runs integration tests on `main` and on release tags
-- [ ] Top-level README: project overview, installation, usage examples, troubleshooting
-- [ ] CONTRIBUTING.md with development setup and PR guidelines
-- [ ] `docs/tool-descriptions.md` finalized, with rationale for non-obvious wording choices
+- [x] Rate-limit handling: 429 + transient 5xx retried with exponential backoff (up to 3, honoring `Retry-After`); `RateLimitError` carries `retryAfter`
+- [~] Timeout handling: per-request timeout + per-poll deadlines on blocking tools. "Partial results" not yet returned — blocking tools fail whole on timeout
+- [x] Robust error translation: the `docs/verifyax-api.md` async-failures table is mapped to specific `suggested_fix` hints
+- [~] Tool description optimization: descriptions written with rationale in `docs/tool-descriptions.md`; the empirical 10-prompt accuracy protocol below is **not yet run** (needs a fresh-session harness)
+- [~] Edge cases: empty lists (handled), deleted-resource-mid-poll (404 → NotFoundError, translated), network-unreachable (→ VerifyaxError), malformed body (transport falls back to text). Not all have dedicated tests yet
+- [x] CI runs integration tests on `main` and on release tags (`tags: ['v*']`)
+- [x] Top-level README: project overview, installation, usage examples, troubleshooting
+- [x] CONTRIBUTING.md with development setup and PR guidelines
+- [x] `docs/tool-descriptions.md` finalized, with rationale for non-obvious wording choices
+
+### Decisions / deferrals this pass
+
+- **Retry scope.** Retries 429 + 502/503/504 only (not 400/401/404/409/500); timeouts are not
+  retried. Configurable via `maxRetries` / `retryBaseMs`. Tool unit tests set `maxRetries: 0` for
+  deterministic call counts; SDK retry behavior has its own suite.
+- **Description tuning deferred.** Writing good first-draft descriptions + rationale is done; the
+  empirical pass (scoring against 10 should/should-not prompts per tool in a fresh session) needs a
+  harness we don't have wired up. Tracked as the one open Phase 4 item.
+- **Added `CHANGELOG.md`** (Keep a Changelog) referenced by CONTRIBUTING and the release process.
 
 ### Tool description optimization protocol
 

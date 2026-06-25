@@ -72,7 +72,8 @@ describe('VerifyaxClient transport', () => {
       )
     );
 
-    const error = await makeClient()
+    // maxRetries: 0 so retryable statuses (429) map immediately instead of backing off.
+    const error = await makeClient({ maxRetries: 0 })
       .agents.get('a1')
       .catch((e: unknown) => e);
 
@@ -91,7 +92,7 @@ describe('VerifyaxClient transport', () => {
       )
     );
 
-    const error = (await makeClient()
+    const error = (await makeClient({ maxRetries: 0 })
       .agents.get('a1')
       .catch((e: unknown) => e)) as RateLimitError;
 

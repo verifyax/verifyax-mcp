@@ -55,8 +55,7 @@ export function translateError(error: unknown): ToolError {
     return {
       success: false,
       reason: `The operation did not complete (${error.jobStatus}): ${error.errorDetails ?? error.message}`,
-      suggested_fix:
-        'Review the failure details above and adjust the request (for scenario generation, re-check the tag names and scenario-type compatibility).',
+      suggested_fix: asyncFailureFix(error.errorDetails),
     };
   }
   if (error instanceof TimeoutError) {
@@ -71,4 +70,25 @@ export function translateError(error: unknown): ToolError {
   }
   const message = error instanceof Error ? error.message : String(error);
   return { success: false, reason: `Unexpected error: ${message}` };
+}
+
+/**
+ * Map the async scenario_creation failure patterns from docs/verifyax-api.md to
+ * an actionable fix. Falls back to a generic message for unrecognised details.
+ */
+function asyncFailureFix(details: string | undefined): string {
+  const text = (details ?? '').toLowerCase();
+  if (text.includes('do not exist in the skill tags registry')) {
+    return 'One or more tag names are unknown. Call list_compatible_tags and use the exact tag names it returns.';
+  }
+  if (text.includes('qna tags are only supported')) {
+    return 'QnA tags require an interview scenario and must be the only tag. Switch scenario_type to interview or remove the QnA tag.';
+  }
+  if (text.includes('benchmark tags') || text.includes('does not support')) {
+    return 'Benchmark tags only work with info_exchange scenarios. Use scenario_type info_exchange, or pick non-benchmark tags.';
+  }
+  if (text.includes('--list-tags')) {
+    return 'Ignore the CLI hint in the message; use list_compatible_tags to find valid tag names for your scenario type.';
+  }
+  return 'Review the failure details above and adjust the request (for scenario generation, re-check the tag names and scenario-type compatibility).';
 }

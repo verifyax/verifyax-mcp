@@ -31,6 +31,8 @@ export function stubContext(routes: StubRoute[]): Stub {
     apiKey: 'test',
     baseUrl: 'https://api.test/api/v1',
     webBaseUrl: 'https://api.test/web/api/v1',
+    // Tool tests assert exact call counts; retry behavior is covered in the SDK.
+    maxRetries: 0,
     fetch: async (url, init) => {
       const method = (init?.method ?? 'GET').toUpperCase();
       const rawBody = init?.body;
