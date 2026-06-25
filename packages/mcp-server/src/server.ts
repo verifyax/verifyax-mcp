@@ -3,7 +3,7 @@ import type { ToolContext } from './tools/context.js';
 import { registerTools } from './tools/index.js';
 
 export const SERVER_NAME = 'verifyax-mcp-server';
-export const SERVER_VERSION = '0.1.0';
+export const SERVER_VERSION = '0.1.1';
 
 /** Build an MCP server with all VerifyAX tools registered. Does no I/O. */
 export function createServer(ctx: ToolContext): McpServer {

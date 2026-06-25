@@ -1,5 +1,8 @@
+import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import { type Server, createServer as createHttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -124,5 +127,44 @@ describe('MCP conformance (spawned server)', () => {
       arguments: { scenario_type: 'not_a_type' },
     });
     expect(result.isError).toBe(true);
+  });
+});
+
+// Regression test for the bin's main-module check. When the entry is launched
+// via a symlink/junction, process.argv[1] is the link path but import.meta.url
+// is the realpath; the guard must resolve realpath or the server never starts
+// (the client would see "Connection closed").
+describe('MCP conformance (launched via a symlink)', () => {
+  const packageRoot = fileURLToPath(new URL('../../', import.meta.url));
+  let tmpDir: string;
+  let linkPath: string;
+  let client: Client;
+
+  beforeAll(async () => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'vfx-link-'));
+    linkPath = join(tmpDir, 'pkg');
+    // 'junction' creates a junction on Windows (no admin needed) and a dir
+    // symlink elsewhere — either way argv[1] differs from the realpath.
+    symlinkSync(packageRoot, linkPath, 'junction');
+
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [join(linkPath, 'dist', 'index.js')],
+      env: childEnv('http://127.0.0.1:1'), // web base unused; we only list tools
+      stderr: 'ignore',
+    });
+    client = new Client({ name: 'symlink-conformance', version: '0.0.0' });
+    await client.connect(transport);
+  });
+
+  afterAll(async () => {
+    await client.close();
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('starts and serves tools when launched through the link', async () => {
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name)).toContain('list_compatible_tags');
+    expect(tools).toHaveLength(12);
   });
 });
