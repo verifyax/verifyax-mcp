@@ -17,7 +17,8 @@ const PREFIX = `mcp-test-${randomUUID().slice(0, 8)}`;
 describe('SDK integration (live API)', () => {
   // 'unset' keeps the constructor from throwing during collection when the
   // suite is skipped; it is never used to make a request in that case.
-  const client = new VerifyaxClient({ apiKey: API_KEY ?? 'unset' });
+  // Use ||, not ??: in CI the missing secret arrives as an empty string.
+  const client = new VerifyaxClient({ apiKey: API_KEY || 'unset' });
   const createdAgents: string[] = [];
   const createdScenarios: string[] = [];
 
