@@ -103,10 +103,10 @@ Restart the client, then try: _“List the skill tags I can use for an interview
 
 Build once: `pnpm build` from the monorepo root.
 
-| Mode | Command | API key |
-|------|---------|---------|
-| **stdio** | `VERIFYAX_API_KEY=... node dist/index.js` | Server env (`VERIFYAX_API_KEY`) |
-| **Streamable HTTP** | `node dist/http.js` | Client header on connect (`Authorization: Bearer ...`) |
+| Mode                | Command                                   | API key                                                |
+| ------------------- | ----------------------------------------- | ------------------------------------------------------ |
+| **stdio**           | `VERIFYAX_API_KEY=... node dist/index.js` | Server env (`VERIFYAX_API_KEY`)                        |
+| **Streamable HTTP** | `node dist/http.js`                       | Client header on connect (`Authorization: Bearer ...`) |
 
 HTTP server listens on `127.0.0.1:8080` by default (`HOST`, `PORT` override). Endpoints:
 
@@ -125,15 +125,15 @@ npx @modelcontextprotocol/inspector \
 
 ## Configuration
 
-| Env var                      | Required | Description                                                                               |
-| ---------------------------- | -------- | ----------------------------------------------------------------------------------------- |
-| `VERIFYAX_API_KEY`           | stdio only | Your VerifyAX API key for the stdio entry point.                                        |
-| `VERIFYAX_MCP_LOG_LEVEL`     | no       | `debug` \| `info` (default) \| `warn` \| `error` \| `silent`. Logs go to stderr.         |
-| `VERIFYAX_BASE_URL`          | no       | Override the API base (self-hosting / testing).                                           |
-| `VERIFYAX_WEB_BASE_URL`      | no       | Override the tag-catalogue base.                                                          |
-| `HOST`                       | no       | Bind address for HTTP server (default `127.0.0.1`; use `0.0.0.0` on Cloud Run).           |
-| `PORT`                       | no       | HTTP port (default `8080`).                                                               |
-| `VERIFYAX_MCP_ALLOWED_HOSTS` | no       | Comma-separated Host header allowlist (DNS rebinding protection when binding `0.0.0.0`).  |
+| Env var                      | Required   | Description                                                                              |
+| ---------------------------- | ---------- | ---------------------------------------------------------------------------------------- |
+| `VERIFYAX_API_KEY`           | stdio only | Your VerifyAX API key for the stdio entry point.                                         |
+| `VERIFYAX_MCP_LOG_LEVEL`     | no         | `debug` \| `info` (default) \| `warn` \| `error` \| `silent`. Logs go to stderr.         |
+| `VERIFYAX_BASE_URL`          | no         | Override the API base (self-hosting / testing).                                          |
+| `VERIFYAX_WEB_BASE_URL`      | no         | Override the tag-catalogue base.                                                         |
+| `HOST`                       | no         | Bind address for HTTP server (default `127.0.0.1`; use `0.0.0.0` on Cloud Run).          |
+| `PORT`                       | no         | HTTP port (default `8080`).                                                              |
+| `VERIFYAX_MCP_ALLOWED_HOSTS` | no         | Comma-separated Host header allowlist (DNS rebinding protection when binding `0.0.0.0`). |
 
 ## Tools
 

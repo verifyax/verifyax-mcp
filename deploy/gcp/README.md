@@ -95,11 +95,11 @@ Each user connects with their own key; usage is billed to their VerifyAX workspa
 
 ## Cloud Run settings explained
 
-| Setting | Why |
-|--------|-----|
-| `--session-affinity` | MCP Streamable HTTP uses in-memory sessions per instance |
-| `--timeout 3600` | Blocking tools (`generate_scenario`, `evaluate_agent`) can run many minutes |
-| `--min-instances 1` | Avoid cold starts dropping active MCP sessions |
+| Setting              | Why                                                                         |
+| -------------------- | --------------------------------------------------------------------------- |
+| `--session-affinity` | MCP Streamable HTTP uses in-memory sessions per instance                    |
+| `--timeout 3600`     | Blocking tools (`generate_scenario`, `evaluate_agent`) can run many minutes |
+| `--min-instances 1`  | Avoid cold starts dropping active MCP sessions                              |
 
 ## Optional: restrict Host header
 
@@ -123,7 +123,7 @@ node packages/mcp-server/dist/http.js
 VERIFYAX_API_KEY=sk-ver-api-... node packages/mcp-server/dist/index.js
 ```
 
-| Endpoint | Purpose |
-|----------|---------|
+| Endpoint               | Purpose             |
+| ---------------------- | ------------------- |
 | `POST/GET/DELETE /mcp` | Streamable HTTP MCP |
-| `GET /health` | Health check |
+| `GET /health`          | Health check        |

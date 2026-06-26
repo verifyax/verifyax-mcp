@@ -67,15 +67,15 @@ function mcpHeaders(extra: Record<string, string> = {}): Record<string, string> 
 
 describe('readApiKeyFromRequest', () => {
   it('reads Bearer authorization', () => {
-    expect(
-      readApiKeyFromRequest({ headers: { authorization: 'Bearer sk-ver-api-abc' } })
-    ).toBe('sk-ver-api-abc');
+    expect(readApiKeyFromRequest({ headers: { authorization: 'Bearer sk-ver-api-abc' } })).toBe(
+      'sk-ver-api-abc'
+    );
   });
 
   it('reads X-VerifyAX-API-Key header', () => {
-    expect(
-      readApiKeyFromRequest({ headers: { 'x-verifyax-api-key': 'sk-ver-api-xyz' } })
-    ).toBe('sk-ver-api-xyz');
+    expect(readApiKeyFromRequest({ headers: { 'x-verifyax-api-key': 'sk-ver-api-xyz' } })).toBe(
+      'sk-ver-api-xyz'
+    );
   });
 
   it('returns undefined when no key is present', () => {
