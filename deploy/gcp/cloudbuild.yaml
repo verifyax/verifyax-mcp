@@ -1,0 +1,16 @@
+# Cloud Build config for verifyax-mcp (run from repo root).
+# Usage: gcloud builds submit . --config deploy/gcp/cloudbuild.yaml \
+#   --substitutions=_IMAGE=REGION-docker.pkg.dev/PROJECT/verifyax-mcp/verifyax-mcp:latest
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - deploy/gcp/Dockerfile
+      - -t
+      - ${_IMAGE}
+      - .
+
+images:
+  - ${_IMAGE}

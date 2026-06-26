@@ -25,7 +25,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "verifyax-mcp-server": "./dist/index.js"
+    "verifyax-mcp-server": "./dist/index.js",
+    "verifyax-mcp-server-http": "./dist/http.js"
   },
   "files": [
     "dist",
@@ -37,15 +38,20 @@
   },
   "scripts": {
     "build": "tsc -b",
+    "start:http": "node dist/http.js",
     "test": "vitest run",
     "test:conformance": "tsc -b && vitest run --config vitest.conformance.config.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
     "@verifyax/sdk": "workspace:*",
+    "express": "^5.2.1",
     "zod": "^3.24.1"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6"
   }
 }
