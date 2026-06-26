@@ -82,6 +82,60 @@ pnpm format       # format with prettier
 Network-dependent suites: `pnpm test:integration` (live API, needs `VERIFYAX_TEST_KEY`) and
 `pnpm test:conformance` (spawns the built MCP server over stdio).
 
+### Debugging with MCP Inspector
+
+[MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) is the official interactive
+UI for listing tools, calling them, and inspecting responses. Run it with `npx` — no install
+required.
+
+**stdio (local default)** — Inspector spawns the server as a subprocess. Build first, then:
+
+```bash
+pnpm build
+
+npx @modelcontextprotocol/inspector \
+  -e VERIFYAX_API_KEY=sk-ver-api-... \
+  node packages/mcp-server/dist/index.js
+```
+
+Inspector opens a browser tab (default `http://localhost:6274`). Use the **Tools** pane to call
+`list_compatible_tags` or other non-blocking tools first.
+
+To exercise the published package without a local build:
+
+```bash
+npx @modelcontextprotocol/inspector \
+  -e VERIFYAX_API_KEY=sk-ver-api-... \
+  npx -y @verifyax/mcp-server
+```
+
+**Streamable HTTP** — for the HTTP entry point (`verifyax-mcp-server-http`). Start the server in
+one terminal, then open Inspector in another:
+
+```bash
+# terminal 1
+pnpm build
+node packages/mcp-server/dist/http.js
+
+# terminal 2
+npx @modelcontextprotocol/inspector
+```
+
+In the Inspector UI, choose **Streamable HTTP**, set the URL to `http://127.0.0.1:8080/mcp`, and
+add a header: `Authorization: Bearer sk-ver-api-...` (or `X-VerifyAX-API-Key: sk-ver-api-...`).
+
+For scripted checks from the CLI:
+
+```bash
+npx @modelcontextprotocol/inspector --cli http://127.0.0.1:8080/mcp \
+  --transport http \
+  --header "Authorization: Bearer sk-ver-api-..." \
+  --method tools/list
+```
+
+Set `VERIFYAX_MCP_LOG_LEVEL=debug` on the server process to see structured JSON logs on stderr
+while you test.
+
 ## Privacy
 
 The MCP server sends **no telemetry**. It talks only to the VerifyAX API using the key you
