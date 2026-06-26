@@ -19,17 +19,20 @@ SDK or the [`verifyax-api` skill](https://github.com/verifyax/verifyax-plugins) 
 npm install -g @verifyax/mcp-server
 ```
 
-The package exposes a `verifyax-mcp-server` binary that speaks MCP over stdio.
+The package exposes two binaries:
+
+- `verifyax-mcp-server` — MCP over **stdio** (local MCP clients; API key via env)
+- `verifyax-mcp-server-http` — MCP over **Streamable HTTP** (remote deploy; API key from client headers)
 
 ## Configure your MCP client
 
-### Claude Code
+### Claude Code (stdio — local)
 
 ```bash
 claude mcp add verifyax --env VERIFYAX_API_KEY=sk-ver-api-... -- npx -y @verifyax/mcp-server
 ```
 
-### Claude Desktop
+### Claude Desktop (stdio — local)
 
 Add to `claude_desktop_config.json` (Settings → Developer → Edit Config):
 
@@ -45,16 +48,92 @@ Add to `claude_desktop_config.json` (Settings → Developer → Edit Config):
 }
 ```
 
+### Remote agent (Streamable HTTP — Cloud Run or local HTTP server)
+
+**Option A — native URL (Cursor v0.48+):**
+
+```json
+{
+  "mcpServers": {
+    "verifyax": {
+      "url": "https://your-service.run.app/mcp",
+      "headers": {
+        "Authorization": "Bearer sk-ver-api-..."
+      }
+    }
+  }
+}
+```
+
+Do **not** add a `transport` field — Cursor detects Streamable HTTP from the URL.
+
+**Option B — `mcp-remote` bridge (works on all Cursor versions; same pattern as Tavily):**
+
+```json
+{
+  "mcpServers": {
+    "verifyax": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://your-service.run.app/mcp",
+        "--transport",
+        "http-only",
+        "--header",
+        "Authorization:${VERIFYAX_AUTH}"
+      ],
+      "env": {
+        "VERIFYAX_AUTH": "Bearer sk-ver-api-..."
+      }
+    }
+  }
+}
+```
+
+Use `--transport http-only` because this server speaks Streamable HTTP only (no legacy SSE).
+
+You can also use `"X-VerifyAX-API-Key": "sk-ver-api-..."` instead of `Authorization`. The deployed server does not need `VERIFYAX_API_KEY` in its environment — each client supplies their own key.
+
+See [`deploy/gcp/README.md`](../../deploy/gcp/README.md) for Cloud Run deployment.
+
 Restart the client, then try: _“List the skill tags I can use for an interview scenario.”_
+
+## Running locally
+
+Build once: `pnpm build` from the monorepo root.
+
+| Mode | Command | API key |
+|------|---------|---------|
+| **stdio** | `VERIFYAX_API_KEY=... node dist/index.js` | Server env (`VERIFYAX_API_KEY`) |
+| **Streamable HTTP** | `node dist/http.js` | Client header on connect (`Authorization: Bearer ...`) |
+
+HTTP server listens on `127.0.0.1:8080` by default (`HOST`, `PORT` override). Endpoints:
+
+- Streamable HTTP: `POST/GET/DELETE /mcp`
+- Health: `GET /health`
+
+**MCP Inspector (stdio):**
+
+```bash
+npx @modelcontextprotocol/inspector \
+  -e VERIFYAX_API_KEY=sk-ver-api-... \
+  node packages/mcp-server/dist/index.js
+```
+
+**MCP Inspector (Streamable HTTP)** — start the HTTP server, then connect with your API key in the Authorization header.
 
 ## Configuration
 
-| Env var                  | Required | Description                                                                      |
-| ------------------------ | -------- | -------------------------------------------------------------------------------- |
-| `VERIFYAX_API_KEY`       | yes      | Your VerifyAX API key.                                                           |
-| `VERIFYAX_MCP_LOG_LEVEL` | no       | `debug` \| `info` (default) \| `warn` \| `error` \| `silent`. Logs go to stderr. |
-| `VERIFYAX_BASE_URL`      | no       | Override the API base (self-hosting / testing).                                  |
-| `VERIFYAX_WEB_BASE_URL`  | no       | Override the tag-catalogue base.                                                 |
+| Env var                      | Required | Description                                                                               |
+| ---------------------------- | -------- | ----------------------------------------------------------------------------------------- |
+| `VERIFYAX_API_KEY`           | stdio only | Your VerifyAX API key for the stdio entry point.                                        |
+| `VERIFYAX_MCP_LOG_LEVEL`     | no       | `debug` \| `info` (default) \| `warn` \| `error` \| `silent`. Logs go to stderr.         |
+| `VERIFYAX_BASE_URL`          | no       | Override the API base (self-hosting / testing).                                           |
+| `VERIFYAX_WEB_BASE_URL`      | no       | Override the tag-catalogue base.                                                          |
+| `HOST`                       | no       | Bind address for HTTP server (default `127.0.0.1`; use `0.0.0.0` on Cloud Run).           |
+| `PORT`                       | no       | HTTP port (default `8080`).                                                               |
+| `VERIFYAX_MCP_ALLOWED_HOSTS` | no       | Comma-separated Host header allowlist (DNS rebinding protection when binding `0.0.0.0`).  |
 
 ## Tools
 
