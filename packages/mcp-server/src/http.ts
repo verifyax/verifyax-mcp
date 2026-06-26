@@ -16,7 +16,7 @@ import type { ToolContext } from './tools/context.js';
 
 const MCP_PATH = '/mcp';
 
-interface McpSession {
+export interface McpSession {
   transport: StreamableHTTPServerTransport;
   ctx: ToolContext;
 }
@@ -63,7 +63,7 @@ function missingApiKeyMessage(): string {
   );
 }
 
-function registerStreamableHttpRoutes(
+export function registerStreamableHttpRoutes(
   app: ReturnType<typeof createMcpExpressApp>,
   logger: ReturnType<typeof createLogger>,
   env: NodeJS.ProcessEnv
@@ -85,7 +85,7 @@ function registerStreamableHttpRoutes(
         return;
       }
 
-      if (!sessionKey && isInitializeRequest(req.body)) {
+      if (isInitializeRequest(req.body)) {
         const apiKey = readApiKeyFromRequest(req);
         if (!apiKey) {
           jsonRpcError(res, 401, missingApiKeyMessage());
