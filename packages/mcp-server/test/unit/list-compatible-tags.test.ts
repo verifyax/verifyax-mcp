@@ -8,6 +8,11 @@ const tags: Tag[] = [
   { name: 'coordination', allowed_scenario_types: ['info_exchange'] },
   { name: 'legacy', benchmark_family: null }, // omitted allowed types => both
   { name: 'gaia_task', benchmark_family: 'gaia', allowed_scenario_types: ['info_exchange'] },
+  {
+    name: 'multi_bench',
+    benchmark_family: ['agentharm', 'air_bench'], // array form => still benchmark => info_exchange
+    allowed_scenario_types: ['info_exchange'],
+  },
   { name: 'qna_general', benchmark_family: 'qna', allowed_scenario_types: ['interview'] },
   { name: 'not_selectable', allowed_scenario_types: [] },
 ];
@@ -21,6 +26,7 @@ describe('filterCompatibleTags', () => {
     expect(names).toContain('qna_general'); // qna => interview only
     expect(names).not.toContain('coordination'); // info_exchange only
     expect(names).not.toContain('gaia_task'); // benchmark => info_exchange only
+    expect(names).not.toContain('multi_bench'); // array benchmark => info_exchange only
     expect(names).not.toContain('not_selectable'); // [] => never
   });
 
@@ -30,6 +36,7 @@ describe('filterCompatibleTags', () => {
     expect(names).toContain('coordination');
     expect(names).toContain('legacy');
     expect(names).toContain('gaia_task'); // benchmark => info_exchange
+    expect(names).toContain('multi_bench'); // array benchmark => info_exchange
     expect(names).not.toContain('active_listening'); // interview only
     expect(names).not.toContain('qna_general'); // qna => interview only
     expect(names).not.toContain('not_selectable');

@@ -4,10 +4,16 @@
 // callers (and the MCP server's error-translation layer) can branch on type.
 // See CLAUDE.md decision 5.
 
-/** Shape of the JSON error body the API returns on non-2xx responses. */
+/**
+ * Shape of the JSON error body the API returns on non-2xx responses. The body
+ * varies by origin: gateway errors use `message`; proxy/underlying-API errors
+ * use `detail`; rate-limit responses carry `error` + `statusCode`. The HTTP
+ * status line is the source of truth — `statusCode` only appears on rate limits.
+ */
 export interface VerifyaxErrorBody {
   error?: string;
   message?: string;
+  detail?: string;
   statusCode?: number;
 }
 
@@ -113,7 +119,10 @@ export function errorFromResponse(
 ): VerifyaxError {
   const parsed = isErrorBody(body) ? body : undefined;
   const message =
-    parsed?.message ?? parsed?.error ?? `Request failed with status ${String(status)}`;
+    parsed?.message ??
+    parsed?.detail ??
+    parsed?.error ??
+    `Request failed with status ${String(status)}`;
   const options = { statusCode: status, responseBody: body };
 
   switch (status) {

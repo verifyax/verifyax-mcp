@@ -17,7 +17,7 @@ export type ScenarioStatus = 'INIT' | 'PROCESSING' | 'SUCCESS' | 'FAILED' | 'CAN
 /** Simulation run status (distinct enum: CREATED / IN_PROGRESS). */
 export type RunStatus = 'CREATED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
 
-export type AgentType = 'A2A' | 'API';
+export type AgentType = 'A2A' | 'API' | 'DIRECTLINE' | 'EXTENSION' | 'MCP';
 export type ScenarioType = 'info_exchange' | 'interview';
 export type AuthMethod = 'no-auth' | 'bearer' | 'cs' | 'http-basic';
 export type IncludeFullContext = 'always' | 'never' | 'first_only';
@@ -37,15 +37,25 @@ export interface ListParams {
 // Agents
 // ---------------------------------------------------------------------------
 
+/** Copilot Studio Direct Line connection (DIRECTLINE agents). */
+export interface DirectLineParameters {
+  secret: string;
+  region?: string;
+}
+
 export interface AgentParameters {
   auth_method?: AuthMethod;
   token?: string;
   basic_username?: string;
   basic_password?: string;
+  /** DIRECTLINE only — Copilot Studio Direct Line secret + region. */
+  directline?: DirectLineParameters;
   include_full_context?: IncludeFullContext;
   include_message_history?: boolean;
   max_requests_per_minute?: number;
   timeout?: number;
+  /** A2A output modes the agent should produce. */
+  default_output_modes?: string[];
   agent_card_url?: string;
   agent_card_path?: string;
 }
@@ -96,6 +106,14 @@ export interface ApiAgentTestRequest {
 
 export interface ApiAgentCurlTestRequest {
   curl_command: string;
+  timeout?: number;
+}
+
+/** Copilot Studio (Direct Line) connectivity probe. Flat body (secret/region at top level). */
+export interface ApiAgentDirectlineTestRequest {
+  secret: string;
+  region?: string;
+  message?: string;
   timeout?: number;
 }
 
@@ -188,7 +206,7 @@ export interface SimulateResponse {
 }
 
 export interface CreditPreviewRequest {
-  mode: 'scenario_run';
+  mode: 'scenario_run' | 'scenario_generation';
   scenario_uuid: string;
   num_runs?: number;
   agent_uuid?: string;
@@ -202,12 +220,20 @@ export interface CreditPreview {
   [key: string]: unknown;
 }
 
+export interface EvaluationJobRef {
+  uuid: string;
+  current_status?: string;
+  [key: string]: unknown;
+}
+
 export interface SimulationRun {
   uuid: string;
   status: RunStatus;
   scenario_uuid?: string;
   agent_uuid?: string;
   evaluation_job_uuid?: string;
+  /** Evaluation jobs queued for this run; take the last entry's uuid. */
+  evaluation_jobs?: EvaluationJobRef[];
   created_at?: string;
   updated_at?: string;
   [key: string]: unknown;
@@ -230,22 +256,19 @@ export interface Evaluation {
 }
 
 // ---------------------------------------------------------------------------
-// Tags (served from the /web/api/v1 base, no auth, wrapped envelope)
+// Tags (served from the authed /api/v1 base, returned as a bare JSON array)
 // ---------------------------------------------------------------------------
 
 export interface Tag {
   name: string;
   category?: string;
   description?: string;
-  benchmark_family?: string | null;
+  /** Benchmark family id: a string, an array of strings, or null for normal tags. */
+  benchmark_family?: string | string[] | null;
   allowed_scenario_types?: ScenarioType[];
-  client_specific?: boolean;
+  /** True when the tag comes from your org's custom overlay. */
+  custom?: boolean;
   [key: string]: unknown;
-}
-
-export interface TagsResponse {
-  success: boolean;
-  data: Tag[];
 }
 
 // ---------------------------------------------------------------------------
@@ -257,6 +280,8 @@ export interface ListUsageEventsParams extends ListParams {
   simulation_uuid?: string;
   job_uuid?: string;
   scenario_uuid?: string;
+  simulation_job_uuid?: string;
+  evaluation_job_uuid?: string;
   failed?: boolean;
   event_start_from?: string;
   event_start_to?: string;
@@ -272,6 +297,8 @@ export interface ListUsageCallsParams extends ListParams {
   event_uuid?: string;
   provider_name?: string;
   model_name?: string;
+  call_start_from?: string;
+  call_start_to?: string;
 }
 
 export interface UsageCall {

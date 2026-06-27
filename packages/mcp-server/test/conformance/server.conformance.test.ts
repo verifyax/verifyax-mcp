@@ -18,7 +18,7 @@ const STUB_TAGS = [
 
 const SERVER_PATH = fileURLToPath(new URL('../../dist/index.js', import.meta.url));
 
-function childEnv(webBaseUrl: string): Record<string, string> {
+function childEnv(baseUrl: string): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
     if (typeof value === 'string') {
@@ -26,7 +26,8 @@ function childEnv(webBaseUrl: string): Record<string, string> {
     }
   }
   env.VERIFYAX_API_KEY = 'conformance-test-key';
-  env.VERIFYAX_WEB_BASE_URL = webBaseUrl;
+  // Tags are now served from the authed /api/v1 base, so point that at the stub.
+  env.VERIFYAX_BASE_URL = baseUrl;
   env.VERIFYAX_MCP_LOG_LEVEL = 'silent';
   return env;
 }
@@ -52,7 +53,7 @@ describe('MCP conformance (spawned server)', () => {
     stub = createHttpServer((req, res) => {
       if (req.url && req.url.startsWith('/tags')) {
         res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ success: true, data: STUB_TAGS }));
+        res.end(JSON.stringify(STUB_TAGS));
         return;
       }
       res.writeHead(404);

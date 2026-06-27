@@ -7,6 +7,24 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- `@verifyax/mcp-server`: Streamable HTTP transport (`verifyax-mcp-server-http` bin) with
+  per-request API-key auth (`Authorization: Bearer` / `X-VerifyAX-API-Key`), plus a GCP Cloud
+  Run deployment under `deploy/gcp/`.
+- `@verifyax/sdk`: `agents.testApiAgentDirectline` (Copilot Studio Direct Line connectivity
+  probe) and Direct Line agent parameters.
+
+### Changed
+
+- **Breaking (SDK):** the tag catalogue is now fetched from the authed `/api/v1/tags` and returned
+  as a **bare JSON array** (was the no-auth `/web/api/v1` `{ success, data }` envelope). `Tag`
+  gains `custom` (replacing `client_specific`), and `benchmark_family` may be a string **array**.
+- `agent_type` now includes `DIRECTLINE`, `EXTENSION`, `MCP`; `credit-preview` accepts
+  `scenario_generation`; error-body parsing now reads `detail` (gateway proxy / underlying-API
+  errors) in addition to `message`/`error`.
+- `list_compatible_tags` handles array-valued `benchmark_family` when filtering.
+
 ## [0.1.1] - 2026-06-25
 
 ### Fixed

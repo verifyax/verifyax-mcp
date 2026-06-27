@@ -5,6 +5,7 @@ import type {
   AgentCardTestResult,
   AgentType,
   ApiAgentCurlTestRequest,
+  ApiAgentDirectlineTestRequest,
   ApiAgentTestRequest,
   ListParams,
   RegisterAgentRequest,
@@ -52,5 +53,12 @@ export class AgentsResource {
   /** Parse and execute a cURL command to probe a REST endpoint. */
   async testApiAgentCurl(body: ApiAgentCurlTestRequest): Promise<unknown> {
     return this.client.request<unknown>('POST', '/agents/tests/api-agent-test-curl', { body });
+  }
+
+  /** Probe a Copilot Studio (Direct Line) endpoint before registering. */
+  async testApiAgentDirectline(body: ApiAgentDirectlineTestRequest): Promise<unknown> {
+    return this.client.request<unknown>('POST', '/agents/tests/api-agent-test-directline', {
+      body,
+    });
   }
 }
