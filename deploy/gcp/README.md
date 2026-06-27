@@ -50,7 +50,9 @@ gcloud run deploy "$SERVICE_NAME" \
   --set-env-vars "VERIFYAX_MCP_LOG_LEVEL=info"
 ```
 
-After deploy, note the service URL, e.g. `https://verifyax-mcp-xxxxx-uc.a.run.app`.
+After deploy, note the service URL, e.g. `https://verifyax-mcp-xxxxx-uc.a.run.app`. See
+[Choosing the service URL](#choosing-the-service-url) to control the hostname or map a custom
+domain.
 
 ### Push denied / Artifact Registry permissions
 
@@ -62,6 +64,94 @@ gcloud projects add-iam-policy-binding "$GCP_PROJECT" \
   --member="serviceAccount:${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com" \
   --role="roles/artifactregistry.writer"
 ```
+
+## Choosing the service URL
+
+You can target a specific URL in two ways: the default Cloud Run hostname (partially
+controllable) or a custom domain (fully controllable).
+
+### Default Cloud Run URL (`*.run.app`)
+
+The deploy script reads these environment variables:
+
+| Variable        | Default                  | Effect on URL                          |
+| --------------- | ------------------------ | -------------------------------------- |
+| `GCP_PROJECT`   | `platform-agent-sandbox` | Affects the hash in the middle of the URL |
+| `GCP_REGION`    | `us-central1`            | Region suffix (`uc`, `ew`, etc.)       |
+| `SERVICE_NAME`  | `verifyax-mcp`           | Prefix of the URL                      |
+
+Deploy with your choices:
+
+```bash
+export GCP_PROJECT=your-project-id
+export GCP_REGION=us-central1          # or europe-west1, etc.
+export SERVICE_NAME=verifyax-mcp         # → https://verifyax-mcp-XXXXX-uc.a.run.app
+
+./deploy/gcp/deploy.sh
+```
+
+After deploy, get the exact URL:
+
+```bash
+gcloud run services describe verifyax-mcp \
+  --region us-central1 \
+  --format 'value(status.url)'
+```
+
+You control the **service name prefix** and **region**, but GCP assigns the hash (`XXXXX`) — you
+cannot pick the full `*.run.app` URL.
+
+**MCP client URL:** append `/mcp`, e.g. `https://verifyax-mcp-xxxxx-uc.a.run.app/mcp`.
+
+### Custom domain
+
+To serve at a URL you fully control (e.g. `https://mcp.example.com/mcp`):
+
+**1. Map the domain in Cloud Run**
+
+```bash
+gcloud run domain-mappings create \
+  --service verifyax-mcp \
+  --domain mcp.example.com \
+  --region us-central1
+```
+
+**2. Add DNS records**
+
+`gcloud` prints the required CNAME or A records. Add them at your DNS provider.
+
+**3. Allow the custom host in the server**
+
+The server can reject unknown `Host` headers. Set both your custom domain and the default
+`.run.app` hostname (from `gcloud run services describe`):
+
+```bash
+gcloud run services update verifyax-mcp \
+  --region us-central1 \
+  --set-env-vars "VERIFYAX_MCP_LOG_LEVEL=info,VERIFYAX_MCP_ALLOWED_HOSTS=mcp.example.com,verifyax-mcp-xxxxx-uc.a.run.app"
+```
+
+**4. Point MCP clients at the custom URL**
+
+```json
+{
+  "mcpServers": {
+    "verifyax": {
+      "url": "https://mcp.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer sk-ver-api-..."
+      }
+    }
+  }
+}
+```
+
+| Goal                         | What to do                                                                 |
+| ---------------------------- | -------------------------------------------------------------------------- |
+| Deploy to a project/region   | Set `GCP_PROJECT`, `GCP_REGION`, run `./deploy/gcp/deploy.sh`              |
+| Change URL prefix            | Set `SERVICE_NAME` before deploy                                           |
+| Use your own domain          | `gcloud run domain-mappings create` + DNS + `VERIFYAX_MCP_ALLOWED_HOSTS` |
+| Verify deployment            | `curl -s https://YOUR-URL/health` → `{"status":"ok","transport":"streamable-http"}` |
 
 ## Health check
 
@@ -100,14 +190,6 @@ Each user connects with their own key; usage is billed to their VerifyAX workspa
 | `--session-affinity` | MCP Streamable HTTP uses in-memory sessions per instance                    |
 | `--timeout 3600`     | Blocking tools (`generate_scenario`, `evaluate_agent`) can run many minutes |
 | `--min-instances 1`  | Avoid cold starts dropping active MCP sessions                              |
-
-## Optional: restrict Host header
-
-If you use a custom domain, set allowed hosts:
-
-```bash
---set-env-vars "VERIFYAX_MCP_ALLOWED_HOSTS=verifyax-mcp.example.com,verifyax-mcp-xxxxx-ew.a.run.app"
-```
 
 ## Local HTTP (before deploying)
 
