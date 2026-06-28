@@ -88,6 +88,13 @@ Network-dependent suites: `pnpm test:integration` (live API, needs `VERIFYAX_TES
 UI for listing tools, calling them, and inspecting responses. Run it with `npx` — no install
 required.
 
+> **Shells:** the commands below use `\` line-continuations (bash / zsh / macOS / Linux). In
+> **Windows PowerShell**, put each command on one line, or continue with a backtick `` ` `` instead
+> of `\`.
+>
+> **Pass the key with `-e`:** Inspector does **not** inherit your shell environment — the spawned
+> server only sees variables passed explicitly via `-e KEY=value`.
+
 **stdio (local default)** — Inspector spawns the server as a subprocess. Build first, then:
 
 ```bash
@@ -96,6 +103,12 @@ pnpm build
 npx @modelcontextprotocol/inspector \
   -e VERIFYAX_API_KEY=sk-ver-api-... \
   node packages/mcp-server/dist/index.js
+```
+
+```powershell
+# Windows PowerShell (single line)
+pnpm build
+npx @modelcontextprotocol/inspector -e VERIFYAX_API_KEY=sk-ver-api-... node packages/mcp-server/dist/index.js
 ```
 
 Inspector opens a browser tab (default `http://localhost:6274`). Use the **Tools** pane to call
@@ -109,8 +122,17 @@ npx @modelcontextprotocol/inspector \
   npx -y @verifyax/mcp-server
 ```
 
-**Streamable HTTP** — for the HTTP entry point (`verifyax-mcp-server-http`). Start the server in
-one terminal, then open Inspector in another:
+> **Windows — avoid spaces in the Command path.** Inspector's stdio launcher splits the spawn
+> command on spaces, so a node path like `C:\Program Files\nodejs\node.exe` (or a repo under a
+> folder such as `OneDrive - Company`) fails with _"command not found"_ / _"connection closed"_.
+> Use space-free paths: the 8.3 short name for node (`C:\PROGRA~1\nodejs\node.exe`) and a no-space
+> working copy (e.g. a directory junction: `mklink /J C:\verifyax "C:\Users\you\OneDrive - Co\verifyax"`).
+> Or skip the subprocess entirely and use the **Streamable HTTP** mode below, which has no spawn
+> step and isn't affected.
+
+**Streamable HTTP** — for the HTTP entry point (`verifyax-mcp-server-http`). Works the same on all
+platforms (no command spawn, so the spaces caveat above doesn't apply). Start the server in one
+terminal, then open Inspector in another:
 
 ```bash
 # terminal 1
