@@ -22,6 +22,24 @@ describe('scenarios', () => {
     expect(result.job_uuid).toBe('job-1');
   });
 
+  it('generates from inline Q&A', async () => {
+    let received: unknown;
+    server.use(
+      http.post(`${API_BASE}/scenarios/generate-from-qna`, async ({ request }) => {
+        received = await request.json();
+        return HttpResponse.json({ uuid: 'scn-q', job_uuid: 'job-q' }, { status: 201 });
+      })
+    );
+
+    const result = await makeClient().scenarios.generateFromQna({
+      name: 'qna-test',
+      questions: [{ question: 'Capital of France?', correct_answer: 'Paris' }],
+    });
+
+    expect(result.uuid).toBe('scn-q');
+    expect(received).toMatchObject({ name: 'qna-test' });
+  });
+
   it('surfaces a 409 on delete as ConflictError', async () => {
     server.use(
       http.delete(`${API_BASE}/scenarios/scn-1`, () =>

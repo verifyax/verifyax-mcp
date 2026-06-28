@@ -7,6 +7,40 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-26
+
+Minor release: remote HTTP transport + a broad API sync with the updated skill. Includes a
+**breaking** change to the tag catalogue (see below).
+
+### Added
+
+- `@verifyax/mcp-server`: Streamable HTTP transport (`verifyax-mcp-server-http` bin) with
+  per-request API-key auth (`Authorization: Bearer` / `X-VerifyAX-API-Key`), plus a GCP Cloud
+  Run deployment under `deploy/gcp/`.
+- `@verifyax/sdk`: `agents.testApiAgentDirectline` (Copilot Studio Direct Line connectivity
+  probe) and Direct Line agent parameters.
+- `@verifyax/sdk`: MCP agent type + `agent_parameters.mcp`; new connectivity probes
+  `agents.testA2aConnection`, `agents.testA2aMessage`, `agents.testMcpConnection`;
+  `scenarios.generateFromQna`; `simulations.listForScenario`, `getEvaluationReport`,
+  `getEvaluationScores`, `getScores` (batch), `getOutput`; `usage.getBalance` (`/billing/balance`).
+- `@verifyax/sdk`: `simulate` accepts `scenario_uuids` (batch) and `timeout_minutes`;
+  `credit-preview` accepts `timeout_minutes`; `generate` accepts `description`.
+- `@verifyax/sdk`: binary downloads via a `responseType: 'arrayBuffer'` request option, exposed as
+  `simulations.downloadFile(uuid, path)` (run artifacts → `Uint8Array`); `client.logs.list` audit
+  log access; `tags.registerQna` (org QnA benchmark tag registration).
+
+### Changed
+
+- **Breaking (SDK):** the tag catalogue is now fetched from the authed `/api/v1/tags` and returned
+  as a **bare JSON array** (was the no-auth `/web/api/v1` `{ success, data }` envelope). `Tag`
+  gains `custom` (replacing `client_specific`), and `benchmark_family` may be a string **array**.
+- `agent_type` now includes `DIRECTLINE`, `EXTENSION`, `MCP`; `credit-preview` accepts
+  `scenario_generation`; error-body parsing now reads `detail` (gateway proxy / underlying-API
+  errors) in addition to `message`/`error`.
+- `list_compatible_tags` handles array-valued `benchmark_family` when filtering.
+- `generate_scenario` tool: dropped `timeout_minutes` (no longer a generate field — it moved to
+  the simulate/run step) and added optional `description`.
+
 ## [0.1.1] - 2026-06-25
 
 ### Fixed
@@ -32,6 +66,7 @@ First public release. `@verifyax/sdk` and `@verifyax/mcp-server` published to np
 - Documentation: top-level README, per-package READMEs, `docs/tool-descriptions.md`,
   `CONTRIBUTING.md`.
 
-[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/verifyax/verifyax-mcp/releases/tag/v0.2.0
 [0.1.1]: https://github.com/verifyax/verifyax-mcp/releases/tag/v0.1.1
 [0.1.0]: https://github.com/verifyax/verifyax-mcp/releases/tag/v0.1.0
