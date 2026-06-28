@@ -20,6 +20,9 @@ packages are versioned in lockstep for v1.x. Format follows
   `getEvaluationScores`, `getScores` (batch), `getOutput`; `usage.getBalance` (`/billing/balance`).
 - `@verifyax/sdk`: `simulate` accepts `scenario_uuids` (batch) and `timeout_minutes`;
   `credit-preview` accepts `timeout_minutes`; `generate` accepts `description`.
+- `@verifyax/sdk`: binary downloads via a `responseType: 'arrayBuffer'` request option, exposed as
+  `simulations.downloadFile(uuid, path)` (run artifacts → `Uint8Array`); `client.logs.list` audit
+  log access; `tags.registerQna` (org QnA benchmark tag registration).
 
 ### Changed
 

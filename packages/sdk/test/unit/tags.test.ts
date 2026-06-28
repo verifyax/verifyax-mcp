@@ -26,4 +26,21 @@ describe('tags.list', () => {
     expect(tags).toHaveLength(2);
     expect(tags[0]?.name).toBe('empathy');
   });
+
+  it('registers an org QnA benchmark tag', async () => {
+    let received: unknown;
+    server.use(
+      http.post(`${API_BASE}/client-tags/register-qna`, async ({ request }) => {
+        received = await request.json();
+        return HttpResponse.json({ ok: true });
+      })
+    );
+
+    await makeClient().tags.registerQna({
+      skill_tag: 'my_org_qna',
+      qna: { questions: [{ question: 'Q?', correct_answer: 'A' }] },
+    });
+
+    expect(received).toMatchObject({ skill_tag: 'my_org_qna' });
+  });
 });

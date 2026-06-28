@@ -87,6 +87,18 @@ export class SimulationsResource {
     return this.client.request<RunOutput>('GET', `/simulations/${simulationUuid}/output`);
   }
 
+  /**
+   * Download a binary run artifact (transcripts, evidence, evaluation outputs).
+   * `path` is relative to the run directory and must start with `files/`.
+   * Returns the raw bytes — write them to disk; don't JSON-parse.
+   */
+  async downloadFile(simulationUuid: string, path: string): Promise<Uint8Array> {
+    return this.client.request<Uint8Array>('GET', `/simulations/${simulationUuid}/files`, {
+      query: { path },
+      responseType: 'arrayBuffer',
+    });
+  }
+
   /** Poll a run until it reaches COMPLETED, throwing on FAILED/CANCELLED. */
   async waitForRun(simulationUuid: string, options: PollOptions = {}): Promise<SimulationRun> {
     return pollUntilTerminal<SimulationRun>({

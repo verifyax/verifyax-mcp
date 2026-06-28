@@ -341,6 +341,15 @@ export interface Tag {
   [key: string]: unknown;
 }
 
+/** Register an org-specific QnA (interview) benchmark tag. */
+export interface RegisterQnaTagRequest {
+  skill_tag: string;
+  description?: string;
+  testing_method?: string;
+  qna: { questions: QnaQuestion[] };
+  dry_run?: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // Usage
 // ---------------------------------------------------------------------------
@@ -369,6 +378,23 @@ export interface BillingBalance {
   credits_used?: number;
   plan?: string;
   billing_period_end?: string;
+  [key: string]: unknown;
+}
+
+// ---------------------------------------------------------------------------
+// Audit logs
+// ---------------------------------------------------------------------------
+
+export interface ListLogsParams extends ListParams {
+  /** ISO 8601 start — required together with `to`. */
+  from: string;
+  /** ISO 8601 end — required together with `from`. */
+  to: string;
+  actor?: string;
+  action?: string;
+}
+
+export interface LogEntry {
   [key: string]: unknown;
 }
 

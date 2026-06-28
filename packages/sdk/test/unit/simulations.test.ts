@@ -129,6 +129,24 @@ describe('simulations', () => {
     });
   });
 
+  it('downloads a binary run artifact as raw bytes', async () => {
+    let seenUrl = '';
+    server.use(
+      http.get(`${API_BASE}/simulations/run-1/files`, ({ request }) => {
+        seenUrl = request.url;
+        return new HttpResponse(new Uint8Array([1, 2, 3, 4]), {
+          headers: { 'content-type': 'application/octet-stream' },
+        });
+      })
+    );
+
+    const bytes = await makeClient().simulations.downloadFile('run-1', 'files/messages/1.pdf');
+
+    expect(bytes).toBeInstanceOf(Uint8Array);
+    expect(Array.from(bytes)).toEqual([1, 2, 3, 4]);
+    expect(seenUrl).toContain('path=files%2Fmessages%2F1.pdf');
+  });
+
   it('lists runs for a scenario and fetches batch scores', async () => {
     let seenUrl = '';
     server.use(
