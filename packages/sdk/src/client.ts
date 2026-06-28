@@ -6,6 +6,7 @@
 import { TimeoutError, VerifyaxError, errorFromResponse } from './errors.js';
 import { AgentsResource } from './resources/agents.js';
 import { JobsResource } from './resources/jobs.js';
+import { LogsResource } from './resources/logs.js';
 import { ScenariosResource } from './resources/scenarios.js';
 import { SimulationsResource } from './resources/simulations.js';
 import { TagsResource } from './resources/tags.js';
@@ -50,6 +51,8 @@ export interface RequestOptions {
   base?: 'api' | 'web';
   /** Send the Authorization header. Defaults to true; the tag route sets false. */
   auth?: boolean;
+  /** Parse the success body as JSON (default) or return raw bytes for binary downloads. */
+  responseType?: 'json' | 'arrayBuffer';
   signal?: AbortSignal;
 }
 
@@ -60,6 +63,7 @@ export class VerifyaxClient {
   readonly jobs: JobsResource;
   readonly tags: TagsResource;
   readonly usage: UsageResource;
+  readonly logs: LogsResource;
 
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -87,6 +91,7 @@ export class VerifyaxClient {
     this.jobs = new JobsResource(this);
     this.tags = new TagsResource(this);
     this.usage = new UsageResource(this);
+    this.logs = new LogsResource(this);
   }
 
   /**
@@ -110,12 +115,16 @@ export class VerifyaxClient {
 
     for (let attempt = 0; ; attempt++) {
       const response = await this.fetchOnce(method, url, path, headers, body, options.signal);
-      const parsed = await parseBody(response);
 
       if (response.ok) {
-        return parsed as T;
+        if (options.responseType === 'arrayBuffer') {
+          // Binary download (e.g. run artifacts) — return raw bytes, don't parse.
+          return new Uint8Array(await response.arrayBuffer()) as T;
+        }
+        return (await parseBody(response)) as T;
       }
 
+      const parsed = await parseBody(response);
       const retryAfter = retryAfterSeconds(response);
       if (RETRYABLE_STATUSES.has(response.status) && attempt < this.maxRetries) {
         await sleep(this.backoffMs(attempt, retryAfter), options.signal);

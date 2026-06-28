@@ -15,6 +15,8 @@ The MCP server complements (does not replace) the existing `verifyax-api` skill 
 
 ## v1 scope and constraints
 
+> **Update (0.2.0):** the constraints below describe the v1 (0.1.x) shape. As of 0.2.0 the server also ships a **Streamable HTTP transport** + GCP Cloud Run deployment (`verifyax-mcp-server-http`), with per-request header auth — i.e. remote hosting, previously a v2 item, has landed. The stdio + `VERIFYAX_API_KEY` path below is unchanged and remains the default.
+
 - **Local distribution only.** Users install via npm and configure the server in their MCP client (Claude Code, Claude Desktop). Remote hosting is v2.
 - **API key auth.** User pastes their VerifyAX key into MCP client config as `VERIFYAX_API_KEY`. OAuth is v2.
 - **Blocking-by-default tools.** Async polling lives inside the server, invisible to Claude and the user. No `start_job` / `get_status` pairs in v1.

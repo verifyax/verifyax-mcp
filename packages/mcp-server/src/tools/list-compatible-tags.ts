@@ -35,15 +35,24 @@ export function filterCompatibleTags(tags: Tag[], scenarioType: ScenarioType): T
     if (!typeAllowed) {
       return false;
     }
-    const family = tag.benchmark_family;
-    if (family && family !== 'qna') {
-      return scenarioType === 'info_exchange';
-    }
-    if (family === 'qna') {
+    const families = benchmarkFamilies(tag);
+    if (families.includes('qna')) {
       return scenarioType === 'interview';
+    }
+    if (families.length > 0) {
+      return scenarioType === 'info_exchange';
     }
     return true;
   });
+}
+
+/** Normalize benchmark_family (string | string[] | null) to a string array. */
+function benchmarkFamilies(tag: Tag): string[] {
+  const family = tag.benchmark_family;
+  if (Array.isArray(family)) {
+    return family;
+  }
+  return typeof family === 'string' && family.length > 0 ? [family] : [];
 }
 
 export function registerListCompatibleTags(server: McpServer, ctx: ToolContext): void {
@@ -62,7 +71,7 @@ export function registerListCompatibleTags(server: McpServer, ctx: ToolContext):
             category: tag.category ?? null,
             description: tag.description ?? null,
             benchmark_family: tag.benchmark_family ?? null,
-            must_be_sole_tag: tag.benchmark_family === 'qna',
+            must_be_sole_tag: benchmarkFamilies(tag).includes('qna'),
           })),
         };
       })

@@ -39,4 +39,17 @@ describe('usage', () => {
 
     expect(calls).toHaveLength(1);
   });
+
+  it('fetches the org credit balance', async () => {
+    server.use(
+      http.get(`${API_BASE}/billing/balance`, () =>
+        HttpResponse.json({ credits_remaining: 420, plan: 'pro' })
+      )
+    );
+
+    const balance = await makeClient().usage.getBalance();
+
+    expect(balance.credits_remaining).toBe(420);
+    expect(balance.plan).toBe('pro');
+  });
 });

@@ -57,6 +57,25 @@ describe('agents', () => {
     expect(card).toMatchObject({ name: 'Some Agent' });
   });
 
+  it('discovers MCP tools via the mcp-connection probe', async () => {
+    let received: unknown;
+    server.use(
+      http.post(`${API_BASE}/agents/tests/mcp-connection`, async ({ request }) => {
+        received = await request.json();
+        return HttpResponse.json({ tools: [{ name: 'list_compatible_tags' }] });
+      })
+    );
+
+    const result = await makeClient().agents.testMcpConnection({
+      mcp_url: 'https://mcp.example.com/mcp',
+      auth_method: 'bearer',
+      token: 'pat-123',
+    });
+
+    expect(result).toMatchObject({ tools: expect.anything() });
+    expect(received).toMatchObject({ mcp_url: 'https://mcp.example.com/mcp' });
+  });
+
   it('maps a missing agent to NotFoundError', async () => {
     server.use(
       http.get(`${API_BASE}/agents/missing`, () =>

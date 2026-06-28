@@ -30,6 +30,25 @@ describe('transport edge cases', () => {
     expect(error.message).toContain('status 500');
   });
 
+  it('falls back to a status message when detail is a structured value (422)', async () => {
+    server.use(
+      http.get(`${API_BASE}/agents/a1`, () =>
+        HttpResponse.json(
+          { detail: [{ loc: ['body', 'name'], msg: 'field required' }] },
+          { status: 422 }
+        )
+      )
+    );
+    const error = (await makeClient()
+      .agents.get('a1')
+      .catch((e: unknown) => e)) as VerifyaxError;
+    // detail is an array, not a string → message must stay a readable string.
+    expect(typeof error.message).toBe('string');
+    expect(error.message).toContain('status 422');
+    // The structured detail is still available on responseBody.
+    expect(error.responseBody).toMatchObject({ detail: expect.any(Array) });
+  });
+
   it('returns a non-JSON 2xx body as raw text rather than throwing', async () => {
     server.use(
       http.get(`${API_BASE}/agents/a1`, () => new HttpResponse('plain text', { status: 200 }))
