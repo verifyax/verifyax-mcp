@@ -1,5 +1,7 @@
 import type { VerifyaxClient } from '../client.js';
 import type {
+  A2aConnectionTestRequest,
+  A2aMessageTestRequest,
   Agent,
   AgentCardTestRequest,
   AgentCardTestResult,
@@ -8,6 +10,7 @@ import type {
   ApiAgentDirectlineTestRequest,
   ApiAgentTestRequest,
   ListParams,
+  McpConnectionTestRequest,
   RegisterAgentRequest,
   UpdateAgentRequest,
 } from '../types.js';
@@ -43,6 +46,21 @@ export class AgentsResource {
   /** Fetch an A2A agent card to verify connectivity before registering. */
   async testAgentCard(body: AgentCardTestRequest): Promise<AgentCardTestResult> {
     return this.client.request<AgentCardTestResult>('POST', '/agents/tests/agent-card', { body });
+  }
+
+  /** A2A card + message probe (optionally runs mini-sims when agent_uuid is set). */
+  async testA2aConnection(body: A2aConnectionTestRequest): Promise<unknown> {
+    return this.client.request<unknown>('POST', '/agents/tests/a2a-connection', { body });
+  }
+
+  /** Single lightweight A2A message probe. */
+  async testA2aMessage(body: A2aMessageTestRequest): Promise<unknown> {
+    return this.client.request<unknown>('POST', '/agents/tests/a2a-message', { body });
+  }
+
+  /** Discover a remote MCP server's tools (and optionally probe the adapter). */
+  async testMcpConnection(body: McpConnectionTestRequest): Promise<unknown> {
+    return this.client.request<unknown>('POST', '/agents/tests/mcp-connection', { body });
   }
 
   /** Probe a REST endpoint before registering an API agent. */

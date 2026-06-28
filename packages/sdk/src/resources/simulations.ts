@@ -5,7 +5,9 @@ import type {
   CreditPreview,
   CreditPreviewRequest,
   Evaluation,
+  EvaluationScores,
   ListRunsParams,
+  RunOutput,
   SimulateRequest,
   SimulateResponse,
   SimulationRun,
@@ -34,6 +36,11 @@ export class SimulationsResource {
     return this.client.request<SimulationRun[]>('GET', '/simulations', { query: params });
   }
 
+  /** Runs for a single scenario. */
+  async listForScenario(scenarioUuid: string): Promise<SimulationRun[]> {
+    return this.client.request<SimulationRun[]>('GET', `/simulations/scenarios/${scenarioUuid}`);
+  }
+
   async cancel(simulationUuid: string): Promise<void> {
     await this.client.request<void>('POST', `/simulations/${simulationUuid}/cancel`);
   }
@@ -53,6 +60,31 @@ export class SimulationsResource {
   /** Fetch evaluation results by the run's `evaluation_job_uuid`. */
   async getEvaluation(evaluationJobUuid: string): Promise<Evaluation> {
     return this.client.request<Evaluation>('GET', `/simulations/evaluations/${evaluationJobUuid}`);
+  }
+
+  /** Gateway reporting shortcut — the evaluation scores payload for a run. */
+  async getEvaluationReport(simulationUuid: string): Promise<Evaluation> {
+    return this.client.request<Evaluation>('GET', `/simulations/${simulationUuid}/evaluation`);
+  }
+
+  /** Just the scores ({ overall_score, per_tag_scores, ... }) for a run. */
+  async getEvaluationScores(simulationUuid: string): Promise<EvaluationScores> {
+    return this.client.request<EvaluationScores>(
+      'GET',
+      `/simulations/${simulationUuid}/evaluation/scores`
+    );
+  }
+
+  /** Batch scores for multiple runs by uuid. */
+  async getScores(simulationUuids: string[]): Promise<Record<string, EvaluationScores>> {
+    return this.client.request<Record<string, EvaluationScores>>('GET', '/simulations/scores', {
+      query: { ids: simulationUuids.join(',') },
+    });
+  }
+
+  /** Parsed JSON run output (ScenarioOutput / response.json) for a completed run. */
+  async getOutput(simulationUuid: string): Promise<RunOutput> {
+    return this.client.request<RunOutput>('GET', `/simulations/${simulationUuid}/output`);
   }
 
   /** Poll a run until it reaches COMPLETED, throwing on FAILED/CANCELLED. */

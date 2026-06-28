@@ -14,6 +14,12 @@ packages are versioned in lockstep for v1.x. Format follows
   Run deployment under `deploy/gcp/`.
 - `@verifyax/sdk`: `agents.testApiAgentDirectline` (Copilot Studio Direct Line connectivity
   probe) and Direct Line agent parameters.
+- `@verifyax/sdk`: MCP agent type + `agent_parameters.mcp`; new connectivity probes
+  `agents.testA2aConnection`, `agents.testA2aMessage`, `agents.testMcpConnection`;
+  `scenarios.generateFromQna`; `simulations.listForScenario`, `getEvaluationReport`,
+  `getEvaluationScores`, `getScores` (batch), `getOutput`; `usage.getBalance` (`/billing/balance`).
+- `@verifyax/sdk`: `simulate` accepts `scenario_uuids` (batch) and `timeout_minutes`;
+  `credit-preview` accepts `timeout_minutes`; `generate` accepts `description`.
 
 ### Changed
 
@@ -24,6 +30,8 @@ packages are versioned in lockstep for v1.x. Format follows
   `scenario_generation`; error-body parsing now reads `detail` (gateway proxy / underlying-API
   errors) in addition to `message`/`error`.
 - `list_compatible_tags` handles array-valued `benchmark_family` when filtering.
+- `generate_scenario` tool: dropped `timeout_minutes` (no longer a generate field — it moved to
+  the simulate/run step) and added optional `description`.
 
 ## [0.1.1] - 2026-06-25
 

@@ -1,5 +1,6 @@
 import type { VerifyaxClient } from '../client.js';
 import type {
+  GenerateFromQnaRequest,
   GenerateScenarioRequest,
   GenerateScenarioResponse,
   Job,
@@ -23,6 +24,13 @@ export class ScenariosResource {
    */
   async generate(body: GenerateScenarioRequest): Promise<GenerateScenarioResponse> {
     return this.client.request<GenerateScenarioResponse>('POST', '/scenarios/generate', { body });
+  }
+
+  /** Generate an interview scenario from an inline Q&A set (async; poll the job). */
+  async generateFromQna(body: GenerateFromQnaRequest): Promise<GenerateScenarioResponse> {
+    return this.client.request<GenerateScenarioResponse>('POST', '/scenarios/generate-from-qna', {
+      body,
+    });
   }
 
   async list(params: ListScenariosParams = {}): Promise<Scenario[]> {

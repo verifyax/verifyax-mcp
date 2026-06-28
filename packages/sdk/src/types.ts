@@ -43,6 +43,15 @@ export interface DirectLineParameters {
   region?: string;
 }
 
+/** Remote MCP server connection, reached via the catalogue MCP adapter (MCP agents). */
+export interface McpParameters {
+  url: string;
+  auth_method?: 'bearer' | 'none';
+  token?: string;
+  transport?: 'streamable-http' | 'sse' | 'auto';
+  enabled_tools?: string[];
+}
+
 export interface AgentParameters {
   auth_method?: AuthMethod;
   token?: string;
@@ -50,6 +59,8 @@ export interface AgentParameters {
   basic_password?: string;
   /** DIRECTLINE only — Copilot Studio Direct Line secret + region. */
   directline?: DirectLineParameters;
+  /** MCP only — remote MCP server URL + credentials. */
+  mcp?: McpParameters;
   include_full_context?: IncludeFullContext;
   include_message_history?: boolean;
   max_requests_per_minute?: number;
@@ -117,22 +128,63 @@ export interface ApiAgentDirectlineTestRequest {
   timeout?: number;
 }
 
+/** A2A card + message probe (optionally runs mini-sims when agent_uuid is set). */
+export interface A2aConnectionTestRequest {
+  agent_url: string;
+  agent_type?: AgentType;
+  agent_parameters?: AgentParameters;
+  message?: string;
+  agent_uuid?: string;
+}
+
+/** Single lightweight A2A message probe. */
+export interface A2aMessageTestRequest {
+  agent_url: string;
+  agent_type?: AgentType;
+  agent_parameters?: AgentParameters;
+  message: string;
+}
+
+/** Discover an MCP server's tools and optionally probe the catalogue adapter. */
+export interface McpConnectionTestRequest {
+  mcp_url: string;
+  auth_method?: 'bearer' | 'none';
+  token?: string;
+  transport?: 'streamable-http' | 'sse' | 'auto';
+  agent_url?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Scenarios
 // ---------------------------------------------------------------------------
 
 export interface GenerateScenarioRequest {
   name: string;
+  description?: string;
   scenario_type: ScenarioType;
   context_prompt?: string;
   tags?: string[];
-  timeout_minutes?: number;
   num_scenarios?: number;
   // Batch-only fields (num_scenarios > 1).
   tag_pool?: string[];
   include_tags?: string[];
   total_tags?: number;
   max_tags_per_npc?: number;
+  // Note: run-time timeout moved to SimulateRequest.timeout_minutes (not accepted here).
+}
+
+export interface QnaQuestion {
+  question: string;
+  correct_answer?: string;
+  is_hallucination_trap?: boolean;
+}
+
+/** Generate an interview scenario from an inline Q&A set. */
+export interface GenerateFromQnaRequest {
+  name: string;
+  description?: string;
+  context_prompt?: string;
+  questions: QnaQuestion[];
 }
 
 export interface GenerateScenarioResponse {
@@ -189,10 +241,15 @@ export interface ListJobsParams extends ListParams {
 // ---------------------------------------------------------------------------
 
 export interface SimulateRequest {
-  scenario_uuid: string;
+  /** Provide exactly one of scenario_uuid / scenario_uuids. */
+  scenario_uuid?: string;
+  /** Up to 50 scenarios as a linked run group; mutually exclusive with scenario_uuid. */
+  scenario_uuids?: string[];
   agent_uuid: string;
   evaluate_on_complete?: boolean;
   num_runs?: number;
+  /** 1-240; overrides the scenario default for this run. */
+  timeout_minutes?: number;
 }
 
 export interface SimulateResponse {
@@ -209,6 +266,7 @@ export interface CreditPreviewRequest {
   mode: 'scenario_run' | 'scenario_generation';
   scenario_uuid: string;
   num_runs?: number;
+  timeout_minutes?: number;
   agent_uuid?: string;
 }
 
@@ -255,6 +313,18 @@ export interface Evaluation {
   [key: string]: unknown;
 }
 
+/** Scores payload from the evaluation/scores shortcut. */
+export interface EvaluationScores {
+  overall_score?: number;
+  per_tag_scores?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+/** Parsed ScenarioOutput / response.json for a completed run. */
+export interface RunOutput {
+  [key: string]: unknown;
+}
+
 // ---------------------------------------------------------------------------
 // Tags (served from the authed /api/v1 base, returned as a bare JSON array)
 // ---------------------------------------------------------------------------
@@ -290,6 +360,15 @@ export interface ListUsageEventsParams extends ListParams {
 export interface UsageEvent {
   uuid?: string;
   event_uuid?: string;
+  [key: string]: unknown;
+}
+
+/** Organization credit balance for the API key's org. */
+export interface BillingBalance {
+  credits_remaining?: number;
+  credits_used?: number;
+  plan?: string;
+  billing_period_end?: string;
   [key: string]: unknown;
 }
 

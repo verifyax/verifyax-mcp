@@ -23,7 +23,7 @@ const inputObject = z.object({
     .optional()
     .describe('Skill tag names (use list_compatible_tags to pick valid ones).'),
   context_prompt: z.string().optional(),
-  timeout_minutes: z.number().int().positive().optional(),
+  description: z.string().optional(),
 });
 type Input = z.infer<typeof inputObject>;
 const inputSchema = inputObject.shape;
@@ -36,7 +36,7 @@ export function createGenerateScenarioHandler(ctx: ToolContext) {
         scenario_type: args.scenario_type,
         ...(args.tags !== undefined ? { tags: args.tags } : {}),
         ...(args.context_prompt !== undefined ? { context_prompt: args.context_prompt } : {}),
-        ...(args.timeout_minutes !== undefined ? { timeout_minutes: args.timeout_minutes } : {}),
+        ...(args.description !== undefined ? { description: args.description } : {}),
       };
       const generated = await ctx.client.scenarios.generate(request);
 

@@ -111,4 +111,40 @@ describe('simulations', () => {
     const evaluation = await client.simulations.getEvaluation('eval-1');
     expect(evaluation).toMatchObject({ overall_score: 0.82 });
   });
+
+  it('fetches evaluation scores and run output', async () => {
+    server.use(
+      http.get(`${API_BASE}/simulations/run-1/evaluation/scores`, () =>
+        HttpResponse.json({ overall_score: 0.91, per_tag_scores: { empathy: 0.9 } })
+      ),
+      http.get(`${API_BASE}/simulations/run-1/output`, () =>
+        HttpResponse.json({ rounds: [{ messages: [] }] })
+      )
+    );
+
+    const client = makeClient();
+    expect((await client.simulations.getEvaluationScores('run-1')).overall_score).toBe(0.91);
+    expect(await client.simulations.getOutput('run-1')).toMatchObject({
+      rounds: expect.anything(),
+    });
+  });
+
+  it('lists runs for a scenario and fetches batch scores', async () => {
+    let seenUrl = '';
+    server.use(
+      http.get(`${API_BASE}/simulations/scenarios/scn-1`, () =>
+        HttpResponse.json([{ uuid: 'run-1', status: 'COMPLETED' }])
+      ),
+      http.get(`${API_BASE}/simulations/scores`, ({ request }) => {
+        seenUrl = request.url;
+        return HttpResponse.json({ 'run-1': { overall_score: 0.8 } });
+      })
+    );
+
+    const client = makeClient();
+    expect(await client.simulations.listForScenario('scn-1')).toHaveLength(1);
+    const scores = await client.simulations.getScores(['run-1', 'run-2']);
+    expect(scores['run-1']?.overall_score).toBe(0.8);
+    expect(seenUrl).toContain('ids=run-1%2Crun-2');
+  });
 });

@@ -1,6 +1,6 @@
 ---
 name: verifyax-api
-description: Drive the VerifyAX agent evaluation platform programmatically through its REST API — register AI agents (A2A or REST), generate test scenarios with skill tags, trigger simulation runs against them, poll async jobs, and fetch evaluation results. Use this skill whenever the user mentions VerifyAX, the verifyax.com console, or wants to evaluate, benchmark, simulate, or test an AI agent against scenarios via API — even if they don't explicitly say "VerifyAX API". Also use when the user references endpoints under console.verifyax.com, asks how to script agent evals, wants to chain register-agent → run-simulation → fetch-results, or needs help interpreting VerifyAX job statuses, scenario tags, or credit estimates.
+description: Drive the VerifyAX agent evaluation platform programmatically through its REST API — register AI agents (A2A, REST/API, Direct Line, MCP), generate test scenarios with skill tags, trigger simulation runs against them, poll async jobs, and fetch evaluation results. Use this skill whenever the user mentions VerifyAX, the verifyax.com console, or wants to evaluate, benchmark, simulate, or test an AI agent against scenarios via API — even if they don't explicitly say "VerifyAX API". Also use when the user references endpoints under console.verifyax.com, asks how to script agent evals, wants to chain register-agent → run-simulation → fetch-results, or needs help interpreting VerifyAX job statuses, scenario tags, or credit estimates.
 ---
 
 # VerifyAX API Skill
@@ -19,11 +19,11 @@ Content-Type: application/json            // required on POST/PUT/PATCH with a b
 X-Request-Id: <client-correlation-id>     // optional; accepted but not echoed or forwarded
 ```
 
-The API key encodes tenant context — never send `organization_uuid`, `workspace_uuid`, or `user_uuid` on requests; the gateway injects them from your key and ignores/overwrites any client-supplied values. To target a different workspace, authenticate with a different key. Get keys from **Settings > API Keys** (workspace Editor/Admin can create; Admin can revoke). The full secret is shown only once at creation — it cannot be re-fetched.
+The API key encodes tenant context — never send `organization_uuid`, `workspace_uuid`, or `user_uuid` on requests; the gateway injects them from your key and **overwrites** any client-supplied values. To target a different workspace, authenticate with a different key. Get keys from **Settings > API Keys** (workspace Editor/Admin can create; Admin can revoke). The full secret is shown only once at creation — it cannot be re-fetched.
 
 ## Core Concepts
 
-- **Agent** — registered AI endpoint (A2A or REST). Workspace-scoped.
+- **Agent** — registered AI endpoint (A2A, REST/API, Direct Line, or MCP). Workspace-scoped.
 - **Scenario** — test environment (multi-agent `info_exchange` or 1-to-1 `interview`). Tagged with skill tags.
 - **Simulation run** — single execution of an agent against a scenario. Produces a transcript.
 - **Evaluation** — scores a completed run against scenario ground truth.
@@ -38,8 +38,9 @@ Pipeline: Register Agent → Create Scenario → Trigger Simulation → Evaluate
 - Lifecycle status enums are **UPPERCASE** (`PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`, `CANCELLED`); generation inputs like `scenario_type` are lowercase snake_case. `agent_type` values include `A2A`, `API`, `DIRECTLINE`, `EXTENSION`, `MCP`.
 - **Treat enum sets as open and tolerate unknown response fields** — new enum values and new top-level keys ship without a version bump. Handle an unrecognised status as "not yet terminal" rather than asserting the set is closed.
 - List endpoints return plain JSON arrays (no envelope). Paginate with `limit` (default 100, max 1000; `1 ≤ limit ≤ 1000`) and `offset`. Ordering is stable within one call but not across calls.
-- Filters combine with AND. Omit a param to leave that dimension unfiltered. Unknown keys in request bodies are ignored, not rejected.
-- **Error bodies: the HTTP status code is the source of truth — read it from the status line, not the body.** There is **no `statusCode` field** in error bodies except on gateway rate-limit responses. Body shape varies by origin: gateway errors return `message`; gateway proxy/transport failures return `detail`; underlying-API errors usually carry `detail` (sometimes `error` + `message`); rate-limit responses carry `error`, `message`, and `statusCode`. Branch on the status code; for logging, read whichever of `message` / `detail` / `error` is present.
+- Filters combine with AND. Omit a param to leave that dimension unfiltered.
+- **Request bodies:** unknown keys are generally ignored on most endpoints. **Exceptions:** `POST /v1/scenarios/generate` and `POST /v1/scenarios/generate-from-qna` forward **only documented public fields** — internal engine/model/DAG knobs are **stripped at the gateway** before verifyax-api sees the body.
+- **Error bodies: the HTTP status code is the source of truth** — read it from the status line, not the body. There is **no `statusCode` field** in error bodies except on gateway rate-limit responses. Body shape varies by origin: gateway errors return `message`; gateway proxy/transport failures return `detail`; underlying-API errors usually carry `detail` (sometimes `error` + `message`); rate-limit responses carry `error`, `message`, and `statusCode`. Branch on the status code; for logging, read whichever of `message` / `detail` / `error` is present.
 
 ### Rate limiting
 
@@ -54,7 +55,7 @@ POST /v1/agents
   "name": "string (required)",        // if taken, server suffixes it: "My Agent (1)"
   "description": "string",
   "agent_url": "https://...",
-  "agent_type": "A2A | API | DIRECTLINE",  // default A2A
+  "agent_type": "A2A | API | DIRECTLINE | MCP",  // default A2A
   "agent_parameters": {
     "auth_method": "no-auth | bearer | cs | http-basic",   // default no-auth (A2A/API)
     "token": "string (min 10 chars, used by bearer/cs)",
@@ -63,6 +64,13 @@ POST /v1/agents
     "directline": {                   // DIRECTLINE only — Copilot Studio
       "secret": "<direct-line-secret>",
       "region": "global | europe | india | unitedstates | asia | australia | northamerica"
+    },
+    "mcp": {                          // MCP only — remote MCP server via catalogue adapter
+      "url": "https://mcp.example.com/mcp",
+      "auth_method": "bearer | none",
+      "token": "<pat-or-api-key>",
+      "transport": "streamable-http | sse | auto",
+      "enabled_tools": ["tool_name"]
     },
     "include_full_context": "always | never | first_only", // default never
     "include_message_history": false,
@@ -78,7 +86,9 @@ POST /v1/agents
 
 A2A agents are reached over JSON-RPC over HTTPS (gRPC and HTTP+JSON A2A transports are not supported); streaming SSE from the agent is consumed internally and surfaced as a single completed turn.
 
-**Copilot Studio (`DIRECTLINE`):** set `agent_url` from region — `global` → `https://directline.botframework.com`, `europe` → `https://europe.directline.botframework.com`, etc. Store the Direct Line secret in `agent_parameters.directline.secret`, not at the top level.
+**Copilot Studio (`DIRECTLINE`):** set `agent_url` from region — `global` → `https://directline.botframework.com`, `europe` → `https://europe.directline.botframework.com`, etc. Store the Direct Line secret in `agent_parameters.directline.secret`, not at the top level. Probe with flat `secret`/`region` on the test endpoint before registering.
+
+**MCP (`MCP`):** set `agent_url` to the VerifyAX **catalogue MCP adapter** A2A endpoint; put your remote MCP server URL and credentials under `agent_parameters.mcp`. Private/reserved MCP URLs are rejected.
 
 ### List agents
 ```
@@ -97,6 +107,12 @@ DELETE /v1/agents/{agent_uuid}
 POST /v1/agents/tests/agent-card          // fetch A2A agent card
 { "agent_url": "...", "agent_type": "A2A", "agent_parameters": {...} }
 
+POST /v1/agents/tests/a2a-connection      // card + message probe (+ optional mini-sims when agent_uuid set)
+{ "agent_url": "...", "agent_type": "A2A", "agent_parameters": {...}, "message": "Hello" }
+
+POST /v1/agents/tests/a2a-message        // single A2A message probe (lighter than a2a-connection)
+{ "agent_url": "...", "agent_type": "A2A", "message": "Ping" }
+
 POST /v1/agents/tests/api-agent-test      // probe REST endpoint
 { "url": "...", "method": "GET", "headers": {}, "body": null, "timeout": 10 }  // timeout in seconds, default 10
 
@@ -105,7 +121,11 @@ POST /v1/agents/tests/api-agent-test-curl // parse + execute a cURL command
 
 POST /v1/agents/tests/api-agent-test-directline  // Copilot Studio probe (flat body)
 { "secret": "<direct-line-secret>", "region": "global", "message": "Hello", "timeout": 60 }
-// Note: registration nests secret/region under agent_parameters.directline on POST /v1/agents
+// Registration nests secret/region under agent_parameters.directline on POST /v1/agents
+
+POST /v1/agents/tests/mcp-connection    // discover MCP tools + optional adapter probe
+{ "mcp_url": "https://mcp.example.com/mcp", "auth_method": "bearer", "token": "...", "agent_url": "https://adapter.example.run.app" }
+// Same values nest under agent_parameters.mcp when registering with agent_type MCP
 ```
 
 ## Scenarios
@@ -115,10 +135,10 @@ POST /v1/agents/tests/api-agent-test-directline  // Copilot Studio probe (flat b
 POST /v1/scenarios/generate
 {
   "name": "string (required, workspace-unique)",
+  "description": "string (optional)",
   "scenario_type": "info_exchange | interview",   // info_exchange is the default
   "context_prompt": "string",
   "tags": ["tag1", "tag2"],             // tag `name` from GET /api/v1/tags; max 5 info_exchange / 2 interview
-  "timeout_minutes": 30,                // 1-240
   "num_scenarios": 1,                   // 1-50; >1 enables batch mode (requires batch fields)
   // batch-only fields:
   "tag_pool": ["tag1", ...],            // universe to draw from (each must allow your scenario_type)
@@ -127,8 +147,23 @@ POST /v1/scenarios/generate
   "max_tags_per_npc": 1                 // default 1; ignored for interview
 }
 // Returns 201 Created: { uuid (scenario id), job_uuid, batch_uuid, batch_scenario_uuids (batch mode only), ... }
-// The scenario row exists immediately but scenario.json is written async.
+// Only documented fields above are forwarded — do not send internal engine/model/DAG knobs.
 // Poll job_uuid until COMPLETED before running simulations.
+// Run-time timeout is set per run via POST /v1/engine/simulate/scenario (timeout_minutes), not on generate.
+```
+
+### Generate from inline Q&A (interview)
+```
+POST /v1/scenarios/generate-from-qna
+{
+  "name": "string (required)",
+  "description": "string (optional)",
+  "context_prompt": "string (optional)",
+  "questions": [
+    { "question": "...", "correct_answer": "...", "is_hallucination_trap": false }
+  ]
+}
+// Returns 201 + job_uuid; same async scenario_creation polling as /scenarios/generate.
 ```
 
 ### List scenarios
@@ -147,7 +182,7 @@ DELETE /v1/scenarios/{scenario_uuid}   // 409 if runs still reference it
 ### Copy / re-generate
 ```
 POST /v1/scenarios/{scenario_uuid}/copy?new_name=...     // byte-copy
-POST /v1/scenarios/{scenario_uuid}/generate-copy          // replay creation params → new variant
+POST /v1/scenarios/{scenario_uuid}/generate-copy          // replay creation params → new variant (no body)
 ```
 
 ### Jobs tied to a scenario
@@ -175,14 +210,18 @@ GET /v1/validation/schema/scenario   // download the canonical JSON Schema
 ```
 POST /v1/engine/simulate/scenario
 {
+  // Exactly ONE of:
   "scenario_uuid": "...",
+  "scenario_uuids": ["...", "..."],   // up to 50; linked run group; mutually exclusive with scenario_uuid
+
   "agent_uuid": "...",
   "evaluate_on_complete": true,    // default true; auto-queues evaluation when run finishes
-  "num_runs": 1                    // default 1; parallel repetitions for robustness
+  "num_runs": 1,                   // default 1; parallel repetitions (1-10)
+  "timeout_minutes": 30            // optional 1-240; overrides scenario default for this run
 }
 // Returns: { job_uuid, simulation_uuid, evaluation_job_uuid, status ("dispatched"), message, simulation_uuids, run_group_uuid }
 // When num_runs > 1 all UUIDs are in simulation_uuids, grouped by run_group_uuid.
-// You only send scenario_uuid + agent_uuid; the gateway resolves URL/auth/connector from the registered agent.
+// Gateway resolves URL/auth/connector from the registered agent_uuid.
 ```
 
 ### Estimate credits before triggering
@@ -192,6 +231,7 @@ POST /v1/engine/workspace-credit-preview
   "mode": "scenario_run",          // required; also "scenario_generation" to preview generation cost
   "scenario_uuid": "...",          // required for scenario_run
   "num_runs": 1,                   // 1-10; multiplies the per-run estimate
+  "timeout_minutes": 30,           // optional; affects run credit estimate
   "agent_uuid": "..."              // optional
 }
 // Returns: { balance, newRunEstimatedCredits, existingRuns, pendingCommittedTotal }
@@ -207,6 +247,7 @@ GET /v1/simulations/{simulation_uuid}
 ### List runs
 ```
 GET /v1/simulations?status=COMPLETED&agent_uuid=...&limit=50&offset=0
+GET /v1/simulations/scenarios/{scenario_uuid}   // runs for one scenario
 ```
 
 ### Cancel / delete a run
@@ -224,17 +265,49 @@ POST /v1/engine/evaluate/trigger
 ### Fetch evaluation results
 ```
 GET /v1/simulations/evaluations/{evaluation_job_uuid}
-// evaluation_job_uuid comes from the trigger response, or from the run record's
-// evaluation_jobs[] array (take the last entry's uuid / current_status).
-// Scores live in the nested `evaluation` object; the exact key depends on the rubric — inspect a real response.
+// evaluation_job_uuid from trigger response or run record evaluation_jobs[].
+// Full evaluation payload including nested `evaluation` object.
+
+GET /v1/simulations/{simulation_uuid}/evaluation          // gateway reporting shortcut (scores payload)
+GET /v1/simulations/{simulation_uuid}/evaluation/scores   // { overall_score, per_tag_scores, ... }
+GET /v1/simulations/scores?ids=uuid1,uuid2               // batch scores map
 ```
 
-### Download run artifacts (transcripts, evidence files, evaluation outputs)
+### Structured run output (JSON)
+```
+GET /v1/simulations/{simulation_uuid}/output
+// Parsed ScenarioOutput / response.json document for a completed run (application/json).
+// Use this for programmatic transcript inspection; use /files for binary artifacts.
+```
+
+### Download run artifacts (binary)
 ```
 GET /v1/simulations/{simulation_uuid}/files?path=files/messages/round_1/1_report.pdf
 // `path` is required, relative to the run directory, and MUST start with files/.
-// Response is application/octet-stream — write the body to disk, don't parse as JSON.
+// Response is application/octet-stream — write response.content to disk; do not JSON.parse.
+// Typed SDK clients may not support binary yet; use raw HTTP (curl, requests, fetch arrayBuffer).
 // 400 if path is missing / traverses / lacks the files/ prefix; 403 wrong workspace; 404 missing run or file.
+```
+
+### Poll pattern (Python)
+```python
+import requests, time
+
+BASE = "https://<gateway>/api/v1"
+H = {"Authorization": "Bearer <key>"}
+
+resp = requests.post(f"{BASE}/engine/simulate/scenario", headers={**H, "Content-Type": "application/json"},
+    json={"scenario_uuid": SCENARIO_UUID, "agent_uuid": AGENT_UUID, "evaluate_on_complete": True})
+resp.raise_for_status()
+run_uuid = resp.json()["simulation_uuid"]
+
+while True:
+    r = requests.get(f"{BASE}/simulations/{run_uuid}", headers=H, timeout=30)
+    r.raise_for_status()
+    status = r.json().get("status", "").upper()
+    if status == "COMPLETED": break
+    if status in ("FAILED", "CANCELLED"): raise RuntimeError(f"Run {status}")
+    time.sleep(15)
 ```
 
 ## Jobs
@@ -254,6 +327,9 @@ Job fields: `uuid`, `job_type`, `current_status`, `current_progress_text`, `prog
 ## Usage & Spend
 
 ```
+GET /v1/billing/balance
+// { credits_remaining, credits_used, plan, billing_period_end } for the API key's organization
+
 GET /v1/usage/events
   ?product_area=scenario_run          // also scenario_generation, evaluation, ...
   &simulation_uuid=...
@@ -279,14 +355,37 @@ GET /v1/usage/calls
 
 Each event aggregates one or more calls (the underlying LLM/provider calls). Drill path: filter events by `simulation_uuid` → get `event_uuid` → list calls with `event_uuid` for per-model token detail. Use `failed=true` to find runs that consumed credits but didn't deliver.
 
+## Audit logs
+
+```
+GET /v1/logs?from=2026-01-01T00:00:00Z&to=2026-01-31T23:59:59Z&limit=50&offset=0
+// Optional filters: actor, action. Both from and to required together.
+```
+
+## Client tags (org QnA benchmarks)
+
+```
+POST /v1/client-tags/register-qna
+{
+  "skill_tag": "my_org_qna_tag",
+  "description": "...",
+  "testing_method": "...",
+  "qna": { "questions": [{ "question": "...", "correct_answer": "..." }] },
+  "dry_run": false
+}
+// Registers org-specific interview tag + benchmark payload to master-data storage.
+// Tag appears on GET /api/v1/tags with custom: true after registration.
+```
+
 ## Auth — One-time Login Token
 
 Mint a single-use browser-session link for a human operator from a backend job:
 
 ```
 POST /v1/auth/one-time-login-token
-// Returns: { token, example_links: { home, workbench } }
-// Token is short-lived, single-use, passed in URL fragment (not query string).
+// Returns: { "one-time-login-token": "...", "example_links": { "home": "...", "workbench": "..." } }
+// Pass the token in the URL fragment (#one-time-login-token=...), not the query string.
+// Short-lived, single-use; redeems into a webapp session for the API key's user.
 ```
 
 ## Skill Tags
@@ -342,16 +441,17 @@ Returns a **bare JSON array** — global catalogue merged with your organization
 ## Step-by-Step: Full Workflow
 
 1. **Register agent** — `POST /v1/agents` → store `agent_uuid`
-2. **Verify connectivity** — `POST /v1/agents/tests/agent-card` before committing
+2. **Verify connectivity** — `POST /v1/agents/tests/agent-card` or `a2a-connection` / `mcp-connection` before committing
 3. **Discover tags** — `GET /api/v1/tags` → filter by `allowed_scenario_types` for your `scenario_type`
-4. **Generate scenario** — `POST /v1/scenarios/generate` → store `uuid` (use as `{scenario_uuid}` in paths) + `job_uuid`
+4. **Generate scenario** — `POST /v1/scenarios/generate` (or `generate-from-qna` for fixed Q&A) → store `uuid` + `job_uuid`
 5. **Wait for scenario** — poll `GET /v1/jobs/{job_uuid}` until `COMPLETED` (if `FAILED`, fix tags and retry)
 6. **Estimate cost** — `POST /v1/engine/workspace-credit-preview`
 7. **Trigger run** — `POST /v1/engine/simulate/scenario` with `evaluate_on_complete: true` → store `simulation_uuid`
 8. **Poll run** — `GET /v1/simulations/{simulation_uuid}` every 15s until `COMPLETED`
-9. **Fetch evaluation** — `GET /v1/simulations/evaluations/{evaluation_job_uuid}`
-10. **Download artifacts** (optional) — `GET /v1/simulations/{simulation_uuid}/files?path=files/...`
-11. **Track spend** — `GET /v1/usage/events?simulation_uuid=...`
+9. **Fetch evaluation** — `GET /v1/simulations/evaluations/{evaluation_job_uuid}` (or `/evaluation/scores` shortcut)
+10. **Fetch output** (optional) — `GET /v1/simulations/{simulation_uuid}/output` for JSON transcript payload
+11. **Download artifacts** (optional) — `GET /v1/simulations/{simulation_uuid}/files?path=files/...` (binary; raw HTTP)
+12. **Track spend** — `GET /v1/usage/events?simulation_uuid=...`
 
 ## Common Errors
 
@@ -363,7 +463,7 @@ Returns a **bare JSON array** — global catalogue merged with your organization
 | 403  | Key valid but resource belongs to another workspace / insufficient permissions |
 | 404  | Resource not found |
 | 409  | Conflict — e.g. deleting a scenario that still has runs, or duplicate name |
-| 422  | Validation error — body or parameters failed validation |
+| 422  | Validation error — request body or parameters failed validation |
 | 429  | Rate limited — honor `Retry-After`, else exponential backoff |
 | 500  | Internal server error |
 | 502  | Upstream/billing failure — gateway couldn't get a valid response |
