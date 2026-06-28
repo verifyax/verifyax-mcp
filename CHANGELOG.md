@@ -7,6 +7,16 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-28
+
+Patch release: list `@verifyax/mcp-server` in the official MCP registry. No runtime changes.
+
+### Added
+
+- `@verifyax/mcp-server`: `server.json` (repo root) declaring the server for the MCP registry
+  under the `io.github.verifyax` namespace, and an `mcpName` field in `package.json` so the
+  registry can verify npm-package ownership.
+
 ## [0.2.0] - 2026-06-26
 
 Minor release: remote HTTP transport + a broad API sync with the updated skill. Includes a
