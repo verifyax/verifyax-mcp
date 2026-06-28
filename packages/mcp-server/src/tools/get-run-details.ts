@@ -47,7 +47,12 @@ export function createGetRunDetailsHandler(ctx: ToolContext) {
 export function registerGetRunDetails(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
     NAME,
-    { title: 'Get run details', description: DESCRIPTION, inputSchema },
+    {
+      title: 'Get run details',
+      description: DESCRIPTION,
+      inputSchema,
+      annotations: { readOnlyHint: true },
+    },
     createGetRunDetailsHandler(ctx)
   );
 }

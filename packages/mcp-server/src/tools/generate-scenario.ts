@@ -58,7 +58,12 @@ export function createGenerateScenarioHandler(ctx: ToolContext) {
 export function registerGenerateScenario(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
     NAME,
-    { title: 'Generate scenario', description: DESCRIPTION, inputSchema },
+    {
+      title: 'Generate scenario',
+      description: DESCRIPTION,
+      inputSchema,
+      annotations: { readOnlyHint: false, destructiveHint: false },
+    },
     createGenerateScenarioHandler(ctx)
   );
 }

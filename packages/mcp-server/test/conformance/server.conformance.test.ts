@@ -100,6 +100,14 @@ describe('MCP conformance (spawned server)', () => {
       expect(tool.description).toBeTruthy();
       expect(tool.inputSchema).toBeDefined();
     }
+
+    const byName = new Map(tools.map((t) => [t.name, t]));
+    // Read-only tools advertise readOnlyHint so hosts can surface them safely.
+    expect(byName.get('list_compatible_tags')?.annotations?.readOnlyHint).toBe(true);
+    expect(byName.get('get_run_details')?.annotations?.readOnlyHint).toBe(true);
+    // Destructive tools are flagged; non-destructive writers correct the default.
+    expect(byName.get('delete_agent')?.annotations?.destructiveHint).toBe(true);
+    expect(byName.get('register_agent')?.annotations?.destructiveHint).toBe(false);
   });
 
   it('calls list_compatible_tags and returns structured, filtered tags', async () => {

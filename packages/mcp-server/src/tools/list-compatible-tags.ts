@@ -58,7 +58,12 @@ function benchmarkFamilies(tag: Tag): string[] {
 export function registerListCompatibleTags(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
     NAME,
-    { title: 'List compatible skill tags', description: DESCRIPTION, inputSchema },
+    {
+      title: 'List compatible skill tags',
+      description: DESCRIPTION,
+      inputSchema,
+      annotations: { readOnlyHint: true },
+    },
     ({ scenario_type }) =>
       runTool(ctx, NAME, async () => {
         const tags = await ctx.client.tags.list();

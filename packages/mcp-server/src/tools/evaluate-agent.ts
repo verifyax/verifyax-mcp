@@ -85,7 +85,12 @@ export function createEvaluateAgentHandler(ctx: ToolContext) {
 export function registerEvaluateAgent(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
     NAME,
-    { title: 'Evaluate agent', description: DESCRIPTION, inputSchema },
+    {
+      title: 'Evaluate agent',
+      description: DESCRIPTION,
+      inputSchema,
+      annotations: { readOnlyHint: false, destructiveHint: false },
+    },
     createEvaluateAgentHandler(ctx)
   );
 }

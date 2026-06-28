@@ -37,7 +37,12 @@ export function createListAgentsHandler(ctx: ToolContext) {
 export function registerListAgents(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
     NAME,
-    { title: 'List agents', description: DESCRIPTION, inputSchema },
+    {
+      title: 'List agents',
+      description: DESCRIPTION,
+      inputSchema,
+      annotations: { readOnlyHint: true },
+    },
     createListAgentsHandler(ctx)
   );
 }
