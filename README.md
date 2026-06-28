@@ -64,8 +64,13 @@ work completes (typically 30s–5min) — no manual status checks.
 
 ## Status
 
-See [`PLAN.md`](PLAN.md) for the phased execution plan and [`CLAUDE.md`](CLAUDE.md) for project
-context and architecture decisions. Contributions welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+See [`docs/PLAN.md`](docs/PLAN.md) for the phased execution plan and [`CLAUDE.md`](CLAUDE.md) for
+project context and architecture decisions.
+
+This project is maintained internally by the VerifyAX team at [Conscium](https://conscium.com).
+**External pull requests aren't accepted** — please [open an issue](https://github.com/verifyax/verifyax-mcp/issues)
+to report a bug, an outdated API behavior, or a feature request; that's the best way to reach us.
+[`CONTRIBUTING.md`](CONTRIBUTING.md) is the development reference for maintainers and forks.
 
 ## Development
 

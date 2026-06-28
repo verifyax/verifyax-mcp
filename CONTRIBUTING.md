@@ -1,6 +1,12 @@
 # Contributing
 
-Thanks for your interest in improving the VerifyAX MCP server and SDK.
+This project is maintained internally by the VerifyAX team at [Conscium](https://conscium.com).
+**External pull requests aren't accepted** — the maintainers handle changes internally. If you've
+found a bug, an outdated API behavior, or have a feature request, please
+[open an issue](https://github.com/verifyax/verifyax-mcp/issues); that's the best way to reach us.
+
+The rest of this document is the development reference for maintainers (and anyone working from a
+fork).
 
 ## Development setup
 
@@ -29,7 +35,7 @@ pnpm test:conformance    # spawns the built MCP server and drives it over stdio
   the doc and add a test that asserts the real behavior.
 - `docs/tool-descriptions.md` — reviewed tool descriptions (keep in sync with the tool files).
 
-See `CLAUDE.md` for architecture decisions and conventions, and `PLAN.md` for the roadmap.
+See `CLAUDE.md` for architecture decisions and conventions, and `docs/PLAN.md` for the roadmap.
 
 ## Conventions
 
@@ -41,7 +47,7 @@ See `CLAUDE.md` for architecture decisions and conventions, and `PLAN.md` for th
 - One file per tool. Each exports a `createXHandler(ctx)` factory and a `registerX(server, ctx)`.
 - Tests colocate by intent under `test/unit`, `test/integration`, `test/conformance`.
 
-## Pull requests
+## Change checklist (maintainers)
 
 - Keep diffs small and reviewable; decompose large changes.
 - Include tests with the code, not afterwards.
