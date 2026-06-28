@@ -30,5 +30,15 @@ export default tseslint.config(
       'no-console': 'off',
       'no-restricted-syntax': 'off',
     },
+  },
+  {
+    // Build/tooling scripts run under Node and may log to the console.
+    files: ['scripts/**/*.{js,mjs}'],
+    languageOptions: {
+      globals: { console: 'readonly', process: 'readonly' },
+    },
+    rules: {
+      'no-console': 'off',
+    },
   }
 );

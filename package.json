@@ -10,7 +10,7 @@
   },
   "packageManager": "pnpm@10.33.0",
   "scripts": {
-    "build": "tsc -b",
+    "build": "node scripts/gen-version.mjs && tsc -b",
     "typecheck": "tsc -b",
     "clean": "tsc -b --clean",
     "test": "pnpm -r test",
