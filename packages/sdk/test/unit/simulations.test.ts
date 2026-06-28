@@ -20,6 +20,22 @@ describe('simulations', () => {
     expect(preview.newRunEstimatedCredits).toBe(7);
   });
 
+  it('previews generation cost without a scenario_uuid', async () => {
+    let received: unknown;
+    server.use(
+      http.post(`${API_BASE}/engine/workspace-credit-preview`, async ({ request }) => {
+        received = await request.json();
+        return HttpResponse.json({ newRunEstimatedCredits: 3 });
+      })
+    );
+
+    // scenario_generation mode does not require scenario_uuid.
+    const preview = await makeClient().simulations.creditPreview({ mode: 'scenario_generation' });
+
+    expect(preview.newRunEstimatedCredits).toBe(3);
+    expect(received).toEqual({ mode: 'scenario_generation' });
+  });
+
   it('triggers a run and returns the simulation uuid', async () => {
     server.use(
       http.post(`${API_BASE}/engine/simulate/scenario`, () =>

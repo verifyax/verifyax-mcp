@@ -264,7 +264,8 @@ export interface SimulateResponse {
 
 export interface CreditPreviewRequest {
   mode: 'scenario_run' | 'scenario_generation';
-  scenario_uuid: string;
+  /** Required for `scenario_run`; omit for `scenario_generation`. */
+  scenario_uuid?: string;
   num_runs?: number;
   timeout_minutes?: number;
   agent_uuid?: string;
