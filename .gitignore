@@ -24,6 +24,10 @@ pnpm-debug.log*
 .vscode/
 Thumbs.db
 
+# Local tooling binaries (e.g. the MCP registry publisher run from the repo root)
+mcp-publisher
+mcp-publisher.exe
+
 # Test / coverage
 coverage/
 .nyc_output/
