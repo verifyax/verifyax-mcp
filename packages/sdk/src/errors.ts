@@ -118,10 +118,10 @@ export function errorFromResponse(
   retryAfter?: number
 ): VerifyaxError {
   const parsed = isErrorBody(body) ? body : undefined;
+  // Only use string fields for the message — `detail` may be a structured value
+  // (e.g. a 422 validation array); the full body is still on `responseBody`.
   const message =
-    parsed?.message ??
-    parsed?.detail ??
-    parsed?.error ??
+    firstString(parsed?.message, parsed?.detail, parsed?.error) ??
     `Request failed with status ${String(status)}`;
   const options = { statusCode: status, responseBody: body };
 
@@ -145,4 +145,14 @@ export function errorFromResponse(
 
 function isErrorBody(body: unknown): body is VerifyaxErrorBody {
   return typeof body === 'object' && body !== null;
+}
+
+/** First argument that is a non-empty string, else undefined. */
+function firstString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string' && value.length > 0) {
+      return value;
+    }
+  }
+  return undefined;
 }
