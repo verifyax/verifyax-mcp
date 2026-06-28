@@ -64,7 +64,12 @@ export function createGetUsageSummaryHandler(ctx: ToolContext) {
 export function registerGetUsageSummary(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
     NAME,
-    { title: 'Get usage summary', description: DESCRIPTION, inputSchema },
+    {
+      title: 'Get usage summary',
+      description: DESCRIPTION,
+      inputSchema,
+      annotations: { readOnlyHint: true },
+    },
     createGetUsageSummaryHandler(ctx)
   );
 }

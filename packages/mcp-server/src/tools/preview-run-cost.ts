@@ -38,7 +38,12 @@ export function createPreviewRunCostHandler(ctx: ToolContext) {
 export function registerPreviewRunCost(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
     NAME,
-    { title: 'Preview run cost', description: DESCRIPTION, inputSchema },
+    {
+      title: 'Preview run cost',
+      description: DESCRIPTION,
+      inputSchema,
+      annotations: { readOnlyHint: true },
+    },
     createPreviewRunCostHandler(ctx)
   );
 }

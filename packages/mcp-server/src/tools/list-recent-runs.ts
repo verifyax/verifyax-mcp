@@ -40,7 +40,12 @@ export function createListRecentRunsHandler(ctx: ToolContext) {
 export function registerListRecentRuns(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
     NAME,
-    { title: 'List recent runs', description: DESCRIPTION, inputSchema },
+    {
+      title: 'List recent runs',
+      description: DESCRIPTION,
+      inputSchema,
+      annotations: { readOnlyHint: true },
+    },
     createListRecentRunsHandler(ctx)
   );
 }

@@ -75,7 +75,12 @@ export function createRegisterAgentHandler(ctx: ToolContext) {
 export function registerRegisterAgent(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
     NAME,
-    { title: 'Register agent', description: DESCRIPTION, inputSchema },
+    {
+      title: 'Register agent',
+      description: DESCRIPTION,
+      inputSchema,
+      annotations: { readOnlyHint: false, destructiveHint: false },
+    },
     createRegisterAgentHandler(ctx)
   );
 }

@@ -37,7 +37,12 @@ export function createListScenariosHandler(ctx: ToolContext) {
 export function registerListScenarios(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
     NAME,
-    { title: 'List scenarios', description: DESCRIPTION, inputSchema },
+    {
+      title: 'List scenarios',
+      description: DESCRIPTION,
+      inputSchema,
+      annotations: { readOnlyHint: true },
+    },
     createListScenariosHandler(ctx)
   );
 }
