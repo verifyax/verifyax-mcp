@@ -74,11 +74,11 @@ controllable) or a custom domain (fully controllable).
 
 The deploy script reads these environment variables:
 
-| Variable        | Default                  | Effect on URL                          |
-| --------------- | ------------------------ | -------------------------------------- |
-| `GCP_PROJECT`   | `platform-agent-sandbox` | Affects the hash in the middle of the URL |
-| `GCP_REGION`    | `us-central1`            | Region suffix (`uc`, `ew`, etc.)       |
-| `SERVICE_NAME`  | `verifyax-mcp`           | Prefix of the URL                      |
+| Variable       | Default                  | Effect on URL                             |
+| -------------- | ------------------------ | ----------------------------------------- |
+| `GCP_PROJECT`  | `platform-agent-sandbox` | Affects the hash in the middle of the URL |
+| `GCP_REGION`   | `us-central1`            | Region suffix (`uc`, `ew`, etc.)          |
+| `SERVICE_NAME` | `verifyax-mcp`           | Prefix of the URL                         |
 
 Deploy with your choices:
 
@@ -146,12 +146,12 @@ gcloud run services update verifyax-mcp \
 }
 ```
 
-| Goal                         | What to do                                                                 |
-| ---------------------------- | -------------------------------------------------------------------------- |
-| Deploy to a project/region   | Set `GCP_PROJECT`, `GCP_REGION`, run `./deploy/gcp/deploy.sh`              |
-| Change URL prefix            | Set `SERVICE_NAME` before deploy                                           |
-| Use your own domain          | `gcloud run domain-mappings create` + DNS + `VERIFYAX_MCP_ALLOWED_HOSTS` |
-| Verify deployment            | `curl -s https://YOUR-URL/health` → `{"status":"ok","transport":"streamable-http"}` |
+| Goal                       | What to do                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| Deploy to a project/region | Set `GCP_PROJECT`, `GCP_REGION`, run `./deploy/gcp/deploy.sh`                       |
+| Change URL prefix          | Set `SERVICE_NAME` before deploy                                                    |
+| Use your own domain        | `gcloud run domain-mappings create` + DNS + `VERIFYAX_MCP_ALLOWED_HOSTS`            |
+| Verify deployment          | `curl -s https://YOUR-URL/health` → `{"status":"ok","transport":"streamable-http"}` |
 
 ## Health check
 
