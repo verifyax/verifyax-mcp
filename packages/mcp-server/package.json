@@ -41,6 +41,7 @@
     "build": "tsc -b",
     "start:http": "node dist/http.js",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:conformance": "tsc -b && vitest run --config vitest.conformance.config.ts"
   },
   "dependencies": {
