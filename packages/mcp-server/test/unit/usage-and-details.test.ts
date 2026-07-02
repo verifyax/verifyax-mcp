@@ -1,8 +1,20 @@
 import type { UsageEvent } from '@verifyax/sdk';
 import { describe, expect, it } from 'vitest';
+import { createLogger } from '../../src/logging.js';
+import type { ToolContext } from '../../src/tools/context.js';
 import { createGetRunDetailsHandler } from '../../src/tools/get-run-details.js';
 import { createGetUsageSummaryHandler, summarizeUsage } from '../../src/tools/get-usage-summary.js';
 import { payloadOf, stubContext } from './helpers.js';
+
+/** ToolContext whose usage.listEvents returns the given pages in order. */
+function pagingContext(pages: UsageEvent[][]): ToolContext {
+  let call = 0;
+  // Minimal fake — only usage.listEvents is exercised by these tests.
+  return {
+    logger: createLogger({ level: 'silent' }),
+    client: { usage: { listEvents: async () => pages[call++] ?? [] } },
+  } as unknown as ToolContext;
+}
 
 describe('summarizeUsage', () => {
   it('counts by product area and sums credits when present', () => {
@@ -40,6 +52,31 @@ describe('get_usage_summary', () => {
     );
     expect(payload.total_events).toBe(2);
     expect(payload.total_credits).toBe(5);
+  });
+
+  it('paginates across pages until a short page (CODE-5)', async () => {
+    const fullPage: UsageEvent[] = Array.from({ length: 1000 }, () => ({
+      product_area: 'scenario_run',
+      credits: 1,
+    }));
+    const lastPage: UsageEvent[] = [{ product_area: 'evaluation', credits: 2 }];
+    const payload = payloadOf<{ total_events: number; truncated: boolean; total_credits: number }>(
+      await createGetUsageSummaryHandler(pagingContext([fullPage, lastPage]))({})
+    );
+    expect(payload.total_events).toBe(1001); // both pages, not just the first 1000
+    expect(payload.total_credits).toBe(1002);
+    expect(payload.truncated).toBe(false);
+  });
+
+  it('flags truncation when the cap is reached', async () => {
+    const fullPage: UsageEvent[] = Array.from({ length: 1000 }, () => ({ product_area: 'x' }));
+    const payload = payloadOf<{ total_events: number; truncated: boolean }>(
+      await createGetUsageSummaryHandler(pagingContext([fullPage, fullPage, fullPage]))({
+        max_events: 2000,
+      })
+    );
+    expect(payload.total_events).toBe(2000);
+    expect(payload.truncated).toBe(true);
   });
 });
 
@@ -105,5 +142,36 @@ describe('get_run_details', () => {
       await createGetRunDetailsHandler(ctx)({ simulation_uuid: 'r7' })
     );
     expect(payload.evaluation?.overall_score).toBe(0.77);
+  });
+
+  it('projects the run to a compact named shape, not the raw object (CODE-6)', async () => {
+    const { ctx } = stubContext([
+      {
+        method: 'GET',
+        match: '/simulations/r8',
+        body: {
+          uuid: 'r8',
+          status: 'COMPLETED',
+          agent_uuid: 'a1',
+          scenario_uuid: 's1',
+          created_at: '2026-07-01T00:00:00Z',
+          internal_debug_blob: 'should-not-be-returned',
+        },
+      },
+    ]);
+    const payload = payloadOf<{ run: Record<string, unknown> }>(
+      await createGetRunDetailsHandler(ctx)({ simulation_uuid: 'r8' })
+    );
+    expect(payload.run).toMatchObject({ uuid: 'r8', status: 'COMPLETED', agent_uuid: 'a1' });
+    expect(payload.run.internal_debug_blob).toBeUndefined();
+    expect(Object.keys(payload.run).sort()).toEqual([
+      'agent_uuid',
+      'created_at',
+      'evaluation_job_uuid',
+      'scenario_uuid',
+      'status',
+      'updated_at',
+      'uuid',
+    ]);
   });
 });

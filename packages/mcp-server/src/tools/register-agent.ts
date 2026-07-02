@@ -9,17 +9,25 @@ const NAME = 'register_agent';
 const DESCRIPTION =
   'Registers an AI agent in VerifyAX given its name, URL, type (A2A or API), and optional auth. ' +
   'For A2A agents it first verifies the agent card is reachable; if that check fails, the agent ' +
-  'is not created. Returns the new agent’s uuid and the connectivity result.';
+  'is not created. Returns the new agent’s uuid and the connectivity result. Note: any token or ' +
+  'password passed here transits the conversation — prefer supplying agent credentials out of ' +
+  'band where possible, and avoid pasting long-lived secrets into chat.';
 
 const inputObject = z.object({
   name: z.string().describe('Workspace-unique agent name.'),
-  agent_url: z.string().describe('The agent’s endpoint (A2A card URL or REST URL).'),
+  agent_url: z.string().url().describe('The agent’s endpoint URL (A2A card URL or REST URL).'),
   agent_type: z.enum(['A2A', 'API']).optional().describe('Defaults to A2A.'),
   description: z.string().optional(),
   auth_method: z.enum(['no-auth', 'bearer', 'cs', 'http-basic']).optional(),
-  token: z.string().optional().describe('Token for bearer/cs auth.'),
+  token: z
+    .string()
+    .optional()
+    .describe('Token for bearer/cs auth. Sensitive — see the note in the tool description.'),
   basic_username: z.string().optional(),
-  basic_password: z.string().optional(),
+  basic_password: z
+    .string()
+    .optional()
+    .describe('Sensitive — see the note in the tool description.'),
 });
 type Input = z.infer<typeof inputObject>;
 const inputSchema = inputObject.shape;

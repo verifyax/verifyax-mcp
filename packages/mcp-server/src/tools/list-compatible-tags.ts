@@ -11,11 +11,13 @@ const DESCRIPTION =
   '(info_exchange or interview). Use this before generating a scenario to pick valid tags. ' +
   'Returns each tag’s name, category, and description, and flags QnA tags that must be the only tag.';
 
-const inputSchema = {
+// Declared via z.object(...).shape to match the other tools (was a bare literal).
+const inputObject = z.object({
   scenario_type: z
     .enum(['info_exchange', 'interview'])
     .describe('The kind of scenario the tags will be used for.'),
-};
+});
+const inputSchema = inputObject.shape;
 
 /**
  * Filter the tag catalogue to those compatible with `scenarioType`, applying

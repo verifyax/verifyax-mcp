@@ -40,7 +40,17 @@ export function createGetRunDetailsHandler(ctx: ToolContext) {
       return {
         simulation_uuid: run.uuid,
         status: run.status,
-        run,
+        // Project to a compact, named shape (matches list_recent_runs) instead of
+        // returning the entire raw run object into the model's context.
+        run: {
+          uuid: run.uuid,
+          status: run.status,
+          agent_uuid: run.agent_uuid ?? null,
+          scenario_uuid: run.scenario_uuid ?? null,
+          evaluation_job_uuid: run.evaluation_job_uuid ?? null,
+          created_at: run.created_at ?? null,
+          updated_at: run.updated_at ?? null,
+        },
         evaluation,
       };
     });
