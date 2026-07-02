@@ -1,0 +1,17 @@
+# Keep the Cloud Build context small and prevent local secrets/artifacts from
+# ever being copied into an image layer (OPS-3).
+.git
+.github
+**/node_modules
+**/dist
+**/coverage
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+.npmrc
+docs
+deploy
+**/test
+*.md
+mcp-publisher
+mcp-publisher.exe
