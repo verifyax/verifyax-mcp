@@ -19,7 +19,13 @@ const EVAL_INTERVAL_MS = 10_000;
 const inputObject = z.object({
   agent_uuid: z.string().describe('The agent to evaluate.'),
   scenario_uuid: z.string().describe('The scenario to run the agent against.'),
-  num_runs: z.number().int().positive().optional().describe('Parallel repetitions (default 1).'),
+  num_runs: z
+    .number()
+    .int()
+    .positive()
+    .max(10)
+    .optional()
+    .describe('Parallel repetitions, 1-10 (default 1).'),
 });
 type Input = z.infer<typeof inputObject>;
 const inputSchema = inputObject.shape;
