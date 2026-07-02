@@ -22,7 +22,7 @@ import { VerifyaxClient } from '@verifyax/sdk';
 
 const client = new VerifyaxClient({ apiKey: process.env.VERIFYAX_API_KEY! });
 
-// List the skill-tag catalogue (no auth; served from the web route).
+// List the skill-tag catalogue (authed; merges the global catalogue with your org overlay).
 const tags = await client.tags.list();
 
 // Register an A2A agent.
@@ -76,7 +76,6 @@ const evaluation = await client.simulations.getEvaluation(
 new VerifyaxClient({
   apiKey: '...', // required
   baseUrl: 'https://console.verifyax.com/api/v1', // override the API base
-  webBaseUrl: 'https://console.verifyax.com/web/api/v1', // override the tag-catalogue base
   timeoutMs: 30_000, // per-request timeout
   fetch: customFetch, // inject a fetch implementation (tests)
 });
@@ -120,14 +119,15 @@ Both accept `{ timeoutMs, intervalMs, signal }`.
 
 ## Resources
 
-| Accessor             | Methods                                                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `client.agents`      | `create`, `list`, `get`, `update`, `delete`, `testAgentCard`, `testApiAgent`, `testApiAgentCurl`                   |
-| `client.scenarios`   | `generate`, `list`, `get`, `update`, `delete`, `getJob`                                                            |
-| `client.simulations` | `creditPreview`, `simulate`, `get`, `list`, `cancel`, `delete`, `triggerEvaluation`, `getEvaluation`, `waitForRun` |
-| `client.jobs`        | `list`, `get`, `cancel`, `retry`, `delete`, `pollUntilTerminal`                                                    |
-| `client.tags`        | `list`                                                                                                             |
-| `client.usage`       | `listEvents`, `getEvent`, `listCalls`                                                                              |
+| Accessor             | Methods                                                                                                                                                                                                                       |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client.agents`      | `create`, `list`, `get`, `update`, `delete`, `testAgentCard`, `testA2aConnection`, `testA2aMessage`, `testMcpConnection`, `testApiAgent`, `testApiAgentCurl`, `testApiAgentDirectline`                                        |
+| `client.scenarios`   | `generate`, `generateFromQna`, `list`, `get`, `update`, `delete`, `getJob`                                                                                                                                                    |
+| `client.simulations` | `creditPreview`, `simulate`, `get`, `list`, `listForScenario`, `cancel`, `delete`, `triggerEvaluation`, `getEvaluation`, `getEvaluationReport`, `getEvaluationScores`, `getScores`, `getOutput`, `downloadFile`, `waitForRun` |
+| `client.jobs`        | `list`, `get`, `cancel`, `retry`, `delete`, `pollUntilTerminal`                                                                                                                                                               |
+| `client.tags`        | `list`, `registerQna`                                                                                                                                                                                                         |
+| `client.usage`       | `getBalance`, `listEvents`, `getEvent`, `listCalls`                                                                                                                                                                           |
+| `client.logs`        | `list`                                                                                                                                                                                                                        |
 
 ## License
 
