@@ -10,6 +10,10 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    strategy:
+      # Exercise the minimum supported Node (engines: >=20) as well as current.
+      matrix:
+        node-version: [20, 22]
     steps:
       - uses: actions/checkout@v4
 
@@ -17,11 +21,17 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node-version }}
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Check version consistency
+        # On a tag build, also assert the tag matches the package version.
+        run: pnpm check:versions
+        env:
+          EXPECT_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
 
       - name: Lint
         run: pnpm lint

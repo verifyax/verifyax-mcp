@@ -11,6 +11,11 @@ on:
         type: boolean
         default: true
 
+permissions:
+  contents: read
+  # Required for npm provenance (OIDC) on the real publish.
+  id-token: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -26,11 +31,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check version consistency
+        run: pnpm check:versions
+
       - name: Build
         run: pnpm build
 
-      - name: Test
-        run: pnpm test
+      # Gate the publish on the full deterministic suite, not just unit tests.
+      # (Live-API drift is caught continuously by the integration job on `main`.)
+      - name: Unit tests
+        run: pnpm test:coverage
+
+      - name: Conformance test
+        run: pnpm test:conformance
 
       - name: Publish (dry run)
         if: ${{ inputs.dry_run }}
@@ -38,6 +51,6 @@ jobs:
 
       - name: Publish
         if: ${{ !inputs.dry_run }}
-        run: pnpm -r publish --access public --no-git-checks
+        run: pnpm -r publish --access public --no-git-checks --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
