@@ -28,7 +28,7 @@ The MCP server complements (does not replace) the existing `verifyax-api` skill 
 1. **Language: TypeScript.** Faster-moving MCP ecosystem, better tool descriptions support.
 2. **Package manager: pnpm** with workspaces.
 3. **SDK and MCP server are separate packages**, published under the `@verifyax` npm scope.
-4. **API client style: resource-oriented**, like `stripe-node`. `client.agents.create(...)`, `client.scenarios.generate(...)`, `client.simulations.evaluate(...)`.
+4. **API client style: resource-oriented**, like `stripe-node`. `client.agents.create(...)`, `client.scenarios.generate(...)`, `client.simulations.simulate(...)`.
 5. **Error handling: typed error hierarchy.** `VerifyaxError` base; `AuthError`, `NotFoundError`, `ConflictError`, `JobFailedError`, `TimeoutError`, `RateLimitError` derived.
 6. **MCP tool errors: structured.** SDK throws; the tool handler catches and translates to MCP tool-result `{ success: false, ... }` payloads. Never let raw exceptions escape into MCP output.
 7. **Polling: in-SDK helper.** `client.jobs.pollUntilTerminal(jobUuid, { timeoutMs, intervalMs })`. Used by both SDK consumers and the MCP server.
@@ -44,7 +44,7 @@ The canonical reference is at `docs/verifyax-api.md` (a copy of the skill's SKIL
 Critical things the API does that are easy to miss:
 
 - All resource IDs come back in the `uuid` field of responses, not in prefixed fields like `scenario_uuid`. Path params use the prefixed names, but you supply the `uuid` value.
-- Tag catalogue is on the `/web/api/v1/` base (not `/api/v1/`) and returns `{ success, data: [...] }`, not a bare array — different from every other list endpoint.
+- Tag catalogue is fetched from the authed `/api/v1/tags` route with your workspace API key and returns a **bare JSON array** (global catalogue merged with the org's custom overlay; org tags have `custom: true`). (Earlier reconciliation moved this off the old no-auth `/web/api/v1` `{ success, data }` envelope — the code in `tags.ts` is authoritative.)
 - Tags have an `allowed_scenario_types` field. Scenario generation **does not** validate this at request time — it returns 201 then the job fails. Filter tags client-side.
 - Benchmark tags (`benchmark_family` set, except `"qna"`) are `info_exchange`-only. QnA tags are `interview`-only and must be the sole tag.
 - Status enums are UPPERCASE: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`, `CANCELLED`. Simulation runs additionally use `CREATED`, `IN_PROGRESS`.
@@ -56,7 +56,7 @@ The MCP server exposes exactly these tools. Each tool description should be shor
 
 | Tool | Maps to | Blocking? |
 |---|---|---|
-| `list_compatible_tags` | `GET /web/api/v1/tags` + client-side filter | No |
+| `list_compatible_tags` | `GET /api/v1/tags` + client-side filter | No |
 | `register_agent` | `POST /agents/tests/agent-card` + `POST /agents` | No |
 | `list_agents` | `GET /agents` | No |
 | `delete_agent` | `DELETE /agents/{uuid}` | No |

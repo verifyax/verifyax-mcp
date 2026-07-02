@@ -76,7 +76,8 @@ First public release. `@verifyax/sdk` and `@verifyax/mcp-server` published to np
 - Documentation: top-level README, per-package READMEs, `docs/tool-descriptions.md`,
   `CONTRIBUTING.md`.
 
-[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/verifyax/verifyax-mcp/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/verifyax/verifyax-mcp/releases/tag/v0.2.0
 [0.1.1]: https://github.com/verifyax/verifyax-mcp/releases/tag/v0.1.1
 [0.1.0]: https://github.com/verifyax/verifyax-mcp/releases/tag/v0.1.0

@@ -20,7 +20,7 @@ Claude or your own code. They overlap on purpose — pick by how you work, not b
   Python/REST calls tailored to your workflow.
 
 - **You're building software on top of VerifyAX** → **`@verifyax/sdk`**. Resource-oriented client
-  (`client.agents.create(...)`, `client.simulations.evaluate(...)`) with a typed error hierarchy and
+  (`client.agents.create(...)`, `client.simulations.simulate(...)`) with a typed error hierarchy and
   in-SDK polling. The MCP server is built on it.
 
 ## Notes
