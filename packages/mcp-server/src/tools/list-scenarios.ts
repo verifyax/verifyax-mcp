@@ -11,7 +11,13 @@ const DESCRIPTION =
 
 const inputObject = z.object({
   scenario_type: z.enum(['info_exchange', 'interview']).optional(),
-  status: z.enum(['INIT', 'PROCESSING', 'SUCCESS', 'FAILED', 'CANCELLED']).optional(),
+  status: z
+    .string()
+    .optional()
+    .describe(
+      'Filter by scenario status. Known values: INIT, PROCESSING, SUCCESS, FAILED, CANCELLED ' +
+        '(open enum — the API may add statuses, which are forwarded rather than rejected).'
+    ),
   limit: z.number().int().positive().max(1000).optional(),
   offset: z.number().int().nonnegative().optional(),
 });

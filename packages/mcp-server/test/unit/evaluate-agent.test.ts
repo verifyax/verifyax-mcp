@@ -45,4 +45,47 @@ describe('evaluate_agent', () => {
     expect(result.isError).toBe(true);
     expect(payloadOf<{ success: boolean }>(result).success).toBe(false);
   });
+
+  it('resolves the evaluation job from evaluation_jobs[] when the scalar is absent', async () => {
+    const { ctx } = stubContext([
+      { method: 'POST', match: 'workspace-credit-preview', body: { newRunEstimatedCredits: 7 } },
+      // Neither the simulate response nor the run carries a scalar evaluation_job_uuid.
+      { method: 'POST', match: 'engine/simulate/scenario', body: { simulation_uuid: 'r1' } },
+      { method: 'GET', match: '/simulations/evaluations/', body: { overall_score: 0.5 } },
+      {
+        method: 'GET',
+        match: '/jobs/eval-9',
+        body: { uuid: 'eval-9', current_status: 'COMPLETED' },
+      },
+      {
+        method: 'GET',
+        match: '/simulations/r1',
+        body: {
+          uuid: 'r1',
+          status: 'COMPLETED',
+          evaluation_jobs: [{ uuid: 'eval-0' }, { uuid: 'eval-9' }],
+        },
+      },
+    ]);
+    const payload = payloadOf<{ success: boolean; evaluation: { overall_score: number } }>(
+      await createEvaluateAgentHandler(ctx)({ agent_uuid: 'a1', scenario_uuid: 's1' })
+    );
+    expect(payload.success).toBe(true);
+    expect(payload.evaluation.overall_score).toBe(0.5);
+  });
+
+  it('fails explicitly when the run completes but no evaluation can be started', async () => {
+    const { ctx } = stubContext([
+      { method: 'POST', match: 'workspace-credit-preview', body: { newRunEstimatedCredits: 7 } },
+      { method: 'POST', match: 'engine/simulate/scenario', body: { simulation_uuid: 'r5' } },
+      { method: 'GET', match: '/simulations/r5', body: { uuid: 'r5', status: 'COMPLETED' } },
+      // Trigger yields no job uuid → nothing to poll.
+      { method: 'POST', match: 'engine/evaluate/trigger', body: {} },
+    ]);
+    const result = await createEvaluateAgentHandler(ctx)({ agent_uuid: 'a1', scenario_uuid: 's1' });
+    expect(result.isError).toBe(true);
+    const payload = payloadOf<{ success: boolean; reason: string }>(result);
+    expect(payload.success).toBe(false);
+    expect(payload.reason).toMatch(/no evaluation could be started/i);
+  });
 });

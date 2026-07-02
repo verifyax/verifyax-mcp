@@ -1,4 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { VerifyaxError } from '@verifyax/sdk';
 import { z } from 'zod';
 import type { ToolContext } from './context.js';
 import { runTool } from './result.js';
@@ -56,22 +57,33 @@ export function createEvaluateAgentHandler(ctx: ToolContext) {
         intervalMs: RUN_INTERVAL_MS,
       });
 
-      // 4. Resolve the evaluation job; trigger one if it wasn't auto-queued.
-      let evalJobUuid = sim.evaluation_job_uuid ?? run.evaluation_job_uuid;
+      // 4. Resolve the evaluation job. The API may report it on the run's
+      // `evaluation_jobs[]` array (take the last) rather than the scalar field;
+      // fall back through both before triggering one manually.
+      let evalJobUuid =
+        sim.evaluation_job_uuid ?? run.evaluation_job_uuid ?? run.evaluation_jobs?.at(-1)?.uuid;
       if (!evalJobUuid) {
         const triggered = await ctx.client.simulations.triggerEvaluation(sim.simulation_uuid);
         evalJobUuid = triggered.evaluation_job_uuid ?? triggered.job_uuid;
       }
 
-      // 5. Wait for the evaluation and fetch its results.
-      let evaluation: unknown = null;
-      if (evalJobUuid) {
-        await ctx.client.jobs.pollUntilTerminal(evalJobUuid, {
-          timeoutMs: POLL_TIMEOUT_MS,
-          intervalMs: EVAL_INTERVAL_MS,
-        });
-        evaluation = await ctx.client.simulations.getEvaluation(evalJobUuid);
+      // No evaluation could be resolved or started — fail explicitly rather than
+      // returning `evaluation: null` as an apparent success (which reads to the
+      // model as "evaluated, no scores").
+      if (!evalJobUuid) {
+        throw new VerifyaxError(
+          `The run ${sim.simulation_uuid} completed (${run.status}) but no evaluation could be ` +
+            'started for it. Confirm the scenario defines evaluation ground truth, then retry, ' +
+            'or inspect the run with get_run_details.'
+        );
       }
+
+      // 5. Wait for the evaluation and fetch its results.
+      await ctx.client.jobs.pollUntilTerminal(evalJobUuid, {
+        timeoutMs: POLL_TIMEOUT_MS,
+        intervalMs: EVAL_INTERVAL_MS,
+      });
+      const evaluation = await ctx.client.simulations.getEvaluation(evalJobUuid);
 
       return {
         simulation_uuid: sim.simulation_uuid,

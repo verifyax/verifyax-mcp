@@ -10,7 +10,13 @@ const DESCRIPTION =
   'agent, or scenario. Returns each run’s uuid, status, agent, scenario, and evaluation handle.';
 
 const inputObject = z.object({
-  status: z.enum(['CREATED', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'CANCELLED']).optional(),
+  status: z
+    .string()
+    .optional()
+    .describe(
+      'Filter by run status. Known values: CREATED, IN_PROGRESS, COMPLETED, FAILED, CANCELLED ' +
+        '(open enum — the API may add statuses, which are forwarded rather than rejected).'
+    ),
   agent_uuid: z.string().optional(),
   scenario_uuid: z.string().optional(),
   limit: z.number().int().positive().max(1000).optional(),

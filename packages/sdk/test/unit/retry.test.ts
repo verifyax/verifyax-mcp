@@ -68,4 +68,39 @@ describe('transport retries', () => {
     );
     expect(calls).toBe(1);
   });
+
+  it('does not retry a POST on a transient 502 (avoids duplicate paid work)', async () => {
+    let calls = 0;
+    server.use(
+      http.post(`${API_BASE}/engine/simulate/scenario`, () => {
+        calls += 1;
+        return HttpResponse.json({ message: 'bad gateway' }, { status: 502 });
+      })
+    );
+
+    await expect(
+      makeClient({ retryBaseMs: 1 }).simulations.simulate({ scenario_uuid: 's1', agent_uuid: 'a1' })
+    ).rejects.toBeInstanceOf(VerifyaxError);
+    expect(calls).toBe(1); // the POST may already have been processed — do not replay it
+  });
+
+  it('still retries a POST on 429 (server rejected before acting)', async () => {
+    let calls = 0;
+    server.use(
+      http.post(`${API_BASE}/engine/simulate/scenario`, () => {
+        calls += 1;
+        if (calls === 1) {
+          return HttpResponse.json({ message: 'slow down' }, { status: 429 });
+        }
+        return HttpResponse.json({ simulation_uuid: 'r1' });
+      })
+    );
+
+    const res = await makeClient({ retryBaseMs: 1 }).simulations.simulate({
+      scenario_uuid: 's1',
+      agent_uuid: 'a1',
+    });
+    expect(calls).toBe(2);
+    expect(res.simulation_uuid).toBe('r1');
+  });
 });
