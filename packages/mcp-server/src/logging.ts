@@ -14,6 +14,34 @@ const LEVEL_WEIGHT: Record<LogLevel, number> = {
 
 export type LogFields = Record<string, unknown>;
 
+// Field names whose values are secrets and must never be logged verbatim, and a
+// value pattern for VerifyAX keys that may be embedded in free-text messages.
+const SECRET_KEY_RE =
+  /^(authorization|api[-_]?key|token|secret|basic_password|password|x-verifyax-api-key)$/i;
+const SECRET_VALUE_RE = /sk-ver-[a-z0-9]+-[A-Za-z0-9._-]+/g;
+
+function redactValue(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return value.replace(SECRET_VALUE_RE, 'sk-ver-***');
+  }
+  if (Array.isArray(value)) {
+    return value.map(redactValue);
+  }
+  if (value && typeof value === 'object') {
+    return redactFields(value as Record<string, unknown>);
+  }
+  return value;
+}
+
+/** Redact secret-bearing fields and any embedded API keys from a log payload. */
+export function redactFields(fields: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(fields)) {
+    out[key] = SECRET_KEY_RE.test(key) ? '[redacted]' : redactValue(value);
+  }
+  return out;
+}
+
 export interface Logger {
   debug(msg: string, fields?: LogFields): void;
   info(msg: string, fields?: LogFields): void;
@@ -35,7 +63,8 @@ export function createLogger(options: LoggerOptions = {}): Logger {
     if (LEVEL_WEIGHT[entryLevel] < LEVEL_WEIGHT[level]) {
       return;
     }
-    const entry = { level: entryLevel, time: new Date().toISOString(), msg, ...fields };
+    const safeFields = fields ? redactFields(fields) : undefined;
+    const entry = { level: entryLevel, time: new Date().toISOString(), msg, ...safeFields };
     write(JSON.stringify(entry));
   };
 

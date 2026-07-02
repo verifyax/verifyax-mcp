@@ -33,4 +33,24 @@ describe('createLogger', () => {
     logger.error('nope');
     expect(lines).toHaveLength(0);
   });
+
+  it('redacts secret-bearing fields and embedded API keys (ARCH-3)', () => {
+    const { logger, lines } = capture('debug');
+    logger.info('request', {
+      authorization: 'Bearer sk-ver-api-supersecret',
+      token: 'sk-ver-api-anothersecret',
+      nested: { basic_password: 'hunter2', note: 'used key sk-ver-api-embedded123 here' },
+      safe: 'ok',
+    });
+    const entry = JSON.parse(lines[0] ?? '{}') as Record<string, unknown>;
+    expect(entry.authorization).toBe('[redacted]');
+    expect(entry.token).toBe('[redacted]');
+    const nested = entry.nested as Record<string, unknown>;
+    expect(nested.basic_password).toBe('[redacted]');
+    expect(nested.note).toBe('used key sk-ver-*** here');
+    expect(entry.safe).toBe('ok');
+    // No raw key material survives anywhere in the serialized line.
+    expect(lines[0]).not.toContain('supersecret');
+    expect(lines[0]).not.toContain('embedded123');
+  });
 });
