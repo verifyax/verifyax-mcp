@@ -85,4 +85,47 @@ describe('agents', () => {
 
     await expect(makeClient().agents.get('missing')).rejects.toBeInstanceOf(NotFoundError);
   });
+
+  it('posts each connectivity probe to its endpoint', async () => {
+    const seen: string[] = [];
+    for (const path of [
+      'a2a-connection',
+      'a2a-message',
+      'api-agent-test',
+      'api-agent-test-curl',
+      'api-agent-test-directline',
+    ]) {
+      server.use(
+        http.post(`${API_BASE}/agents/tests/${path}`, () => {
+          seen.push(path);
+          return HttpResponse.json({ ok: true, probe: path });
+        })
+      );
+    }
+
+    const client = makeClient();
+    expect(
+      await client.agents.testA2aConnection({ agent_url: 'https://a.example', message: 'hi' })
+    ).toMatchObject({ probe: 'a2a-connection' });
+    expect(
+      await client.agents.testA2aMessage({ agent_url: 'https://a.example', message: 'ping' })
+    ).toMatchObject({ probe: 'a2a-message' });
+    expect(await client.agents.testApiAgent({ url: 'https://a.example' })).toMatchObject({
+      probe: 'api-agent-test',
+    });
+    expect(
+      await client.agents.testApiAgentCurl({ curl_command: "curl 'https://a.example'" })
+    ).toMatchObject({ probe: 'api-agent-test-curl' });
+    expect(
+      await client.agents.testApiAgentDirectline({ secret: 'dl-secret', region: 'global' })
+    ).toMatchObject({ probe: 'api-agent-test-directline' });
+
+    expect(seen).toEqual([
+      'a2a-connection',
+      'a2a-message',
+      'api-agent-test',
+      'api-agent-test-curl',
+      'api-agent-test-directline',
+    ]);
+  });
 });
