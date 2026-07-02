@@ -8,7 +8,9 @@ import type { ScenarioType } from '../../src/index.js';
 // pipeline additionally needs a reachable A2A agent via VERIFYAX_TEST_AGENT_URL;
 // that test self-skips when it is absent.
 const API_KEY = process.env.VERIFYAX_TEST_KEY;
-const AGENT_URL = process.env.VERIFYAX_TEST_AGENT_URL;
+// Coerce "" → undefined: in CI an unset secret arrives as an empty string, and
+// `?? fallback` / `!AGENT_URL` must treat that as absent (not a valid URL).
+const AGENT_URL = process.env.VERIFYAX_TEST_AGENT_URL || undefined;
 const noKey = !API_KEY;
 
 // Deterministic prefix so leaked resources are easy to spot and clean up.
