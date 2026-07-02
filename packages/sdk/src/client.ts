@@ -22,6 +22,15 @@ const MAX_BACKOFF_MS = 20_000;
 /** HTTP statuses worth retrying: rate limiting and transient gateway errors. */
 const RETRYABLE_STATUSES = new Set([429, 502, 503, 504]);
 
+/**
+ * Methods safe to auto-retry on a transient gateway error (502/503/504): the
+ * backend may already have processed the request, so only replay ones that are
+ * idempotent by HTTP semantics. A 429 is safe for any method (the server
+ * rejected it before acting), so POST is retried only on 429 — never on a
+ * transient error, which would risk duplicate, credit-consuming work.
+ */
+const IDEMPOTENT_METHODS = new Set(['GET', 'HEAD', 'PUT', 'DELETE', 'OPTIONS']);
+
 /** Minimal fetch signature the client depends on (overridable for tests). */
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -126,7 +135,10 @@ export class VerifyaxClient {
 
       const parsed = await parseBody(response);
       const retryAfter = retryAfterSeconds(response);
-      if (RETRYABLE_STATUSES.has(response.status) && attempt < this.maxRetries) {
+      const retryable =
+        RETRYABLE_STATUSES.has(response.status) &&
+        (response.status === 429 || IDEMPOTENT_METHODS.has(method.toUpperCase()));
+      if (retryable && attempt < this.maxRetries) {
         await sleep(this.backoffMs(attempt, retryAfter), options.signal);
         continue;
       }

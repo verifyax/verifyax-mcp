@@ -212,7 +212,9 @@ export interface Scenario {
 
 export interface ListScenariosParams extends ListParams {
   scenario_type?: ScenarioType;
-  status?: ScenarioStatus;
+  // Open enum: known values are suggested, but the API may add statuses without
+  // a version bump, so a pass-through filter must forward unknown values too.
+  status?: ScenarioStatus | (string & {});
 }
 
 // ---------------------------------------------------------------------------
@@ -299,7 +301,8 @@ export interface SimulationRun {
 }
 
 export interface ListRunsParams extends ListParams {
-  status?: RunStatus;
+  // Open enum (see ListScenariosParams.status) — forward unknown statuses.
+  status?: RunStatus | (string & {});
   agent_uuid?: string;
   scenario_uuid?: string;
 }

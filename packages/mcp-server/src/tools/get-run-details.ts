@@ -23,7 +23,9 @@ export function createGetRunDetailsHandler(ctx: ToolContext) {
       // Fetch the evaluation if one has been queued — best effort, since it may
       // not be ready yet. A failure here shouldn't fail the whole tool.
       let evaluation: unknown = null;
-      const evalJobUuid = run.evaluation_job_uuid;
+      // The API may report the job on `evaluation_jobs[]` (take the last) rather
+      // than the scalar field; fall back so scores aren't silently missed.
+      const evalJobUuid = run.evaluation_job_uuid ?? run.evaluation_jobs?.at(-1)?.uuid;
       if (typeof evalJobUuid === 'string' && evalJobUuid.length > 0) {
         try {
           evaluation = await ctx.client.simulations.getEvaluation(evalJobUuid);

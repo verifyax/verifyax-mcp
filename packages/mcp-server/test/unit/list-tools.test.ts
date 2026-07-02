@@ -35,6 +35,13 @@ describe('list_scenarios', () => {
     );
     expect(payload.scenarios[0]?.status).toBe('SUCCESS');
   });
+
+  it('forwards an unknown status value rather than rejecting it (open enum)', async () => {
+    const { ctx, calls } = stubContext([{ method: 'GET', match: '/scenarios', body: [] }]);
+    const result = await createListScenariosHandler(ctx)({ status: 'ARCHIVED_FUTURE_VALUE' });
+    expect(payloadOf<{ success: boolean }>(result).success).toBe(true);
+    expect(calls[0]?.url).toContain('status=ARCHIVED_FUTURE_VALUE');
+  });
 });
 
 describe('list_recent_runs', () => {
@@ -50,6 +57,13 @@ describe('list_recent_runs', () => {
       await createListRecentRunsHandler(ctx)({ status: 'COMPLETED' })
     );
     expect(payload.runs[0]).toMatchObject({ uuid: 'r1', status: 'COMPLETED' });
+  });
+
+  it('forwards an unknown status value rather than rejecting it (open enum)', async () => {
+    const { ctx, calls } = stubContext([{ method: 'GET', match: '/simulations', body: [] }]);
+    const result = await createListRecentRunsHandler(ctx)({ status: 'QUEUED_FUTURE_VALUE' });
+    expect(payloadOf<{ success: boolean }>(result).success).toBe(true);
+    expect(calls[0]?.url).toContain('status=QUEUED_FUTURE_VALUE');
   });
 });
 

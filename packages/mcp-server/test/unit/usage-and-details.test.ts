@@ -91,4 +91,19 @@ describe('get_run_details', () => {
     expect(payload.status).toBe('COMPLETED');
     expect(payload.evaluation).toBeNull();
   });
+
+  it('resolves the evaluation from evaluation_jobs[] when the scalar is absent', async () => {
+    const { ctx } = stubContext([
+      { method: 'GET', match: '/simulations/evaluations/', body: { overall_score: 0.77 } },
+      {
+        method: 'GET',
+        match: '/simulations/r7',
+        body: { uuid: 'r7', status: 'COMPLETED', evaluation_jobs: [{ uuid: 'e2' }] },
+      },
+    ]);
+    const payload = payloadOf<{ evaluation: { overall_score: number } | null }>(
+      await createGetRunDetailsHandler(ctx)({ simulation_uuid: 'r7' })
+    );
+    expect(payload.evaluation?.overall_score).toBe(0.77);
+  });
 });
