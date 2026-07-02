@@ -18,7 +18,7 @@
 // inherent to a bring-your-own-key pass-through. Eliminating custody entirely is
 // the OAuth roadmap item, not this transport.
 
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { pbkdf2Sync, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { AuthError } from '@verifyax/sdk';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
@@ -66,8 +66,19 @@ const defaultValidateApiKey: ApiKeyValidator = async (ctx) => {
   await ctx.client.usage.getBalance();
 };
 
+const API_KEY_HASH_SALT = 'verifyax-mcp-server:http-session-key-hash:v1';
+const API_KEY_HASH_ITERATIONS = 310_000;
+const API_KEY_HASH_BYTES = 32;
+const API_KEY_HASH_DIGEST = 'sha256';
+
 function hashApiKey(key: string): string {
-  return createHash('sha256').update(key).digest('hex');
+  return pbkdf2Sync(
+    key,
+    API_KEY_HASH_SALT,
+    API_KEY_HASH_ITERATIONS,
+    API_KEY_HASH_BYTES,
+    API_KEY_HASH_DIGEST
+  ).toString('hex');
 }
 
 function keyMatchesHash(presentedKey: string, keyHash: string): boolean {
