@@ -32,8 +32,8 @@ jobs:
       - name: Build (type-checks via tsc -b project references)
         run: pnpm build
 
-      - name: Unit tests
-        run: pnpm test
+      - name: Unit tests (with coverage thresholds)
+        run: pnpm test:coverage
 
       - name: Conformance test (spawns the built MCP server)
         run: pnpm test:conformance
