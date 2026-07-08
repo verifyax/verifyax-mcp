@@ -4,7 +4,7 @@
 </p>
 <!-- Line 1 · Project -->
 <p align="center">
-  <img src="https://img.shields.io/badge/Official-Atlassian-0052CC?logo=atlassian&logoColor=white" alt="Official Atlassian Server">
+
   <a href="https://github.com/verifyax/verifyax-mcp/stargazers"><img src="https://img.shields.io/github/stars/verifyax/verifyax-mcp?style=flat&logo=github&label=Stars&color=0052CC" alt="GitHub stars"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/verifyax/verifyax-mcp?label=License&color=0052CC" alt="License: Apache 2.0"></a>
   <img src="https://img.shields.io/badge/Status-Generally_Available-2EBC4F" alt="Status: Generally Available">
@@ -39,7 +39,7 @@ the skill is for developers writing code; the MCP server is for conversational w
 - [Privacy](#privacy)
 - [License](#license)
 
-## Supported clients
+
 ## Supported clients
 
 The VerifyAX MCP Server is compatible with several clients:
