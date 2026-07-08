@@ -10,11 +10,18 @@ This runs `@verifyax/mcp-server` in **Streamable HTTP** mode on Cloud Run. Clien
 
 ## Build and deploy
 
-The easiest path is the deploy script (creates the Artifact Registry repo if needed):
+The easiest path is the deploy script (creates the Artifact Registry repo if needed). It requires
+`GCP_PROJECT` and `VERIFYAX_MCP_ALLOWED_HOSTS` — there is no shared default project:
 
 ```bash
+export GCP_PROJECT=your-project-id
+export VERIFYAX_MCP_ALLOWED_HOSTS=mcp.verifyax.com,verifyax-mcp-xxxxx-uc.a.run.app
+
 ./deploy/gcp/deploy.sh
 ```
+
+Replace `verifyax-mcp-xxxxx-uc.a.run.app` with your Cloud Run hostname after the first deploy, or
+include your custom domain if you map one.
 
 Or manually from the **repository root**:
 
@@ -23,6 +30,7 @@ export GCP_PROJECT=your-project-id
 export GCP_REGION=us-central1
 export SERVICE_NAME=verifyax-mcp
 export AR_REPO=verifyax-mcp
+export VERIFYAX_MCP_ALLOWED_HOSTS=mcp.verifyax.com,verifyax-mcp-xxxxx-uc.a.run.app
 IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT}/${AR_REPO}/${SERVICE_NAME}:latest"
 
 gcloud config set project "$GCP_PROJECT"
@@ -46,7 +54,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --min-instances 1 \
   --max-instances 1 \
   --memory 512Mi \
-  --update-env-vars "VERIFYAX_MCP_LOG_LEVEL=info,VERIFYAX_MCP_ALLOWED_HOSTS=mcp.verifyax.com,verifyax-mcp-xxxxx-uc.a.run.app"
+  --update-env-vars "VERIFYAX_MCP_LOG_LEVEL=info,VERIFYAX_MCP_ALLOWED_HOSTS=${VERIFYAX_MCP_ALLOWED_HOSTS}"
 ```
 
 `VERIFYAX_MCP_ALLOWED_HOSTS` is **required** — the server refuses to bind a public interface
@@ -78,11 +86,12 @@ controllable) or a custom domain (fully controllable).
 
 The deploy script reads these environment variables:
 
-| Variable       | Default               | Effect on URL                             |
-| -------------- | --------------------- | ----------------------------------------- |
-| `GCP_PROJECT`  | required (no default) | Affects the hash in the middle of the URL |
-| `GCP_REGION`   | `us-central1`         | Region suffix (`uc`, `ew`, etc.)          |
-| `SERVICE_NAME` | `verifyax-mcp`        | Prefix of the URL                         |
+| Variable                     | Default               | Effect on URL                             |
+| ---------------------------- | --------------------- | ----------------------------------------- |
+| `GCP_PROJECT`                | required (no default) | Affects the hash in the middle of the URL |
+| `VERIFYAX_MCP_ALLOWED_HOSTS` | required (no default) | Hostnames allowed to reach `/mcp`         |
+| `GCP_REGION`                 | `us-central1`         | Region suffix (`uc`, `ew`, etc.)          |
+| `SERVICE_NAME`               | `verifyax-mcp`        | Prefix of the URL                         |
 
 Deploy with your choices:
 
@@ -90,6 +99,7 @@ Deploy with your choices:
 export GCP_PROJECT=your-project-id
 export GCP_REGION=us-central1          # or europe-west1, etc.
 export SERVICE_NAME=verifyax-mcp         # → https://verifyax-mcp-XXXXX-uc.a.run.app
+export VERIFYAX_MCP_ALLOWED_HOSTS=mcp.verifyax.com,verifyax-mcp-XXXXX-uc.a.run.app
 
 ./deploy/gcp/deploy.sh
 ```
@@ -152,7 +162,7 @@ gcloud run services update verifyax-mcp \
 
 | Goal                       | What to do                                                               |
 | -------------------------- | ------------------------------------------------------------------------ |
-| Deploy to a project/region | Set `GCP_PROJECT`, `GCP_REGION`, run `./deploy/gcp/deploy.sh`            |
+| Deploy to a project/region | Set `GCP_PROJECT`, `VERIFYAX_MCP_ALLOWED_HOSTS`, `GCP_REGION`, run `./deploy/gcp/deploy.sh` |
 | Change URL prefix          | Set `SERVICE_NAME` before deploy                                         |
 | Use your own domain        | `gcloud run domain-mappings create` + DNS + `VERIFYAX_MCP_ALLOWED_HOSTS` |
 | Verify deployment          | `curl -s https://YOUR-URL/health` → `{"status":"ok"}`                    |
