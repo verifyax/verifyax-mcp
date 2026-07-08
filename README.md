@@ -1,5 +1,22 @@
-# VerifyAX MCP
+<h1 align="center">VerifyAX MCP Server</h1>
+<p align="center">
+  <b>The official Model Context Protocol (MCP) server for VerifyAX: a cloud-hosted bridge that gives your AI tools secure, real-time access to VerifyAX platform, to connect their, define tests and run simulations to evaluate agents behaviour against defined criteria .</b>
+</p>
+<!-- Line 1 · Project -->
+<p align="center">
+  <img src="https://img.shields.io/badge/Official-Atlassian-0052CC?logo=atlassian&logoColor=white" alt="Official Atlassian Server">
+  <a href="https://github.com/verifyax/verifyax-mcp/stargazers"><img src="https://img.shields.io/github/stars/verifyax/verifyax-mcp?style=flat&logo=github&label=Stars&color=0052CC" alt="GitHub stars"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/verifyax/verifyax-mcp?label=License&color=0052CC" alt="License: Apache 2.0"></a>
+  <img src="https://img.shields.io/badge/Status-Generally_Available-2EBC4F" alt="Status: Generally Available">
+</p>
 
+<!-- Line 2 · Protocol & access -->
+<p align="center">
+  <img src="https://img.shields.io/badge/Model_Context_Protocol-compatible-000000?logo=modelcontextprotocol&logoColor=white" alt="Model Context Protocol compatible">
+  <a href="server.json"><img src="https://img.shields.io/badge/MCP_Registry-verifyax.com-000000?logo=modelcontextprotocol&logoColor=white" alt="MCP Registry: verifyax.com"></a>
+
+
+</p>
 Conversational access to the [VerifyAX](https://verifyax.com) agent-evaluation platform, plus
 the typed SDK it is built on. Two packages in one pnpm monorepo:
 
@@ -11,8 +28,36 @@ the typed SDK it is built on. Two packages in one pnpm monorepo:
 This complements (does not replace) the [`verifyax-api` skill](https://github.com/verifyax/verifyax-plugins):
 the skill is for developers writing code; the MCP server is for conversational workflows.
 
-## Install the MCP server
+## Table of contents
+- [Supported Clients](#s)
+- [Install the MCP server](#install-the-mcp-server)
+- [What you can ask](#what-you-can-ask)
+- [Troubleshooting](#troubleshooting)
+- [Status](#status)
+- [Development](#development)
+  - [Debugging with MCP Inspector](#debugging-with-mcp-inspector)
+- [Privacy](#privacy)
+- [License](#license)
 
+## Supported clients
+## Supported clients
+
+The VerifyAX MCP Server is compatible with several clients:
+
+| Client | Setup reference |
+| --- | --- |
+| OpenAI ChatGPT | [Connectors / MCP guide](https://platform.openai.com/docs/guides/tools-connectors-mcp) |
+| Claude (Claude.ai, Desktop, and Code) | [Claude MCP docs](https://code.claude.com/docs/en/mcp) |
+| Cursor | [Cursor MCP docs](https://cursor.com/docs/mcp) |
+| Visual Studio Code (GitHub Copilot) | [VS Code MCP docs](https://code.visualstudio.com/docs/copilot/chat/mcp-servers) |
+| GitHub Copilot CLI | [About Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli) |
+| Google Gemini CLI | [Gemini CLI MCP docs](https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md) |
+| Amazon Quick Suite | [MCP integration guide](https://docs.aws.amazon.com/quicksuite/latest/userguide/mcp-integration.html) |
+
+ 
+
+## Install the MCP server
+### Running locally with stdio transport
 Requires Node ≥ 20 and a VerifyAX API key (Settings → API Keys in the
 [console](https://console.verifyax.com)).
 
@@ -22,7 +67,7 @@ Requires Node ≥ 20 and a VerifyAX API key (Settings → API Keys in the
 claude mcp add verifyax --env VERIFYAX_API_KEY=sk-ver-api-... -- npx -y @verifyax/mcp-server
 ```
 
-**Claude Desktop** (`claude_desktop_config.json`):
+**Claude Desktop** Add this to your (`claude_desktop_config.json`):
 
 ```json
 {
@@ -39,6 +84,38 @@ claude mcp add verifyax --env VERIFYAX_API_KEY=sk-ver-api-... -- npx -y @verifya
 Restart the client, then describe what you want. See
 [`packages/mcp-server`](packages/mcp-server) for the full tool list and configuration.
 
+
+### Running with Streamable HTTP transport
+
+A supported client connects to the server endpoint. The endpoint of our deployed MCP server is:
+ ```
+https://mcp.verifyax.com/mcp
+  ```
+
+
+  **Claude Desktop** Add this to your (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+   "verifyax": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.verifyax.com/mcp",
+        "--transport",
+        "http-only",
+        "--header",
+        "Authorization:${VERIFYAX_AUTH}"
+      ],
+      "env": {
+        "VERIFYAX_AUTH": "Bearer your-verifyax-api-key"
+      }
+    }
+}
+}
+```
 ## What you can ask
 
 Once installed, just describe the task — Claude picks the tool:
