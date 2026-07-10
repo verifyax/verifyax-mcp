@@ -151,6 +151,22 @@ export function sweepIdleSessions(
   return evicted;
 }
 
+/** Drop rate-limit entries whose fixed window has fully elapsed. Returns count removed. */
+export function sweepRateState(
+  rateState: Map<string, { count: number; windowStartMs: number }>,
+  now: number,
+  windowMs: number
+): number {
+  let removed = 0;
+  for (const [key, state] of rateState) {
+    if (now - state.windowStartMs >= windowMs) {
+      rateState.delete(key);
+      removed += 1;
+    }
+  }
+  return removed;
+}
+
 function jsonRpcError(res: Response, status: number, message: string): void {
   res.status(status).json({ jsonrpc: '2.0', error: { code: -32000, message }, id: null });
 }
@@ -169,13 +185,24 @@ export function registerStreamableHttpRoutes(
   options: StreamableHttpOptions = {}
 ): Map<string, McpSession> {
   const sessions = new Map<string, McpSession>();
+  // In-flight initialize requests that have passed the cap check but haven't yet
+  // registered their session. Counted against the cap to close the init race.
+  let pendingInits = 0;
   const validateApiKey = options.validateApiKey ?? defaultValidateApiKey;
   const now = options.now ?? (() => Date.now());
   const rateState = new Map<string, { count: number; windowStartMs: number }>();
+  // Reclaim rate-limit entries for keys that fall idle. Bounded to at most one
+  // O(n) pass per window so a stream of distinct keys can't grow the map without
+  // limit (an entry survives at most ~2 windows past its last request).
+  let lastRatePruneMs = now();
 
   /** Fixed-window per-key rate limit. Returns true when the request is allowed. */
   const allowRate = (keyHash: string): boolean => {
     const ts = now();
+    if (ts - lastRatePruneMs >= RATE_WINDOW_MS) {
+      sweepRateState(rateState, ts, RATE_WINDOW_MS);
+      lastRatePruneMs = ts;
+    }
     const state = rateState.get(keyHash);
     if (!state || ts - state.windowStartMs >= RATE_WINDOW_MS) {
       rateState.set(keyHash, { count: 1, windowStartMs: ts });
@@ -247,31 +274,51 @@ export function registerStreamableHttpRoutes(
           return;
         }
 
-        // Cap concurrent sessions (sweep idle ones first).
-        if (sessions.size >= MAX_SESSIONS) {
+        // Cap concurrent sessions (sweep idle ones first). Count in-flight inits
+        // too: without that, a burst of concurrent initialize requests can all
+        // pass the check before any registers its session and blow past the cap.
+        if (sessions.size + pendingInits >= MAX_SESSIONS) {
           sweepIdleSessions(sessions, now(), SESSION_IDLE_TTL_MS, logger);
-          if (sessions.size >= MAX_SESSIONS) {
+          if (sessions.size + pendingInits >= MAX_SESSIONS) {
             jsonRpcError(res, 503, 'Server at capacity. Try again shortly.');
             return;
           }
         }
 
-        const transport = new StreamableHTTPServerTransport({
-          sessionIdGenerator: () => randomUUID(),
-          onsessioninitialized: (sid) => {
-            sessions.set(sid, { transport, ctx, keyHash, lastSeenMs: now() });
-          },
-        });
-        transport.onclose = () => {
-          const sid = transport.sessionId;
-          if (sid) {
-            sessions.delete(sid);
+        // Reserve the slot synchronously (before any await) and release it once
+        // the session is registered or the init fails. Idempotent so the map
+        // insert and the finally can't double-count.
+        pendingInits += 1;
+        let reservationHeld = true;
+        const releaseReservation = (): void => {
+          if (reservationHeld) {
+            reservationHeld = false;
+            pendingInits -= 1;
           }
         };
 
-        const server = createServer(ctx);
-        await server.connect(transport);
-        await transport.handleRequest(req, res, req.body);
+        try {
+          const transport = new StreamableHTTPServerTransport({
+            sessionIdGenerator: () => randomUUID(),
+            onsessioninitialized: (sid) => {
+              sessions.set(sid, { transport, ctx, keyHash, lastSeenMs: now() });
+              releaseReservation();
+            },
+          });
+          transport.onclose = () => {
+            const sid = transport.sessionId;
+            if (sid) {
+              sessions.delete(sid);
+            }
+          };
+
+          const server = createServer(ctx);
+          await server.connect(transport);
+          await transport.handleRequest(req, res, req.body);
+        } finally {
+          // Covers the failure path where onsessioninitialized never fired.
+          releaseReservation();
+        }
         return;
       }
 

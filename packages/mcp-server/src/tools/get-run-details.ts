@@ -47,7 +47,10 @@ export function createGetRunDetailsHandler(ctx: ToolContext) {
           status: run.status,
           agent_uuid: run.agent_uuid ?? null,
           scenario_uuid: run.scenario_uuid ?? null,
-          evaluation_job_uuid: run.evaluation_job_uuid ?? null,
+          // Use the resolved job id (scalar OR the evaluation_jobs[] fallback),
+          // so a run that only exposes its job via the array doesn't report null
+          // here while its scores are fetched fine.
+          evaluation_job_uuid: evalJobUuid ?? null,
           created_at: run.created_at ?? null,
           updated_at: run.updated_at ?? null,
         },

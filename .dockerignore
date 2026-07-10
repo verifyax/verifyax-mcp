@@ -10,7 +10,11 @@
 **/.env.*
 .npmrc
 docs
-deploy
+# NOTE: do NOT ignore `deploy/`. `gcloud builds submit` filters the uploaded
+# source with this .dockerignore (no .gcloudignore present), and the build runs
+# `docker build -f deploy/gcp/Dockerfile .`. Ignoring `deploy/` strips the
+# Dockerfile from the upload and the build fails before it starts. The Dockerfile
+# COPYs nothing under deploy/, so keeping it costs only a few KB of context.
 **/test
 *.md
 mcp-publisher
