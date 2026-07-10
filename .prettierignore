@@ -3,6 +3,11 @@ node_modules
 coverage
 pnpm-lock.yaml
 
+# Generated from the OpenAPI spec — do not reformat (regenerate via `pnpm gen:types`).
+packages/sdk/src/types.gen.ts
+# Verbatim mirror of the canonical spec (see scripts/sync-sdk-spec.sh).
+packages/sdk/openapi/
+
 # Hand-maintained docs — not reformatted by Prettier.
 # docs/verifyax-api.md is a verbatim copy of the skill's SKILL.md (see CLAUDE.md).
 CLAUDE.md

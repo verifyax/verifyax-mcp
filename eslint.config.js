@@ -7,7 +7,8 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**'],
+    // types.gen.ts is generated from the OpenAPI spec (see scripts/sync-sdk-spec.sh).
+    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**', '**/types.gen.ts'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

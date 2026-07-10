@@ -1,0 +1,4135 @@
+openapi: 3.0.3
+info:
+  title: VerifyAX Gateway Public API
+  version: 1.0.0
+  license:
+    name: Proprietary
+    url: https://conscium.com/terms-of-use
+  description: >
+    Public HTTP API exposed by the VerifyAX gateway under `/api`.
+
+    **Tenant scoping:** On proxied `POST`, `PUT`, and `PATCH` bodies (except
+    `PATCH /v1/scenarios/{scenario_uuid}/artifacts`), the gateway sets
+    `organization_uuid`, `workspace_uuid`, and `user_uuid` from the authenticated API key.
+    Client-supplied values for those fields are **overwritten** before the request reaches
+    verifyax-api. The same tenant fields are also set on query strings for `GET`/`DELETE`.
+    API keys must be bound to a user. Example request bodies in this document may still
+    show tenant UUIDs for clarity; treat them as illustrative — the gateway replaces them.
+    Response bodies may include tenant fields returned by verifyax-api (resource metadata,
+    usage events, etc.).
+
+    **Rate limiting:** Public `/api/v1` requests are limited per workspace. Responses include
+    `RateLimit-*` headers; exceeding the limit returns **429** with `Retry-After`.
+servers:
+  - url: /api
+    description: Gateway public API base path
+tags:
+  - name: Auth
+    description: One-time login tokens for browser sign-in from API-authenticated context.
+  - name: Tickets
+    description: Open feedback or help/support tickets for the API key's user.
+  - name: Scenarios
+    description: Simulation scenarios (generation, copies, artifact reads).
+  - name: Jobs
+    description: Async Celery-backed jobs (scenario creation, engine runs, evaluations, etc.).
+  - name: Agents
+    description: Registered agent endpoints (A2A, API, extension) and connectivity tests.
+  - name: Engine
+    description: Start simulation runs, preview credits, and trigger evaluations.
+  - name: Billing
+    description: Read-only billing balances for API-key tenants.
+  - name: Simulations
+    description: List, fetch, cancel, and delete simulation runs (`simulation_uuid` in paths).
+  - name: Audit Logs
+    description: Read-only organization audit events with filters and pagination.
+  - name: Usage
+    description: Workspace usage events and per-call LLM usage for spend analysis.
+  - name: Skill Tags
+    description: >
+      Scenario skill tag catalogue for scenario generation (`GET /v1/tags`). Use tag `name`
+      values in `POST /v1/scenarios/generate`; filter by `allowed_scenario_types` for your
+      `scenario_type` before calling generate.
+  - name: Client Tags
+    description: Register organization-specific QnA skill tags for interview scenarios.
+security:
+  - BearerApiKeyAuth: []
+paths:
+  /v1/auth/one-time-login-token:
+    post:
+      tags: [Auth]
+      summary: Create one-time login token
+      description: >
+        Creates a one-time token using API-key authenticated context. Response `example_links`
+        put the token in the URL fragment (`#one-time-login-token=...`) so static hosts and
+        cross-origin Referer headers do not receive the secret; the user-webapp redeems it via POST.
+        The webapp does not read the token from the query string.
+      operationId: createOneTimeLoginToken
+      responses:
+        "200":
+          description: Token created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OneTimeLoginTokenResponse"
+        "400":
+          description: Missing user, organization, or workspace context
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/tickets:
+    post:
+      tags: [Tickets]
+      summary: Open a ticket
+      description: >
+        Opens a ticket (a feedback or help/support message) on behalf of the API key's user.
+        The user identity is taken from the API key and the email is resolved server-side, so
+        only `message` (and optional `type`) are sent in the body. `type` defaults to
+        `help_support`. Returns **400** if the user account has no email address, and **404**
+        if the API key's user account cannot be found.
+      operationId: createTicket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketCreate"
+      responses:
+        "201":
+          description: Ticket created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketResponse"
+        "400":
+          description: Empty message, invalid type, or the user account has no email address
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: The user account associated with the API key was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/billing/balance:
+    get:
+      tags: [Billing]
+      summary: Get billing balance
+      description: Returns read-only billing balance fields for the API key tenant.
+      operationId: getBillingBalance
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      responses:
+        "200":
+          description: Billing balance fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicBillingBalanceResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/scenarios:
+    get:
+      tags: [Scenarios]
+      summary: List scenarios
+      description: >
+        Lists scenario rows with optional `scenario_type`, `status`, `limit`, and `offset`
+        filters. Default `limit` upstream is 100 (max 1000).
+      operationId: listScenarios
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/ScenarioType"
+        - $ref: "#/components/parameters/Status"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: List scenarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScenarioResponse"
+        "400":
+          description: Invalid scenario_type or status filter value
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+    post:
+      tags: [Scenarios]
+      summary: Create scenario shell
+      description: >
+        **Step 1 of a 2-step JSON import.** Creates an empty scenario row synchronously (no
+        `scenario_creation` job). The scenario is **not runnable** until step 2: uploading
+        the definition via `PATCH /v1/scenarios/{uuid}/artifacts`. Starting a run on a shell
+        before the artifacts are uploaded returns **409 `scenario_definition_missing`** from
+        `/v1/engine/simulate/scenario` and `/v1/engine/workspace-credit-preview`. Use
+        `scenario_type: info_exchange` for JSON imports. Sending `corpus_uuid` returns **400**.
+        `job_uuid` in the response is null. Prefer `POST /v1/scenarios/generate` if you want
+        a fully-formed scenario in one call.
+
+        **Developer-only:** requires the API-key owner's Auth0 user to have the platform
+        `developer` role (enforced by the gateway via Auth0 Management API).
+      operationId: createScenario
+      x-developer-only: true
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScenarioCreateRequest"
+            example:
+              name: Imported Scenario
+              description: Scenario imported from JSON
+              scenario_type: info_exchange
+      responses:
+        "201":
+          description: Created scenario shell
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioCreateResponse"
+              example:
+                uuid: 00000000-0000-0000-0000-000000000001
+                name: Imported Scenario
+                description: Scenario imported from JSON
+                scenario_type: info_exchange
+                job_uuid: null
+        "400":
+          description: Missing scenario_type, invalid enum, or corpus_uuid sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: API-key owner lacks Auth0 developer role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "409":
+          description: Name already exists in workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/scenarios/generate:
+    post:
+      tags: [Scenarios]
+      summary: Generate scenario
+      description: >
+        Queues LLM scenario_creation work. Returns the scenario row (`uuid`, not
+        `scenario_uuid`) plus `job_uuid`. When num_scenarios is greater than 1, creates a batch
+        (`batch_uuid`, `batch_scenario_uuids`) and requires `tag_pool`. Runs a billing credit
+        preflight before enqueueing (**402** when balance is insufficient, **502** when billing is
+        unreachable). Tenant UUIDs are injected by the gateway from the API key. Use the returned
+        `uuid` as the `scenario_uuid` path parameter on `/v1/scenarios/{scenario_uuid}/...`.
+      operationId: generateScenario
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulationScenarioCreateRequest"
+            example:
+              name: Product Return Flow
+              scenario_type: interview
+              tags: [anger_deescalation, empathy]
+              context_prompt: Customer wants to return a damaged item bought 2 weeks ago
+      responses:
+        "201":
+          description: Created scenario with scenario_creation job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioCreateResponse"
+              example:
+                uuid: 00000000-0000-0000-0000-000000000001
+                name: Product Return Flow
+                scenario_type: interview
+                status: null
+                job_uuid: 11111111-1111-1111-1111-111111111111
+                batch_uuid: null
+                batch_scenario_uuids: null
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          description: Insufficient workspace credits for estimated generation cost
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "409":
+          description: Name already exists in workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "422":
+          description: Request body failed Pydantic validation (tag caps, batch rules, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+        "502":
+          description: Billing preflight could not reach the billing service
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+
+  /v1/scenarios/generate-from-qna:
+    post:
+      tags: [Scenarios]
+      summary: Generate interview scenario from Q&A
+      description: >
+        Creates a fixed-question **interview** scenario from inline Q&A pairs (for example
+        `l3_qna_benchmark.json` output). Enqueues `scenario_creation` and returns the scenario
+        row plus `job_uuid`. Tenant UUIDs are injected by the gateway from the API key.
+      operationId: generateScenarioFromQna
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateScenarioFromQnaRequest"
+            example:
+              name: Latin QnA interview
+              context_prompt: Latin dance history
+              questions:
+                - question: What is salsa?
+                  correct_answer: A partner dance with Afro-Cuban roots.
+                  is_hallucination_trap: false
+      responses:
+        "201":
+          description: Created scenario with scenario_creation job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioCreateResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: Request body failed validation (empty questions, too many items, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/scenarios/{scenario_uuid}:
+    get:
+      tags: [Scenarios]
+      summary: Get scenario by UUID
+      description: >
+        Returns scenario metadata, definition paths, optional `scenario_creation_job_status`,
+        complexity fields, etc.
+      operationId: getScenario
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/ScenarioUuid"
+      responses:
+        "200":
+          description: Scenario details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Scenario not in the authenticated workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "404":
+          description: Scenario not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+    patch:
+      tags: [Scenarios]
+      summary: Update scenario by UUID
+      description: Partial metadata update (name and description only).
+      operationId: updateScenario
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/ScenarioUuid"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScenarioUpdateRequest"
+            example:
+              name: Customer Support L2 - Revised
+              description: Updated description for scenario tuning
+      responses:
+        "200":
+          description: Updated scenario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Scenario not in the authenticated workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "404":
+          description: Scenario not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+    delete:
+      tags: [Scenarios]
+      summary: Delete scenario by UUID
+      description: >
+        Deletes the scenario in the current workspace context. Returns **409** when the scenario
+        still has any non-deleted simulation run pointing at it.
+      operationId: deleteScenario
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/ScenarioUuid"
+      responses:
+        "204":
+          description: Scenario deleted (no response body)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Scenario not in the authenticated workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "404":
+          description: Scenario not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "409":
+          description: Scenario still has non-deleted simulation runs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/scenarios/{scenario_uuid}/generate-copy:
+    post:
+      tags: [Scenarios]
+      summary: Generate new scenario from stored creation parameters
+      description: >
+        Replays `creation_parameters` from the source scenario through the same LLM generation
+        path as `POST /v1/scenarios/generate`. Response shape matches generate (`uuid`, `job_uuid`,
+        optional batch fields). Returns **400** when the source has no saved creation snapshot.
+        Tenant scope is injected from the API key (query on upstream).
+      operationId: generateScenarioCopy
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/ScenarioUuid"
+      responses:
+        "201":
+          description: New scenario with scenario_creation job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioCreateResponse"
+              example:
+                uuid: 00000000-0000-0000-0000-000000000002
+                name: Product Return Flow (Copy)
+                job_uuid: 11111111-1111-1111-1111-111111111111
+        "400":
+          description: Source has no creation_parameters to replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Scenario not in tenant scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "404":
+          description: Scenario not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "409":
+          description: Name conflict in workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/scenarios/{scenario_uuid}/copy:
+    post:
+      tags: [Scenarios]
+      summary: Copy scenario
+      description: >
+        Duplicates storage (`scenario.json` when present) into a new scenario row in the same
+        workspace. Optional `new_name` query parameter; default name is `{original} (Copy)` with
+        numeric suffixes when needed.
+      operationId: copyScenario
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/ScenarioUuid"
+        - $ref: "#/components/parameters/NewName"
+      responses:
+        "201":
+          description: Copied scenario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Scenario not in tenant scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "404":
+          description: Scenario not found, or source scenario.json missing in storage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "409":
+          description: Name conflict in workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/scenarios/{scenario_uuid}/job:
+    get:
+      tags: [Scenarios]
+      summary: List jobs for scenario
+      description: >
+        Returns all non-deleted jobs for the scenario (newest first), including
+        `scenario_creation` and other job types.
+      operationId: getScenarioJob
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/ScenarioUuid"
+      responses:
+        "200":
+          description: Scenario jobs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Scenario not in the authenticated workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "404":
+          description: Scenario not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/scenarios/{scenario_uuid}/artifacts:
+    get:
+      tags: [Scenarios]
+      summary: Get scenario artifacts JSON
+      description: >
+        Downloads `scenario.json` (or legacy `benchmark.json` for corpus-linked rows) from storage.
+        **404** when `definition_bucket_path` is unset or the file is missing.
+      operationId: getScenarioArtifacts
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/ScenarioUuid"
+      responses:
+        "200":
+          description: Parsed scenario.json (or legacy benchmark.json) object
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Scenario not in the authenticated workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "404":
+          description: definition_bucket_path unset or JSON file missing in storage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+    patch:
+      tags: [Scenarios]
+      summary: Replace scenario artifacts JSON
+      description: >
+        Replaces the entire `scenario.json` object in storage with the request body (full
+        document upload, not a deep merge). Requires `definition_bucket_path` on the scenario.
+
+        **Developer-only:** requires the API-key owner's Auth0 user to have the platform
+        `developer` role (enforced by the gateway via Auth0 Management API).
+      operationId: patchScenarioArtifacts
+      x-developer-only: true
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/ScenarioUuid"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example:
+              prompt_template: "You are a support assistant. Follow policy strictly."
+              metadata:
+                owner: qa-team
+                version: "1.0.0"
+      responses:
+        "200":
+          description: Echoes the uploaded JSON document after writing to storage
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: API-key owner lacks Auth0 developer role, or scenario not in workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "404":
+          description: definition_bucket_path unset on the scenario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/jobs:
+    get:
+      tags: [Jobs]
+      summary: List jobs
+      description: >
+        Lists async jobs for the workspace (scenario creation, engine simulation runs,
+        evaluations, etc.) with optional `current_status` filter and pagination.
+      operationId: listJobs
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/CurrentStatus"
+      responses:
+        "200":
+          description: List jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobResponse"
+              example:
+                - uuid: 11111111-1111-1111-1111-111111111111
+                  job_type: simulation
+                  user_uuid: 00000000-0000-0000-0000-000000000001
+                  workspace_uuid: 00000000-0000-0000-0000-000000000002
+                  current_status: PROCESSING
+                  current_progress_text: Round 3 of 5
+                  progress_percentage: 60
+                  error_details: null
+                  task_id: celery-task-id
+                  created_at: "2026-04-30T10:00:00.000Z"
+                  updated_at: "2026-04-30T10:02:30.000Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/jobs/{job_uuid}:
+    get:
+      tags: [Jobs]
+      summary: Get job by UUID
+      description: Returns one job by UUID — current status, progress, and error details.
+      operationId: getJob
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/JobUuid"
+      responses:
+        "200":
+          $ref: "#/components/responses/ProxySuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+    delete:
+      tags: [Jobs]
+      summary: Delete job by UUID
+      description: Deletes a job record. Typically allowed only for terminal states (`COMPLETED`, `FAILED`, `CANCELLED`).
+      operationId: deleteJob
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/JobUuid"
+      responses:
+        "200":
+          $ref: "#/components/responses/ProxySuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/jobs/{job_uuid}/retry:
+    post:
+      tags: [Jobs]
+      summary: Retry job
+      description: Submits a retry for a `FAILED` or retriable job in the workspace context.
+      operationId: retryJob
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/JobUuid"
+      responses:
+        "200":
+          $ref: "#/components/responses/ProxySuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/jobs/{job_uuid}/cancel:
+    post:
+      tags: [Jobs]
+      summary: Cancel job
+      description: >
+        Cancels an in-progress job when allowed by policy. Returns an acknowledgement message
+        when cancellation succeeds.
+      operationId: cancelJob
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/JobUuid"
+      responses:
+        "200":
+          description: Job cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobCancelResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Job not found in the authenticated workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/agents:
+    get:
+      tags: [Agents]
+      summary: List agents
+      description: Lists agents registered in the workspace with optional type filter and pagination.
+      operationId: listAgents
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/AgentType"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: List agents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+    post:
+      tags: [Agents]
+      summary: Create agent
+      description: Registers an agent endpoint (A2A, API, Direct Line, etc.) for use in simulations and tests.
+      operationId: createAgent
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentCreateRequest"
+            examples:
+              a2a:
+                summary: A2A agent
+                value:
+                  name: Support Agent
+                  description: Agent for handling customer support requests
+                  agent_url: https://agent.example.com/api
+                  agent_type: A2A
+                  agent_parameters:
+                    auth_method: bearer
+                    token: sk-example-token-min-10-chars
+                    timeout: 15000
+              directline:
+                summary: Copilot Studio (Direct Line)
+                description: >
+                  Set `agent_url` from `directline.region` (see DirectlineAgentParameters).
+                  Store the Direct Line secret under `agent_parameters.directline.secret`.
+                value:
+                  name: Copilot Studio Support Bot
+                  description: Microsoft Copilot Studio agent over Direct Line 3.0
+                  agent_url: https://directline.botframework.com
+                  agent_type: DIRECTLINE
+                  agent_parameters:
+                    directline:
+                      secret: "<direct-line-secret-from-copilot-studio>"
+                      region: global
+                    include_full_context: first_only
+                    include_message_history: false
+      responses:
+        "200":
+          description: Agent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/agents/{agent_uuid}:
+    get:
+      tags: [Agents]
+      summary: Get agent by UUID
+      description: Returns a single agent definition including URL and parameters.
+      operationId: getAgent
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/AgentUuid"
+      responses:
+        "200":
+          description: Agent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+    patch:
+      tags: [Agents]
+      summary: Update agent by UUID
+      description: Partially updates agent settings (name, URL, agent_parameters).
+      operationId: updateAgent
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/AgentUuid"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentUpdateRequest"
+            example:
+              name: Support Agent - Updated
+              description: Tweaked timeout and endpoint
+              agent_url: https://example.com/agent/v2
+              agent_parameters:
+                timeout_seconds: 30
+      responses:
+        "200":
+          $ref: "#/components/responses/ProxySuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+    delete:
+      tags: [Agents]
+      summary: Delete agent by UUID
+      description: Removes the agent from the workspace registry.
+      operationId: deleteAgent
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/AgentUuid"
+      responses:
+        "200":
+          $ref: "#/components/responses/ProxySuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/agents/tests/agent-card:
+    post:
+      tags: [Agents]
+      summary: Test fetch agent card via proxy connector
+      description: Validates connectivity by fetching an A2A-style agent card URL through the gateway connector.
+      operationId: testAgentCard
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FetchAgentCardRequest"
+            example:
+              agent_url: https://example.com/.well-known/agent.json
+              agent_type: A2A
+      responses:
+        "200":
+          $ref: "#/components/responses/ProxySuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/agents/tests/api-agent-test:
+    post:
+      tags: [Agents]
+      summary: Test REST agent endpoint
+      description: Sends a configurable HTTP request to a REST agent and returns the proxied response for debugging.
+      operationId: testRestAgent
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestRestAgentRequest"
+            example:
+              url: https://example.com/agent/test
+              method: POST
+              headers:
+                Authorization: Bearer replace-with-token
+              body:
+                message: Hello from API docs test
+              timeout: 10.0
+      responses:
+        "200":
+          $ref: "#/components/responses/ProxySuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/agents/tests/api-agent-test-curl:
+    post:
+      tags: [Agents]
+      summary: Test CURL agent command
+      description: Executes a curl-style agent definition server-side with a timeout for integration checks.
+      operationId: testCurlAgent
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestCurlAgentRequest"
+            example:
+              curl_command: "curl -X POST https://example.com/agent/test -H 'Content-Type: application/json' -d '{\"message\":\"hello\"}'"
+              timeout: 10.0
+      responses:
+        "200":
+          $ref: "#/components/responses/ProxySuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/agents/tests/a2a-connection:
+    post:
+      tags: [Agents]
+      summary: Test A2A agent connection (card, message, mini simulations)
+      description: >
+        Full A2A onboarding connectivity test: fetches the agent card, sends a synchronous
+        message probe, and optionally starts background mini scenario simulations when
+        `agent_uuid` and tenant UUIDs are present (injected from the API key on the public
+        surface). Poll the agent record for `testing` status when `testing_started` is true.
+      operationId: testA2aConnection
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/A2AConnectionTestRequest"
+            example:
+              agent_url: https://example.com/.well-known/agent.json
+              agent_type: A2A
+              message: Hello from VerifyAX connection test
+      responses:
+        "200":
+          description: Connection test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/A2AConnectionTestResponse"
+        "400":
+          description: Missing agent_url or invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/agents/tests/a2a-message:
+    post:
+      tags: [Agents]
+      summary: Test A2A message probe
+      description: >
+        Sends a single A2A message probe through the gateway connector. Lighter-weight than
+        `POST /v1/agents/tests/a2a-connection` (no mini simulations).
+      operationId: testA2aMessage
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestA2AMessageRequest"
+            example:
+              agent_url: https://example.com/.well-known/agent.json
+              agent_type: A2A
+              message: Ping
+      responses:
+        "200":
+          $ref: "#/components/responses/ProxySuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/agents/tests/api-agent-test-directline:
+    post:
+      tags: [Agents]
+      summary: Test Copilot Studio via Direct Line
+      description: >
+        Probes a Microsoft Copilot Studio agent using a Direct Line secret **before registration**.
+        Request body uses top-level `secret` and `region` — not the nested
+        `agent_parameters.directline` object used by `POST /v1/agents`. Returns connector
+        outcome metadata (`success`, `message`, `outcome`) suitable for onboarding checks.
+      operationId: testDirectlineAgent
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestDirectlineAgentRequest"
+            example:
+              secret: "<direct-line-secret>"
+              region: global
+              message: Hello
+              timeout: 60.0
+      responses:
+        "200":
+          $ref: "#/components/responses/ProxySuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/agents/tests/mcp-connection:
+    post:
+      tags: [Agents]
+      summary: Test MCP server connection
+      description: >
+        Discovers tools on a remote MCP server and optionally probes the catalogue MCP adapter
+        when `agent_url` and registry context are present. Tenant UUIDs are injected from the
+        API key. Use before or after registering an agent with `agent_type: MCP`.
+      operationId: testMcpConnection
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestMcpConnectionRequest"
+            example:
+              mcp_url: https://mcp.example.com/mcp
+              auth_method: bearer
+              token: "<pat-or-api-key>"
+              agent_url: https://mcp-adapter.example.run.app
+      responses:
+        "200":
+          description: MCP discovery and optional adapter probe result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestMcpConnectionResponse"
+        "400":
+          description: Missing mcp_url or invalid MCP URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/engine/workspace-credit-preview:
+    post:
+      tags: [Engine]
+      summary: Preview workspace credits (scenario run or scenario generation)
+      description: >
+        Unified credit preview: organisation balance, pending ENGINE verification runs and
+        scenario_creation jobs (with stored estimates), and either `newRunEstimatedCredits`
+        (`mode: scenario_run`) or `newGenerationEstimatedCredits` (`mode: scenario_generation`).
+        The estimate field that does not apply is `null`. Tenant UUIDs in the body are
+        overwritten by the gateway from the API key (see API overview).
+      operationId: previewWorkspaceCredits
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreditPreviewRequest"
+            examples:
+              scenario_run:
+                summary: Scenario run estimate
+                description: Tenant UUIDs optional — gateway injects them from the API key.
+                value:
+                  mode: scenario_run
+                  organization_uuid: 00000000-0000-0000-0000-000000000010
+                  workspace_uuid: 00000000-0000-0000-0000-000000000020
+                  scenario_uuid: 00000000-0000-0000-0000-000000000001
+                  num_runs: 2
+                  timeout_minutes: 30
+              scenario_generation:
+                summary: Scenario generation estimate
+                description: Tenant UUIDs optional — gateway injects them from the API key.
+                value:
+                  mode: scenario_generation
+                  num_scenarios: 3
+      responses:
+        "200":
+          description: Credit preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditPreviewResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: >
+            Scenario row exists but its `scenario.json` artifact has not been uploaded yet
+            (see issue #2370). Use `POST /v1/scenarios/generate` to create a fully-formed scenario.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioDefinitionMissingError"
+              example:
+                detail:
+                  error: scenario_definition_missing
+                  message: >-
+                    Scenario has no definition uploaded. Use POST /v1/scenarios/generate
+                    to create a fully-formed scenario.
+                  scenario_uuid: 00000000-0000-0000-0000-000000000001
+                  scenario_path: orgs/<org>/scenarios/<scenario>/scenario.json
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/engine/simulate/scenario:
+    post:
+      tags: [Engine]
+      summary: Trigger scenario simulation
+      description: Starts a scenario simulation; supports evaluate_on_complete and multiple runs.
+      operationId: simulateScenario
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EngineInterrogateScenarioRequest"
+            example:
+              scenario_uuid: 00000000-0000-0000-0000-000000000001
+              agent_uuid: 00000000-0000-0000-0000-000000000002
+              evaluate_on_complete: true
+              num_runs: 1
+              timeout_minutes: 30
+      responses:
+        "200":
+          description: Simulation started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartSimulationResponse"
+              example:
+                job_uuid: 11111111-1111-1111-1111-111111111111
+                simulation_uuid: 22222222-2222-2222-2222-222222222222
+                evaluation_job_uuid: null
+                status: dispatched
+                message: Scenario simulation task(s) dispatched successfully (1 run(s))
+                simulation_uuids:
+                  - 22222222-2222-2222-2222-222222222222
+                run_group_uuid: null
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: >
+            Scenario row exists but its `scenario.json` artifact has not been uploaded yet
+            (see issue #2370). Use `POST /v1/scenarios/generate` to create a fully-formed scenario.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioDefinitionMissingError"
+              example:
+                detail:
+                  error: scenario_definition_missing
+                  message: >-
+                    Scenario has no definition uploaded. Use POST /v1/scenarios/generate
+                    to create a fully-formed scenario.
+                  scenario_uuid: 00000000-0000-0000-0000-000000000001
+                  scenario_path: orgs/<org>/scenarios/<scenario>/scenario.json
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/engine/evaluate/trigger:
+    post:
+      tags: [Engine]
+      summary: Trigger evaluation
+      description: >
+        Queues evaluation for a simulation run in `COMPLETED` status. Skip this if you set
+        `evaluate_on_complete` on the trigger call.
+      operationId: triggerEvaluation
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EngineEvaluateTriggerRequest"
+            example:
+              simulation_uuid: 00000000-0000-0000-0000-000000000003
+      responses:
+        "200":
+          description: Evaluation triggered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriggerEvaluationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/simulations:
+    get:
+      tags: [Simulations]
+      summary: List simulations
+      description: Paginated simulation search with rich filters (status, dates, run group, evaluation flags).
+      operationId: listSimulations
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - name: scenario_uuid
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/AgentUuidQueryOptional"
+        - $ref: "#/components/parameters/SimulationStatus"
+        - $ref: "#/components/parameters/RunGroupUuid"
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/HasSingleEvaluation"
+        - $ref: "#/components/parameters/GroupByRunGroup"
+        - $ref: "#/components/parameters/IncludeEvaluationJobs"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Paginated simulations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedSimulationListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/simulations/scenarios/{scenario_uuid}:
+    get:
+      tags: [Simulations]
+      summary: List simulations by scenario
+      description: Returns simulations that ran against a specific scenario with optional agent and status filters.
+      operationId: listSimulationsByScenario
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/ScenarioUuid"
+        - $ref: "#/components/parameters/AgentUuidQueryOptional"
+        - $ref: "#/components/parameters/SimulationStatus"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Scenario simulations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SimulationListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/simulations/{id}/evaluation:
+    get:
+      tags: [Simulations]
+      summary: Get full simulation evaluation
+      description: Returns the latest evaluation payload for a simulation UUID.
+      operationId: getSimulationEvaluationBySimulationId
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Full evaluation payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicSimulationEvaluationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/simulations/{id}/evaluation/scores:
+    get:
+      tags: [Simulations]
+      summary: Get simulation evaluation score breakdown
+      description: Returns per-tag and overall score aggregates for the latest evaluation on a simulation.
+      operationId: getSimulationEvaluationScores
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Evaluation score breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicSimulationScoreResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/simulations/scores:
+    get:
+      tags: [Simulations]
+      summary: Get batch simulation score breakdowns
+      description: Returns score breakdowns for multiple simulation UUIDs.
+      operationId: getBatchSimulationScores
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - name: ids
+          in: query
+          required: true
+          description: >
+            Simulation UUIDs. Supports repeated params (`?ids=a&ids=b`) or comma separated values (`?ids=a,b`).
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+          style: form
+          explode: true
+      responses:
+        "200":
+          description: Batch score map keyed by simulation UUID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicBatchSimulationScoresResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/simulations/evaluations/{evaluation_job_uuid}:
+    get:
+      tags: [Simulations]
+      summary: Get simulation evaluation result
+      description: Downloads evaluation results for a job UUID including aggregated scores and payloads when ready.
+      operationId: getSimulationEvaluation
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - name: evaluation_job_uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/ItemIdentifier"
+      responses:
+        "200":
+          description: Evaluation job and payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetEvaluationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/simulations/{simulation_uuid}:
+    get:
+      tags: [Simulations]
+      summary: Get simulation by UUID
+      description: Returns full run detail including nested evaluation job references.
+      operationId: getSimulation
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/SimulationUuid"
+      responses:
+        "200":
+          description: Simulation details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationDetailResponse"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+    delete:
+      tags: [Simulations]
+      summary: Delete simulation
+      description: Permanently removes a simulation record when allowed by policy.
+      operationId: deleteSimulation
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/SimulationUuid"
+      responses:
+        "204":
+          description: Simulation deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/simulations/{simulation_uuid}/cancel:
+    post:
+      tags: [Simulations]
+      summary: Cancel simulation
+      description: Cancels a still-active simulation and returns a cancellation result envelope.
+      operationId: cancelSimulation
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/SimulationUuid"
+      responses:
+        "200":
+          description: Cancellation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancelResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/simulations/{simulation_uuid}/files:
+    get:
+      tags: [Simulations]
+      summary: Download run artifact file
+      description: >
+        Downloads a binary artifact persisted for a simulation run (transcripts, evidence files, evaluation artifacts). The `path` query parameter is relative to the run directory and must start with `files/` (for example `files/messages/round_1/1_report.pdf`). Tenant scope is derived from your API key, so `organization_uuid`/`workspace_uuid` are not supplied.
+      operationId: downloadSimulationFile
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/SimulationUuid"
+        - name: path
+          in: query
+          required: true
+          description: Relative path under the run directory; must start with `files/`.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File contents
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Invalid path (missing, traversal, or not under `files/`).
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Simulation or scenario does not belong to the authenticated workspace.
+        "404":
+          description: Simulation, scenario, or file not found.
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/simulations/{simulation_uuid}/output:
+    get:
+      tags: [Simulations]
+      summary: Get simulation structured output JSON
+      description: >
+        Returns the stored simulation output document (`response.json` / ScenarioOutput) for
+        a completed run. Tenant scope is derived from your API key — do not send
+        `organization_uuid` or `workspace_uuid` query parameters on the public surface.
+      operationId: getSimulationOutput
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/SimulationUuid"
+      responses:
+        "200":
+          description: Parsed simulation output JSON
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Simulation or scenario does not belong to the authenticated workspace.
+        "404":
+          description: Simulation, scenario, or output file not found.
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/logs:
+    get:
+      tags: [Audit Logs]
+      summary: List audit logs
+      description: Lists organization audit log entries with optional date range, actor, and action filters.
+      operationId: listAuditLogs
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Start timestamp (inclusive). Must be provided with `to`.
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: End timestamp (inclusive). Must be provided with `from`.
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Actor identifier (user UUID or API key prefix).
+        - name: action
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Action filter.
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicAuditLogsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/usage/events:
+    get:
+      tags: [Usage]
+      summary: List usage events
+      description: Lists billing or analytics usage events with filters for product area, related resource IDs, and pagination.
+      operationId: listUsageEvents
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/ProductArea"
+        - $ref: "#/components/parameters/Failed"
+        - $ref: "#/components/parameters/EventStartFrom"
+        - $ref: "#/components/parameters/EventStartTo"
+        - $ref: "#/components/parameters/SimulationUuidQueryOptional"
+        - $ref: "#/components/parameters/JobUuidQueryOptional"
+        - $ref: "#/components/parameters/ScenarioUuidQueryOptional"
+        - $ref: "#/components/parameters/SimulationJobUuid"
+        - $ref: "#/components/parameters/EvaluationJobUuid"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Usage events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UsageEventResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/usage/events/{event_id}:
+    get:
+      tags: [Usage]
+      summary: Get usage event
+      description: Fetches one usage event by its identifier for drill-down or reconciliation.
+      operationId: getUsageEvent
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Usage event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageEventResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/usage/calls:
+    get:
+      tags: [Usage]
+      summary: List usage calls
+      description: Lists model or provider call rows (token usage, latency) scoped by event or model filters.
+      operationId: listUsageCalls
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/EventUuid"
+        - $ref: "#/components/parameters/ProviderName"
+        - $ref: "#/components/parameters/ModelName"
+        - $ref: "#/components/parameters/CallStartFrom"
+        - $ref: "#/components/parameters/CallStartTo"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Usage calls
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UsageCallResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/validation/validate:
+    post:
+      tags: [Scenarios]
+      summary: Validate JSON payload against scenario schema
+      description: >
+        Validates a JSON **string** against the scenario input model (`schema: scenario`, default).
+        Always returns **200** with a human-readable `result` field (`VALID` / `INVALID` and error
+        lines); malformed JSON or schema violations are expressed in `result`, not via 4xx.
+      operationId: validateJsonPayload
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidateRequest"
+            example:
+              json: '{"name":"sample","enabled":true}'
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidateResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/validation/schema/scenario:
+    get:
+      tags: [Scenarios]
+      summary: Get scenario JSON schema
+      description: Returns the canonical scenario JSON Schema document for client-side or offline validation.
+      operationId: getValidationSchemaScenario
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      responses:
+        "200":
+          $ref: "#/components/responses/ProxySuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/client-tags/register-qna:
+    post:
+      tags: [Client Tags]
+      summary: Register QnA client skill tag
+      description: >
+        Registers a per-organization QnA skill tag and persists the benchmark payload to
+        master-data storage (`tags/org/<orgId>/qna/...` and `client_tags.jsonl`). Used by
+        Q&amp;A Studio export and custom benchmark pipelines. Tenant UUIDs are injected from
+        the API key. Set `dry_run: true` to validate without writing storage.
+      operationId: registerClientQnaTag
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterClientQnaRequest"
+            example:
+              skill_tag: latin_dance_qna
+              description: Latin dance history recall questions extracted from studio QnA.
+              testing_method: Ask factual recall questions from the registered QnA benchmark.
+              qna:
+                questions:
+                  - question: What is salsa?
+                    correct_answer: A partner dance with Afro-Cuban roots.
+                    is_hallucination_trap: false
+              dry_run: false
+      responses:
+        "200":
+          description: Tag registered or dry-run preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterClientQnaResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Skill tag name collides with a global catalogue tag
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "422":
+          description: Validation error (payload, tag name, or QnA content)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/tags:
+    get:
+      tags: [Skill Tags]
+      summary: List skill tags
+      description: >
+        Returns the scenario skill tag catalogue used by scenario generation, as a bare JSON array. The organization is derived from your API key, so the response is the global catalogue merged with your organization's custom tag overlay. Custom (org-scoped) tags are flagged with `custom: true`; global tags carry `custom: false`.
+
+        Before `POST /v1/scenarios/generate`, filter for tags whose `allowed_scenario_types` includes your `scenario_type`. Tag existence and compatibility are validated asynchronously by the `scenario_creation` worker, so invalid tags yield **201** then a **FAILED** job, not a synchronous **400**.
+      operationId: listSkillTags
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      responses:
+        "200":
+          description: Tag catalogue (global merged with the API key organization's custom overlay)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SkillTag"
+              example:
+                - name: empathy
+                  category: social
+                  description: Recognize and respond to emotional cues.
+                  benchmark_family: null
+                  allowed_scenario_types: [info_exchange, interview]
+                  custom: false
+                - name: fraud-detection
+                  category: safety
+                  description: Org-defined fraud probe.
+                  benchmark_family: null
+                  allowed_scenario_types: [info_exchange]
+                  custom: true
+        "400":
+          description: API key context is missing an organization
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  message:
+                    type: string
+                  statusCode:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+components:
+  securitySchemes:
+    BearerApiKeyAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: "Send `Authorization: Bearer <api_key>`."
+
+  parameters:
+    XRequestId:
+      name: X-Request-ID
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Optional trace identifier forwarded to upstream.
+    Limit:
+      name: limit
+      in: query
+      description: Maximum number of records to return (pagination page size).
+      schema:
+        type: integer
+        minimum: 1
+      example: 20
+    Offset:
+      name: offset
+      in: query
+      description: Number of records to skip from the beginning of the sorted result set.
+      schema:
+        type: integer
+        minimum: 0
+      example: 0
+    AgentUuidQueryOptional:
+      name: agent_uuid
+      in: query
+      required: false
+      description: Restrict verification runs or lists to this registered workspace agent UUID.
+      schema:
+        type: string
+        format: uuid
+    SimulationUuidQueryOptional:
+      name: simulation_uuid
+      in: query
+      required: false
+      description: Filter usage events linked to a specific verification run.
+      schema:
+        type: string
+        format: uuid
+    JobUuidQueryOptional:
+      name: job_uuid
+      in: query
+      required: false
+      description: Filter usage events to those emitted for this async job UUID.
+      schema:
+        type: string
+        format: uuid
+    ScenarioUuidQueryOptional:
+      name: scenario_uuid
+      in: query
+      required: false
+      description: Filter usage events or other lists to this scenario UUID.
+      schema:
+        type: string
+        format: uuid
+    CreatedAfter:
+      name: created_after
+      in: query
+      description: Return corpora created at or after this instant (RFC 3339 date-time).
+      schema:
+        type: string
+        format: date-time
+    CreatedBefore:
+      name: created_before
+      in: query
+      description: Return corpora created at or before this instant (RFC 3339 date-time).
+      schema:
+        type: string
+        format: date-time
+    Tags:
+      name: tags
+      in: query
+      required: false
+      description: Match corpora having any of these tag strings (OR semantics; repeated query params).
+      schema:
+        type: array
+        items:
+          type: string
+      style: form
+      explode: true
+    ScenarioType:
+      name: scenario_type
+      in: query
+      description: Filter by scenario type (`info_exchange` or `interview`).
+      schema:
+        type: string
+        enum: [info_exchange, interview]
+    Status:
+      name: status
+      in: query
+      description: >
+        Repeatable filter on scenario row `status`. Values: `INIT`, `PROCESSING`, `SUCCESS`,
+        `FAILED`, `CANCELLED`. `SUCCESS` means the scenario is materialised and runnable
+        (`definition_bucket_path` set and scenario JSON uploaded). Use `scenario_creation_job_status`
+        on list/get responses to track in-flight generation jobs.
+      schema:
+        type: array
+        items:
+          type: string
+          enum: [INIT, PROCESSING, SUCCESS, FAILED, CANCELLED]
+      style: form
+      explode: true
+    CurrentStatus:
+      name: current_status
+      in: query
+      description: >
+        Filter jobs whose `current_status` equals this value (exact string match). Values:
+        `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`, `CANCELLED`.
+      schema:
+        type: string
+        enum: [PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED]
+    AgentType:
+      name: agent_type
+      in: query
+      description: Filter by connector type (`A2A`, `API`, `DIRECTLINE`, `EXTENSION`, `MCP`).
+      schema:
+        type: string
+        enum: [A2A, API, DIRECTLINE, EXTENSION, MCP]
+    NewName:
+      name: new_name
+      in: query
+      description: Optional new display name when copying a scenario in-place.
+      schema:
+        type: string
+    NumRuns:
+      name: num_runs
+      in: query
+      required: true
+      description: >
+        Defined for forward compatibility; not referenced by current gateway paths. If wired
+        by a proxy extension, expresses a run-count hint as an integer 1–10.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 10
+    SimulationStatus:
+      name: status
+      in: query
+      description: >
+        Filter verification runs whose `status` equals this value. Values: `CREATED`,
+        `IN_PROGRESS`, `COMPLETED`, `FAILED`, `CANCELLED`.
+      schema:
+        type: string
+        enum: [CREATED, IN_PROGRESS, COMPLETED, FAILED, CANCELLED]
+    RunGroupUuid:
+      name: run_group_uuid
+      in: query
+      description: Return runs that belong to this batched / multi-scenario run group UUID.
+      schema:
+        type: string
+        format: uuid
+    DateFrom:
+      name: date_from
+      in: query
+      description: Lower bound on run `created_at` or comparable timestamp (inclusive).
+      schema:
+        type: string
+        format: date-time
+    DateTo:
+      name: date_to
+      in: query
+      description: Upper bound on run `created_at` or comparable timestamp (inclusive).
+      schema:
+        type: string
+        format: date-time
+    Search:
+      name: search
+      in: query
+      description: Free-text filter applied to run metadata or identifiers (upstream-defined).
+      schema:
+        type: string
+    HasSingleEvaluation:
+      name: has_single_evaluation
+      in: query
+      description: When true, restrict to runs that have exactly one linked evaluation job.
+      schema:
+        type: boolean
+    GroupByRunGroup:
+      name: group_by_run_group
+      in: query
+      description: When true, collapse list results to one row per `run_group_uuid` (upstream semantics).
+      schema:
+        type: boolean
+    IncludeEvaluationJobs:
+      name: include_evaluation_jobs
+      in: query
+      description: When true, embed evaluation job summaries on each listed run (heavier payload).
+      schema:
+        type: boolean
+    ItemIdentifier:
+      name: item_identifier
+      in: query
+      description: Optional opaque item key when downloading evaluation payloads (upstream-specific).
+      schema:
+        type: string
+    ProductArea:
+      name: product_area
+      in: query
+      description: Filter usage events by billing product area code (ENGINE, SCENARIO_CREATION, etc.).
+      schema:
+        type: string
+    Failed:
+      name: failed
+      in: query
+      description: When set, return only failed (`true`) or only successful (`false`) usage events.
+      schema:
+        type: boolean
+    EventStartFrom:
+      name: event_start_from
+      in: query
+      description: Lower bound on usage event start timestamp (inclusive).
+      schema:
+        type: string
+        format: date-time
+    EventStartTo:
+      name: event_start_to
+      in: query
+      description: Upper bound on usage event start timestamp (inclusive).
+      schema:
+        type: string
+        format: date-time
+    SimulationJobUuid:
+      name: simulation_job_uuid
+      in: query
+      description: Filter usage events tied to this scenario-creation or simulation job identifier string.
+      schema:
+        type: string
+    EvaluationJobUuid:
+      name: evaluation_job_uuid
+      in: query
+      description: Filter usage events associated with this evaluation job UUID.
+      schema:
+        type: string
+        format: uuid
+    EventUuid:
+      name: event_uuid
+      in: query
+      description: When listing usage calls, restrict to rows for this parent usage event UUID.
+      schema:
+        type: string
+        format: uuid
+    ProviderName:
+      name: provider_name
+      in: query
+      description: Filter usage calls by LLM provider name (e.g. OpenAI, Anthropic).
+      schema:
+        type: string
+    ModelName:
+      name: model_name
+      in: query
+      description: Filter usage calls by model id or display name string.
+      schema:
+        type: string
+    CallStartFrom:
+      name: call_start_from
+      in: query
+      description: Lower bound on per-call start timestamp when listing usage calls (inclusive).
+      schema:
+        type: string
+        format: date-time
+    CallStartTo:
+      name: call_start_to
+      in: query
+      description: Upper bound on per-call start timestamp when listing usage calls (inclusive).
+      schema:
+        type: string
+        format: date-time
+    ScenarioUuid:
+      name: scenario_uuid
+      in: path
+      required: true
+      description: >
+        UUID of a scenario in the authenticated workspace. Use the `uuid` field
+        from scenario create, generate, list, or get responses (not a response field named
+        `scenario_uuid`).
+      schema:
+        type: string
+        format: uuid
+    JobUuid:
+      name: job_uuid
+      in: path
+      required: true
+      description: UUID of an async job (creation, engine, evaluation, etc.) in the workspace.
+      schema:
+        type: string
+        format: uuid
+    AgentUuid:
+      name: agent_uuid
+      in: path
+      required: true
+      description: UUID of a registered workspace agent.
+      schema:
+        type: string
+        format: uuid
+    SimulationUuid:
+      name: simulation_uuid
+      in: path
+      required: true
+      description: >
+        Identifier of a **verification run**. Use the `simulation_uuid` returned when starting
+        a run or listed under `GET /v1/simulations`.
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: >
+        **401** — API key missing, malformed `Authorization` header, or key not recognised.
+        Response body uses `ErrorMessage` when JSON is returned.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorMessage"
+    GatewayError:
+      description: >
+        **5xx / proxy error** — the gateway could not obtain a successful response from
+        verifyax-api, or an internal gateway fault occurred. See `detail` in `GatewayError`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/GatewayError"
+    TooManyRequests:
+      description: >
+        **429** — workspace rate limit exceeded. Honor `Retry-After` (seconds) before retrying.
+        All public responses include `RateLimit-Limit`, `RateLimit-Remaining`, and `RateLimit-Reset`.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error, message, statusCode]
+            properties:
+              error:
+                type: string
+                example: Too Many Requests
+              message:
+                type: string
+              statusCode:
+                type: integer
+                example: 429
+    ProxySuccess:
+      description: Upstream verifyax-api JSON response proxied unchanged by the gateway.
+      content:
+        application/json:
+          schema:
+            type: object
+            description: Arbitrary JSON object returned by verifyax-api for this operation.
+            additionalProperties: true
+
+  schemas:
+    ErrorMessage:
+      type: object
+      description: Generic JSON error envelope from the gateway or upstream when `message` is used.
+      properties:
+        message:
+          type: string
+          description: Human-readable error summary suitable for display or logs.
+      additionalProperties: true
+
+    GatewayError:
+      type: object
+      description: Gateway-side failure when the proxy cannot complete a request to verifyax-api.
+      properties:
+        detail:
+          type: string
+          description: Error detail string (may include upstream status or diagnostic text).
+      required: [detail]
+
+    ScenarioDefinitionMissingError:
+      type: object
+      description: >
+        Structured 409 returned by `/v1/engine/simulate/scenario` and
+        `/v1/engine/workspace-credit-preview` when the scenario row exists but its
+        `scenario.json` artifact has not been uploaded yet. The frontend should key off
+        `detail.error == "scenario_definition_missing"` to gate run-start affordances.
+      properties:
+        detail:
+          type: object
+          required: [error, message, scenario_uuid]
+          properties:
+            error:
+              type: string
+              enum: [scenario_definition_missing]
+              description: Stable machine-readable error code.
+            message:
+              type: string
+              description: Human-readable hint suggesting POST /v1/scenarios/generate.
+            scenario_uuid:
+              type: string
+              format: uuid
+              description: The scenario whose definition is missing.
+            scenario_path:
+              type: string
+              description: Storage path the engine probed (debug aid; subject to change).
+      required: [detail]
+
+    OneTimeLoginTokenResponse:
+      type: object
+      description: One-time browser login hand-off; token must be redeemed quickly and never logged verbatim.
+      properties:
+        one-time-login-token:
+          type: string
+          description: Opaque single-use token string; pass only in URL fragment per `example_links`.
+        example_links:
+          type: object
+          description: Example user-webapp URLs with the token in the fragment (after `#`).
+          properties:
+            home:
+              type: string
+              format: uri
+              description: Example deep link to the app home route carrying the token fragment.
+            workbench:
+              type: string
+              format: uri
+              description: Example deep link to the workbench route carrying the token fragment.
+
+    TicketCreate:
+      type: object
+      description: Body for `POST /v1/tickets`. The user id and email are derived from the API key, not the body.
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          description: Ticket body text (non-empty).
+        type:
+          type: string
+          enum: [feedback, help_support]
+          default: help_support
+          description: Ticket category. Defaults to `help_support` when omitted.
+
+    TicketResponse:
+      type: object
+      description: Envelope returned after a ticket is created.
+      properties:
+        success:
+          type: boolean
+          description: True when the ticket was stored.
+        message:
+          type: string
+          description: Human-readable status message.
+        data:
+          $ref: "#/components/schemas/Ticket"
+
+    Ticket:
+      type: object
+      description: A stored ticket (backed by a user message row).
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Ticket identifier.
+        userId:
+          type: string
+          format: uuid
+          description: Id of the user who opened the ticket.
+        type:
+          type: string
+          enum: [feedback, help_support]
+          description: Ticket category.
+        email:
+          type: string
+          format: email
+          description: Email associated with the user when the ticket was opened.
+        message:
+          type: string
+          description: Ticket body text.
+        replied:
+          type: boolean
+          description: Whether the ticket has been marked as handled.
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp.
+
+    ScenarioCreateRequest:
+      type: object
+      description: >
+        Body for `POST /v1/scenarios` (synchronous shell). `scenario_type` is optional
+        (`info_exchange` or `interview`); omit for empty shells before `PATCH .../artifacts`.
+        `corpus_uuid`
+        and other legacy L1 game fields return **400**. Response `job_uuid` is null. Developer-only.
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Display name (unique per workspace after normalisation upstream).
+        description:
+          type: string
+        scenario_type:
+          type: string
+          enum: [info_exchange, interview]
+          description: Dialogue kind stored on the row when known at create time.
+        tags:
+          type: array
+          items:
+            type: string
+          description: Optional workspace tags stored on the scenario row.
+        creation_parameters:
+          type: object
+          additionalProperties: true
+          description: Optional opaque creation metadata persisted on the scenario row.
+
+    GenerateScenarioFromQnaRequest:
+      type: object
+      required: [name, questions]
+      description: >
+        Body for `POST /v1/scenarios/generate-from-qna`. Tenant UUIDs are injected by the
+        gateway from the API key.
+      properties:
+        name:
+          type: string
+          description: Scenario record name.
+        description:
+          type: string
+          nullable: true
+          description: Optional scenario description.
+        context_prompt:
+          type: string
+          nullable: true
+          description: Optional NPC/interview setting.
+        questions:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/QnaQuestionItem"
+
+    QnaQuestionItem:
+      type: object
+      required: [question, correct_answer]
+      properties:
+        question:
+          type: string
+        correct_answer:
+          type: string
+        is_hallucination_trap:
+          type: boolean
+          default: false
+
+    JobCancelResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Human-readable cancellation acknowledgement.
+
+    SimulationScenarioCreateRequest:
+      type: object
+      description: >
+        Body for POST /v1/scenarios/generate (maps to verifyax-api SimulationScenarioCreate).
+        The gateway injects organization_uuid, workspace_uuid, and user_uuid from the API key.
+        Tag list size is capped at 5 for info_exchange and 2 for interview.
+
+        **Discover tags:** `GET /v1/tags` (see Skill Tags). Pass each tag's `name` in
+        `tags` / `tag_pool`. Filter by `allowed_scenario_types` for your `scenario_type` before
+        calling generate — unknown or incompatible tags are rejected asynchronously by the
+        `scenario_creation` worker (**201** then **FAILED** job, not **400** on POST).
+
+        **Single vs batch:** Single mode sends name, scenario_type, tags, and optional
+        context_prompt. Batch mode (num_scenarios > 1) adds tag_pool and optional include_tags,
+        total_tags, and max_tags_per_npc. Internal engine, model, and DAG knobs are not part of
+        the public contract; the gateway strips them before forwarding.
+      required: [name, scenario_type]
+      properties:
+        name:
+          type: string
+          description: Scenario name (workspace-unique after normalisation).
+        scenario_type:
+          type: string
+          enum: [info_exchange, interview]
+          default: info_exchange
+          description: Multi-agent `info_exchange` (default) or 1-to-1 `interview`. Controls tag caps and NPC layout.
+        context_prompt:
+          type: string
+          description: Optional context to guide generation (info_exchange and interview).
+        tags:
+          type: array
+          items:
+            type: string
+          description: >-
+            Explicit skill tag `name` values from GET /v1/tags. At most 5
+            (info_exchange) or 2 (interview). Each tag's `allowed_scenario_types` must include
+            your `scenario_type`. Invalid tags fail on the async job, not synchronously.
+        num_scenarios:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 1
+          description: >-
+            Batch size. 1 = single scenario. Greater than 1 requires tag_pool and returns
+            uuid, batch_uuid, and batch_scenario_uuids on the response.
+        tag_pool:
+          type: array
+          items:
+            type: string
+          description: >-
+            Required when num_scenarios > 1; universe of tag `name` values to sample from.
+            Each entry must allow your `scenario_type` per the tag catalogue.
+        include_tags:
+          type: array
+          items:
+            type: string
+          description: >-
+            Batch only; tags required in every scenario. Must be a subset of tag_pool.
+            total_tags must be at least the number of distinct include_tags.
+        total_tags:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: >-
+            Batch only; tags drawn per scenario from tag_pool (default len(tag_pool)).
+            Capped at 5 info_exchange / 2 interview.
+        max_tags_per_npc:
+          type: integer
+          minimum: 1
+          description: >-
+            Batch only; caps tags per NPC. NPC count = ceil(total_tags / max_tags_per_npc).
+            Ignored for interview (single NPC). Worker default 1 when omitted.
+
+    ScenarioUpdateRequest:
+      type: object
+      description: >
+        Partial update for scenario display metadata. Only `name` and `description` are
+        writable via PATCH; skill tags live in `scenario.json` and row `tags` / `valid_versions`
+        are set by generation or copy, not this endpoint.
+      properties:
+        name:
+          type: string
+          description: New display name (workspace uniqueness enforced upstream).
+        description:
+          type: string
+          description: New scenario description text.
+
+    DirectlineAgentParameters:
+      type: object
+      description: >
+        Direct Line 3.0 configuration for Microsoft Copilot Studio agents. Nested under
+        `agent_parameters.directline` on `POST /v1/agents` when `agent_type` is `DIRECTLINE`.
+        Set `agent_url` to the regional Direct Line host derived from `region`.
+      required: [secret, region]
+      properties:
+        secret:
+          type: string
+          minLength: 1
+          description: >
+            Direct Line secret from Copilot Studio → Channels → Direct Line. Stored on the
+            agent row and used at simulation runtime — never send in the flat test endpoint body
+            after registration.
+        region:
+          type: string
+          default: global
+          enum: [global, europe, india, unitedstates, asia, australia, northamerica]
+          description: >
+            Direct Line deployment region. Maps to `agent_url`: `global` →
+            `https://directline.botframework.com`; other regions →
+            `https://{region}.directline.botframework.com` (for example `europe` →
+            `https://europe.directline.botframework.com`).
+        base_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Optional override when the regional host differs from the default mapping.
+
+    AgentCreateRequest:
+      type: object
+      description: >
+        Registers a new agent endpoint in the workspace agent registry. For Copilot Studio,
+        use `agent_type: DIRECTLINE` and nest credentials in `agent_parameters.directline`.
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: >-
+            Display name for the registered agent. Must be unique within the workspace;
+            if the requested name is taken, the server assigns the next available
+            suffix (e.g. My Agent (1)).
+        description:
+          type: string
+          description: Optional notes about the agent’s role or integration.
+        agent_url:
+          type: string
+          format: uri
+          description: >
+            Endpoint URL VerifyAX calls. For A2A/API agents, your deployment URL. For
+            `DIRECTLINE`, the regional Direct Line host (see `DirectlineAgentParameters.region`).
+        agent_type:
+          type: string
+          enum: [A2A, API, DIRECTLINE, EXTENSION, MCP]
+          default: A2A
+          description: >
+            Connector type. Use `DIRECTLINE` for Microsoft Copilot Studio over Bot Framework
+            Direct Line 3.0. Defaults to `A2A`.
+        agent_parameters:
+          type: object
+          additionalProperties: true
+          description: >
+            Connector-specific settings. For `DIRECTLINE`, include a `directline` object (see
+            `DirectlineAgentParameters`). A2A/API agents use auth, timeout, and card keys
+            documented in the Connect Agents guide.
+
+    AgentUpdateRequest:
+      type: object
+      description: Partial update for an existing agent; only send fields that should change.
+      properties:
+        name:
+          type: string
+          description: >-
+            New display name for the agent. Must be unique within the workspace;
+            if the requested name is taken, the server assigns the next available
+            suffix (e.g. My Agent (1)).
+        description:
+          type: string
+          description: Updated agent description text.
+        agent_url:
+          type: string
+          format: uri
+          description: Updated endpoint URL when the deployment location changes.
+        agent_type:
+          type: string
+          enum: [A2A, API, DIRECTLINE, EXTENSION, MCP]
+          description: Switch connector type when migrating how VerifyAX talks to the agent.
+        agent_parameters:
+          type: object
+          additionalProperties: true
+          description: >
+            Merged or replaced connector settings (upstream merge rules apply). For Direct Line,
+            update `directline.secret` or `directline.region` here.
+
+    AgentResponse:
+      type: object
+      description: Registered agent row returned from create/get/list endpoints.
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: Agent registry UUID.
+        name:
+          type: string
+          description: Display name.
+        description:
+          type: string
+          nullable: true
+          description: Optional notes stored with the agent.
+        user_uuid:
+          type: string
+          format: uuid
+          description: Creating user UUID (tenant context).
+        workspace_uuid:
+          type: string
+          format: uuid
+          description: Owning workspace UUID.
+        agent_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Endpoint URL used by the connector for runs.
+        agent_type:
+          type: string
+          description: Connector type (`A2A`, `API`, `DIRECTLINE`, `EXTENSION`, or `MCP`).
+        agent_parameters:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: >
+            Connector-specific configuration blob. Direct Line agents store credentials under
+            `directline`.
+        created_at:
+          type: string
+          format: date-time
+          description: Registration timestamp (RFC 3339).
+        updated_at:
+          type: string
+          format: date-time
+          description: Last modification timestamp (RFC 3339).
+
+    EngineInterrogateScenarioRequest:
+      type: object
+      description: >
+        Provide **exactly one** of `scenario_uuid` or `scenario_uuids`
+        (batch of up to 50). When batching, runs share a **run group** for correlation upstream.
+        For a single scenario, set `scenario_uuid` to the `uuid` returned by create or generate.
+      properties:
+        scenario_uuid:
+          type: string
+          format: uuid
+          description: >
+            Single scenario to run against — the scenario row’s `uuid` from create or generate
+            responses.
+        scenario_uuids:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            format: uuid
+          description: >
+            Ordered list of scenario UUIDs to run in one request. Mutually exclusive with
+            `scenario_uuid`; must contain at least one UUID when used.
+        agent_uuid:
+          type: string
+          format: uuid
+          description: >
+            Registered workspace agent to exercise. The gateway resolves URL, connector
+            strategy, and auth from this agent before starting the simulation.
+        evaluate_on_complete:
+          type: boolean
+          default: true
+          description: When true, queue evaluation automatically after the run completes successfully.
+        num_runs:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 1
+          description: Number of parallel runs for robustness. Defaults to 1.
+        timeout_minutes:
+          type: integer
+          minimum: 1
+          maximum: 240
+          description: >-
+            Optional wall-clock budget in minutes for this verification run. Overrides
+            simulation_config.timeout_minutes in the scenario definition for billing and
+            playground execution. Workbench UI presets 5–60 min.
+
+    EngineEvaluateTriggerRequest:
+      type: object
+      description: >
+        Queues a standalone evaluation for a finished verification run. Tenant UUIDs are
+        injected by the gateway on POST like other engine bodies.
+      required: [simulation_uuid]
+      properties:
+        simulation_uuid:
+          type: string
+          format: uuid
+          description: Verification run to evaluate (`simulation_uuid` from the run record).
+
+    ScenarioResponse:
+      type: object
+      description: Scenario record including generation and complexity metadata.
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: >
+            Scenario identifier. Returned as `uuid` on create and generate responses;
+            supply this value for the `scenario_uuid` path parameter on `/v1/scenarios/{scenario_uuid}/...`
+            and as `scenario_uuid` in `POST /v1/engine/simulate/scenario` request bodies.
+        name:
+          type: string
+          description: Display name in the workspace.
+        description:
+          type: string
+          nullable: true
+          description: Optional description shown in UI and APIs.
+        user_uuid:
+          type: string
+          format: uuid
+          description: Creating user UUID (tenant context).
+        workspace_uuid:
+          type: string
+          format: uuid
+          description: Owning workspace UUID.
+        corpus_uuid:
+          type: string
+          format: uuid
+          nullable: true
+          description: Legacy link to a corpus for corpus-linked scenarios, if any.
+        game_version:
+          type: integer
+          nullable: true
+          description: Legacy game benchmark version field when applicable.
+        status:
+          type: string
+          nullable: true
+          description: Scenario lifecycle status (`INIT`, `PROCESSING`, `SUCCESS`, `FAILED`, `CANCELLED`).
+          enum: [INIT, PROCESSING, SUCCESS, FAILED, CANCELLED]
+        scenario_creation_job_status:
+          type: string
+          nullable: true
+          description: >
+            Latest `scenario_creation` job `current_status` while materialisation is in progress.
+            Values: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`, `CANCELLED`.
+          enum: [PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED]
+        creation_parameters:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Snapshot of scenario generation inputs used to create or regenerate this scenario.
+        num_questions:
+          type: integer
+          nullable: true
+          description: Legacy question count for benchmark-style scenarios.
+        scenario_type:
+          type: string
+          nullable: true
+          description: >
+            Dialogue kind (`info_exchange` or `interview`). Also mirrored in
+            `creation_parameters.scenario_type` for generated scenarios when set.
+        valid_versions:
+          type: array
+          items: { type: integer }
+          description: Scenario JSON schema versions accepted for runs against this scenario.
+        tags:
+          type: array
+          items: { type: string }
+          description: Workspace tags for organisation and filtering.
+        definition_bucket_path:
+          type: string
+          nullable: true
+          description: Storage root where `scenario.json` and artifacts live once materialised.
+        complexity_score:
+          type: number
+          nullable: true
+          description: Numeric difficulty score derived from historical runs when computed.
+        complexity_label:
+          type: string
+          nullable: true
+          description: Human-readable complexity band (e.g. easy, medium, hard) when set.
+        complexity_updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When complexity labels were last recomputed.
+        run_metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Opaque per-scenario statistics or UI hints from upstream.
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp (RFC 3339).
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp (RFC 3339).
+
+    ScenarioCreateResponse:
+      allOf:
+        - $ref: "#/components/schemas/ScenarioResponse"
+        - type: object
+          description: >
+            Environment row plus async job linkage after create or generate. The scenario id is
+            `uuid` (inherited from ScenarioResponse), not `scenario_uuid`. After
+            `POST /v1/scenarios/generate` (and generate-copy), `creation_parameters` is null in the
+            response even though inputs are stored server-side.
+          properties:
+            job_uuid:
+              type: string
+              format: uuid
+              nullable: true
+              description: scenario_creation job UUID to poll via GET /v1/jobs/{job_uuid}; null for empty shells.
+            batch_uuid:
+              type: string
+              format: uuid
+              nullable: true
+              description: Present when num_scenarios > 1; shared Celery task id for the batch.
+            batch_scenario_uuids:
+              type: array
+              items:
+                type: string
+                format: uuid
+              nullable: true
+              description: All scenario UUIDs in a batch create, same order as jobs.
+
+    JobResponse:
+      type: object
+      description: Single async job row (Celery-backed work unit) in the workspace.
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: Job UUID for polling and cancel/retry/delete APIs.
+        job_type:
+          type: string
+          description: >
+            Job classifier (e.g. scenario_creation, ENGINE, evaluation, simulation).
+        user_uuid:
+          type: string
+          format: uuid
+          description: User that triggered or owns the job record.
+        workspace_uuid:
+          type: string
+          format: uuid
+          description: Workspace scope for the job.
+        current_status:
+          type: string
+          description: >
+            Job lifecycle status. Poll until `COMPLETED`, `FAILED`, or `CANCELLED`. Values:
+            `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`, `CANCELLED`.
+          enum: [PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED]
+        current_progress_text:
+          type: string
+          nullable: true
+          description: Short human-readable progress line suitable for UI.
+        progress_percentage:
+          type: number
+          description: Approximate completion fraction between 0 and 100.
+        error_details:
+          type: string
+          nullable: true
+          description: Error message or stack snippet when the job failed.
+        task_id:
+          type: string
+          nullable: true
+          description: Celery task id when the worker has claimed the job.
+        created_at:
+          type: string
+          format: date-time
+          description: When the job row was created (RFC 3339).
+        updated_at:
+          type: string
+          format: date-time
+          description: Last status or progress update (RFC 3339).
+
+    JobsListResponse:
+      type: object
+      description: Wrapper listing zero or more jobs (e.g. all jobs tied to one scenario).
+      properties:
+        jobs:
+          type: array
+          description: Ordered collection of job rows (typically newest-first from upstream).
+          items:
+            $ref: "#/components/schemas/JobResponse"
+
+    EvaluationJobInfo:
+      type: object
+      description: Lightweight evaluation job summary embedded on verification run list rows.
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: Evaluation job UUID (use with evaluation download endpoints when complete).
+        job_type:
+          type: string
+          description: Upstream evaluation job type discriminator.
+        user_uuid:
+          type: string
+          format: uuid
+          description: User associated with the evaluation job record.
+        current_status:
+          type: string
+          description: >
+            Evaluation job lifecycle status (`PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`,
+            `CANCELLED`).
+          enum: [PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED]
+        current_progress_text:
+          type: string
+          nullable: true
+          description: Short progress description for the evaluation worker.
+        progress_percentage:
+          type: number
+          description: Approximate evaluation completion percentage.
+        error_details:
+          type: string
+          nullable: true
+          description: Populated when evaluation fails or is cancelled with a reason.
+        created_at:
+          type: string
+          format: date-time
+          description: When the evaluation job was enqueued (RFC 3339).
+        updated_at:
+          type: string
+          format: date-time
+          description: Last evaluation status change (RFC 3339).
+
+    SimulationListResponse:
+      type: object
+      description: >
+        Summary of one **verification run**: counters, linkage to scenario
+        and agent, evaluation flags, and optional nested evaluation jobs.
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: Verification run UUID (`simulation_uuid` in engine responses).
+        user_uuid:
+          type: string
+          format: uuid
+          description: User that owns or initiated the run.
+        workspace_uuid:
+          type: string
+          format: uuid
+          description: Workspace scope for the run.
+        scenario_uuid:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Linked scenario UUID on the run record (same value as the scenario row’s
+            `uuid` field, not a separate response key on create/generate).
+        agent_uuid:
+          type: string
+          format: uuid
+          nullable: true
+          description: Registered agent UUID under test when not using a pure override flow.
+        agent_identifier:
+          type: string
+          nullable: true
+          description: Stable agent key or catalogue identifier from upstream when set.
+        agent_url:
+          type: string
+          nullable: true
+          description: Effective agent URL used for this run (may reflect overrides).
+        status:
+          type: string
+          description: >
+            Run lifecycle status. Poll until `COMPLETED`, `FAILED`, or `CANCELLED`. Evaluation
+            is a separate async job — not a run status value.
+          enum: [CREATED, IN_PROGRESS, COMPLETED, FAILED, CANCELLED]
+        total_items:
+          type: integer
+          description: Total work units or steps tracked for progress (engine-specific).
+        completed_items:
+          type: integer
+          description: Work units successfully completed so far.
+        failed_items:
+          type: integer
+          description: Work units that ended in a hard failure.
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When execution began (RFC 3339).
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When execution finished or was terminal (RFC 3339).
+        execution_mode:
+          type: string
+          nullable: true
+          description: Engine execution mode discriminator when present.
+        simulation_type:
+          type: string
+          nullable: true
+          description: Scenario vs game / benchmark type string from upstream.
+        scenario_version:
+          type: integer
+          nullable: true
+          description: Scenario JSON schema version used for this run when recorded.
+        run_group_uuid:
+          type: string
+          format: uuid
+          nullable: true
+          description: Batched runs share one run group UUID for correlation.
+        run_index:
+          type: integer
+          nullable: true
+          description: Zero-based index within a multi-run or batch group when applicable.
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Row creation time (RFC 3339).
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last mutation time (RFC 3339).
+        run_metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Opaque JSON bag with UI hints, cost hints, or engine diagnostics.
+        evaluation_jobs:
+          type: array
+          description: Nested evaluation jobs spawned for this run (may be empty).
+          items:
+            $ref: "#/components/schemas/EvaluationJobInfo"
+        has_single_evaluation:
+          type: boolean
+          nullable: true
+          description: Denormalised flag — true when exactly one evaluation job exists.
+        has_aggregated_evaluation:
+          type: boolean
+          nullable: true
+          description: Denormalised flag — true when an aggregated evaluation result exists.
+
+    SimulationDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/SimulationListResponse"
+        - type: object
+          description: Full verification run row including engine `run_parameters` payload.
+          properties:
+            run_parameters:
+              type: object
+              nullable: true
+              additionalProperties: true
+              description: Engine-supplied parameters snapshot (timeouts, overrides, flags, …).
+
+    PaginatedSimulationListResponse:
+      type: object
+      description: Page of verification runs plus total count for infinite-scroll style UIs.
+      properties:
+        items:
+          type: array
+          description: Runs for the requested page (size `limit`, skip `offset`).
+          items:
+            $ref: "#/components/schemas/SimulationListResponse"
+        total:
+          type: integer
+          description: Total matching runs across all pages for the current filter set.
+        limit:
+          type: integer
+          description: Page size used for this response (echo of request `limit`).
+        offset:
+          type: integer
+          description: Skip value used for this response (echo of request `offset`).
+
+    GetEvaluationResponse:
+      type: object
+      description: Evaluation job envelope including structured scores when the job has finished.
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: Evaluation job UUID (same as path `evaluation_job_uuid` when fetched directly).
+        simulation_uuid:
+          type: string
+          format: uuid
+          description: Parent verification run UUID this evaluation scores.
+        user_uuid:
+          type: string
+          format: uuid
+          description: User that owns the evaluation job record.
+        current_status:
+          type: string
+          description: Evaluation worker status string.
+        current_progress_text:
+          type: string
+          nullable: true
+          description: Short human-readable evaluation progress line.
+        progress_percentage:
+          type: number
+          description: Approximate evaluation completion percentage.
+        error_details:
+          type: string
+          nullable: true
+          description: Failure detail when evaluation ends in error.
+        created_at:
+          type: string
+          format: date-time
+          description: When the evaluation job was created (RFC 3339).
+        updated_at:
+          type: string
+          format: date-time
+          description: Last evaluation status change (RFC 3339).
+        evaluation:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: >
+            Structured evaluation payload (scores, rationales, per-criterion breakdown) when
+            `current_status` indicates success; null while pending or on hard failure.
+
+    PublicSimulationEvaluationResponse:
+      type: object
+      description: Gateway evaluation response for a simulation UUID.
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/GetEvaluationResponse"
+      required: [success]
+
+    PublicSimulationScoreSummary:
+      type: object
+      description: Score summary derived from the latest evaluation payload for a simulation.
+      properties:
+        overall_score:
+          type: number
+          nullable: true
+          description: Mean of per-tag average grades.
+        per_tag_scores:
+          type: object
+          additionalProperties:
+            type: number
+          description: Map of tag name to average grade.
+        evaluator_model:
+          type: string
+          nullable: true
+          description: Evaluator model when available in payload metadata.
+        timestamp:
+          type: string
+          format: date-time
+          nullable: true
+          description: Best available evaluation timestamp.
+      required: [overall_score, per_tag_scores, evaluator_model, timestamp]
+
+    PublicSimulationScoreResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            simulation_uuid:
+              type: string
+              format: uuid
+            overall_score:
+              type: number
+              nullable: true
+            per_tag_scores:
+              type: object
+              additionalProperties:
+                type: number
+            evaluator_model:
+              type: string
+              nullable: true
+            timestamp:
+              type: string
+              format: date-time
+              nullable: true
+          required:
+            - simulation_uuid
+            - overall_score
+            - per_tag_scores
+            - evaluator_model
+            - timestamp
+      required: [success, data]
+
+    PublicBatchSimulationScoresResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            scores:
+              type: object
+              additionalProperties:
+                type: object
+                allOf:
+                  - $ref: "#/components/schemas/PublicSimulationScoreSummary"
+                nullable: true
+          required: [scores]
+      required: [success, data]
+
+    PublicBillingBalanceResponse:
+      type: object
+      description: Billing balance response for the authenticated organization.
+      properties:
+        credits_remaining:
+          type: number
+        credits_used:
+          type: number
+          nullable: true
+        plan:
+          type: string
+          nullable: true
+        billing_period_end:
+          type: string
+          format: date-time
+          nullable: true
+      required: [credits_remaining, credits_used, plan, billing_period_end]
+
+    PublicAuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        traceId:
+          type: string
+        userId:
+          type: string
+          format: uuid
+          nullable: true
+        userName:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        key:
+          type: string
+          nullable: true
+        action:
+          type: string
+        route:
+          type: string
+        organizationId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        method:
+          type: string
+          nullable: true
+
+    PublicAuditLogsPagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        offset:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+      required: [page, offset, limit, total, totalPages]
+
+    PublicAuditLogsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicAuditLogEntry"
+        pagination:
+          $ref: "#/components/schemas/PublicAuditLogsPagination"
+      required: [success, data, pagination]
+
+    CancelResponse:
+      type: object
+      description: Acknowledgement and side-effect summary when cancelling a run or related job.
+      properties:
+        message:
+          type: string
+          description: Human-readable outcome message from upstream.
+        job_uuid:
+          type: string
+          format: uuid
+          nullable: true
+          description: Related orchestration job UUID that was signalled to stop, if any.
+        simulation_uuid:
+          type: string
+          format: uuid
+          nullable: true
+          description: Verification run UUID that was targeted for cancellation.
+        warnings:
+          type: array
+          items: { type: string }
+          description: Non-fatal notices (e.g. already terminal, partial cleanup).
+
+    StartSimulationResponse:
+      type: object
+      description: Acknowledgement from engine start endpoints — async work continues under `job_uuid`.
+      properties:
+        job_uuid:
+          type: string
+          format: uuid
+          description: Orchestration job to poll via `GET /v1/jobs/{job_uuid}`.
+        simulation_uuid:
+          type: string
+          format: uuid
+          description: Primary verification run id (single-scenario start).
+        evaluation_job_uuid:
+          type: string
+          format: uuid
+          nullable: true
+          description: Present when evaluation was scheduled immediately (`evaluate_on_complete`).
+        status:
+          type: string
+          description: Engine acknowledgement status (e.g. `dispatched`).
+          example: dispatched
+        message:
+          type: string
+          description: Human-readable detail from the engine.
+          example: Scenario simulation task(s) dispatched successfully (1 run(s))
+        simulation_uuids:
+          type: array
+          items: { type: string, format: uuid }
+          description: Populated for multi-scenario / multi-run responses instead of a single `simulation_uuid`.
+        run_group_uuid:
+          type: string
+          format: uuid
+          nullable: true
+          description: Correlates batched or multi-run executions in the UI and APIs.
+
+    CreditPreviewRequest:
+      type: object
+      description: >
+        Workspace credit preview. The gateway injects `organization_uuid`, `workspace_uuid`,
+        and `user_uuid` on proxied POST bodies, so clients may omit tenant fields entirely.
+        Upstream validation: `scenario_run` requires `scenario_uuid` and `num_runs`;
+        `scenario_generation` requires `num_scenarios`.
+      required: [mode, organization_uuid, workspace_uuid]
+      properties:
+        mode:
+          type: string
+          enum: [scenario_run, scenario_generation]
+          description: Select run-cost estimate vs scenario batch-generation estimate.
+        organization_uuid:
+          type: string
+          format: uuid
+          description: Organisation scope (overwritten from API key by the gateway).
+        workspace_uuid:
+          type: string
+          format: uuid
+          description: Workspace scope (overwritten from API key by the gateway).
+        scenario_uuid:
+          type: string
+          format: uuid
+          description: >
+            Required when `mode` is `scenario_run` — target scenario (the scenario row’s
+            `uuid` from create or generate, passed here as `scenario_uuid`).
+        num_runs:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Required when `mode` is `scenario_run` — number of planned runs to price.
+        agent_uuid:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional agent hint for run-cost estimates (registry agent UUID).
+        timeout_minutes:
+          type: integer
+          minimum: 1
+          maximum: 240
+          description: >-
+            scenario_run: overrides simulation_config.timeout_minutes for the credit estimate.
+            scenario_generation: generation time budget (mirrors scenario create). Omit for defaults.
+        num_scenarios:
+          type: integer
+          minimum: 1
+          maximum: 50
+          description: Required when `mode` is `scenario_generation` — number of scenario creates to price.
+
+    CreditPreviewRunItem:
+      type: object
+      description: One in-flight or pending ENGINE verification run contributing to committed credits.
+      required: [simulationUuid, estimatedCredits]
+      properties:
+        simulationUuid:
+          type: string
+          format: uuid
+          description: Verification run UUID with a stored credit estimate.
+        estimatedCredits:
+          type: number
+          description: Credits reserved or estimated for that run.
+        status:
+          type: string
+          nullable: true
+          description: Run or job status when provided (`CREATED`, `IN_PROGRESS`, `COMPLETED`, `FAILED`, `CANCELLED`, or job `PENDING`, `PROCESSING`, …).
+
+    CreditPreviewGenerationItem:
+      type: object
+      description: One pending scenario_creation job contributing to generation commitments.
+      required: [jobUuid, estimatedCredits]
+      properties:
+        jobUuid:
+          type: string
+          format: uuid
+          description: scenario_creation job UUID.
+        estimatedCredits:
+          type: number
+          description: Credits estimated for that generation job.
+        status:
+          type: string
+          nullable: true
+          description: Job status when available (`PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`, `CANCELLED`).
+
+    CreditPreviewResponse:
+      type: object
+      description: >
+        Workspace credit snapshot: current balance, pending commitments, existing in-flight
+        work, and optional estimate for a **new** run or generation request.
+      required:
+        - balance
+        - existingRuns
+        - existingRunsEstimatedTotal
+        - existingGenerations
+        - pendingGenerationsEstimatedTotal
+        - pendingCommittedTotal
+      properties:
+        balance:
+          type: number
+          description: Organisation credit balance visible to billing after recent updates.
+        newRunEstimatedCredits:
+          type: number
+          nullable: true
+          description: Set when `mode` was `scenario_run` — estimated incremental cost for the proposed run(s).
+        newRunEstimateMetadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: >
+            Full billing estimate metadata for the new run preview, including nested
+            `estimate_breakdown` (NPC/evaluator/external/compute lines), `effective_rounds`,
+            `scenario_type_used`, `global_config_version`, etc.
+        newGenerationEstimatedCredits:
+          type: number
+          nullable: true
+          description: Set when `mode` was `scenario_generation` — estimated cost for N new scenarios.
+        existingRuns:
+          type: array
+          description: Pending ENGINE runs with stored per-run estimates.
+          items:
+            $ref: "#/components/schemas/CreditPreviewRunItem"
+        existingRunsEstimatedTotal:
+          type: number
+          description: Sum of `estimatedCredits` across `existingRuns`.
+        existingGenerations:
+          type: array
+          description: Pending scenario_creation jobs with stored estimates.
+          items:
+            $ref: "#/components/schemas/CreditPreviewGenerationItem"
+        pendingGenerationsEstimatedTotal:
+          type: number
+          description: Sum of generation estimates for jobs in `existingGenerations`.
+        pendingCommittedTotal:
+          type: number
+          description: >
+            Credits already soft-committed by in-flight ENGINE runs and scenario_creation jobs
+            (used with balance to compute headroom).
+
+    TriggerEvaluationResponse:
+      type: object
+      description: Acknowledgement after manually triggering evaluation for a simulation run in `COMPLETED` status.
+      properties:
+        evaluation_job_uuid:
+          type: string
+          format: uuid
+          description: UUID of the newly created evaluation job to poll or download.
+        simulation_uuid:
+          type: string
+          format: uuid
+          description: Verification run being evaluated.
+        status:
+          type: string
+          description: Engine acknowledgement status for the trigger request.
+        message:
+          type: string
+          description: Human-readable detail from the evaluation trigger path.
+
+    FetchAgentCardRequest:
+      type: object
+      description: >
+        Connectivity check: fetches an A2A agent card (or equivalent) through the gateway
+        connector — useful before registering an agent URL.
+      properties:
+        agent_url:
+          type: string
+          nullable: true
+          description: Absolute URL of the `.well-known` agent card or root to fetch.
+        agent_type:
+          type: string
+          default: A2A
+          description: Connector hint; defaults to A2A card discovery semantics.
+        agent_parameters:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Optional extra parameters passed to the connector (timeouts, headers, etc.).
+
+    TestRestAgentRequest:
+      type: object
+      description: >
+        Sends a single HTTP request to a REST-style agent through the gateway for debugging;
+        not a full verification run.
+      required: [url]
+      properties:
+        url:
+          type: string
+          description: Fully qualified URL to invoke (method applied as given).
+        method:
+          type: string
+          default: GET
+          description: HTTP verb (GET, POST, PUT, PATCH, DELETE, …).
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: Outbound request headers (e.g. Authorization, Content-Type).
+        body:
+          type: object
+          description: Optional JSON object body for non-GET calls; arbitrary keys are forwarded upstream.
+          additionalProperties: true
+        timeout:
+          type: number
+          default: 10.0
+          description: Per-request timeout in seconds enforced server-side.
+
+    TestCurlAgentRequest:
+      type: object
+      description: >
+        Executes a curl-style command template server-side with sandboxed outbound access;
+        intended for integration smoke tests, not arbitrary shell.
+      required: [curl_command]
+      properties:
+        curl_command:
+          type: string
+          description: Full curl command line as a single string (quoting rules apply server-side).
+        timeout:
+          type: number
+          default: 10.0
+          description: Maximum seconds to wait for the proxied curl execution.
+
+    A2AConnectionTestRequest:
+      type: object
+      description: >
+        Body for `POST /v1/agents/tests/a2a-connection`. Tenant UUIDs and optional
+        `agent_uuid` are injected or supplied from the API key context when testing a saved
+        registry agent.
+      required: [agent_url]
+      properties:
+        agent_url:
+          type: string
+          description: Absolute URL of the agent or agent-card entrypoint.
+        agent_type:
+          type: string
+          default: A2A
+        agent_parameters:
+          type: object
+          nullable: true
+          additionalProperties: true
+        agent_uuid:
+          type: string
+          format: uuid
+          nullable: true
+          description: When set with tenant context, mini-sim results are persisted on the agent.
+        message:
+          type: string
+          nullable: true
+          description: Optional probe message for the synchronous A2A message step.
+        cs_auth_token:
+          type: string
+          nullable: true
+          description: Fresh Conscium session token for `auth_method=cs` agents.
+
+    TestA2AMessageRequest:
+      type: object
+      description: Body for `POST /v1/agents/tests/a2a-message`.
+      properties:
+        agent_url:
+          type: string
+          nullable: true
+        agent_type:
+          type: string
+          default: A2A
+        agent_parameters:
+          type: object
+          nullable: true
+          additionalProperties: true
+        message:
+          type: string
+          nullable: true
+          description: Optional probe message for the A2A message test.
+
+    TestDirectlineAgentRequest:
+      type: object
+      description: >
+        Body for `POST /v1/agents/tests/api-agent-test-directline` (pre-registration probe).
+        Uses top-level `secret` and `region` — not `agent_parameters.directline` on
+        `POST /v1/agents`.
+      required: [secret]
+      properties:
+        secret:
+          type: string
+          minLength: 1
+          description: Direct Line secret from Copilot Studio.
+        region:
+          type: string
+          default: global
+          description: Direct Line region code or `global`.
+        message:
+          type: string
+          default: Hello
+          description: Probe message sent to the Copilot Studio agent.
+        timeout:
+          type: number
+          default: 60.0
+          description: Poll timeout in seconds.
+
+    McpToolInfo:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          default: ""
+        input_schema:
+          type: object
+          additionalProperties: true
+          default: {}
+
+    TestMcpConnectionRequest:
+      type: object
+      description: >
+        Body for `POST /v1/agents/tests/mcp-connection`. Tenant UUIDs are injected from the
+        API key. When `agent_uuid` is set, stored MCP credentials may be merged from the registry.
+      required: [mcp_url]
+      properties:
+        mcp_url:
+          type: string
+          minLength: 1
+          description: Target remote MCP server URL (must be a public HTTPS endpoint).
+        auth_method:
+          type: string
+          default: bearer
+          enum: [bearer, none]
+          description: Authentication mode for the MCP server.
+        token:
+          type: string
+          nullable: true
+          description: Bearer token or PAT when auth_method is bearer.
+        transport:
+          type: string
+          nullable: true
+          enum: [streamable-http, sse, auto]
+          description: MCP transport; auto-detect when omitted.
+        agent_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Catalogue MCP adapter A2A URL for card/message probes after discovery.
+        agent_uuid:
+          type: string
+          format: uuid
+          nullable: true
+          description: Persisted registry agent UUID; loads redacted MCP credentials when set.
+        agent_parameters:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Registry agent parameters merged with request fields (includes nested `mcp`).
+        message:
+          type: string
+          nullable: true
+          description: Optional probe message for the adapter A2A message test.
+
+    TestMcpConnectionResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+          nullable: true
+        transport:
+          type: string
+          nullable: true
+        server_info:
+          type: object
+          additionalProperties: true
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/McpToolInfo"
+        auth_required:
+          type: boolean
+        auth_type:
+          type: string
+          nullable: true
+        provider_hint:
+          type: string
+          nullable: true
+        outcome:
+          type: string
+          nullable: true
+          enum: [success, failure, partial, pending]
+        connection:
+          $ref: "#/components/schemas/ConnectionTestStepStatus"
+        agent_card:
+          $ref: "#/components/schemas/ConnectionTestStepStatus"
+        agent_communication:
+          $ref: "#/components/schemas/ConnectionTestStepStatus"
+        testing_started:
+          type: boolean
+          default: false
+
+    ConnectionTestStepStatus:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          enum: [success, failure, skipped, pending]
+        message:
+          type: string
+        agent_card_url:
+          type: string
+          nullable: true
+
+    A2AConnectionTestResponse:
+      type: object
+      required: [success, message, outcome, connection, agent_card, agent_communication]
+      properties:
+        success:
+          type: boolean
+          description: True when connection, card, and communication steps all pass.
+        message:
+          type: string
+        outcome:
+          type: string
+          enum:
+            - testing
+            - unreachable
+            - profile_not_found
+            - wont_reply
+            - save_and_retest
+            - connected
+            - connected_interview_only
+            - connected_info_exchange_only
+            - practice_run_failed
+            - server_error
+            - unexpected_error
+        connection:
+          $ref: "#/components/schemas/ConnectionTestStepStatus"
+        agent_card:
+          $ref: "#/components/schemas/ConnectionTestStepStatus"
+        agent_communication:
+          $ref: "#/components/schemas/ConnectionTestStepStatus"
+        interview:
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/ConnectionTestStepStatus"
+          nullable: true
+        info_exchange:
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/ConnectionTestStepStatus"
+          nullable: true
+        testing_started:
+          type: boolean
+          default: false
+          description: True when background mini-simulations were started.
+
+    RegisterClientQnaRequest:
+      type: object
+      required: [skill_tag, description, qna]
+      properties:
+        skill_tag:
+          type: string
+          description: Canonical tag name (must not collide with a global catalogue tag).
+        description:
+          type: string
+          minLength: 10
+        testing_method:
+          type: string
+          minLength: 10
+          default: Ask factual recall questions from the registered QnA benchmark.
+        category:
+          type: string
+          default: qna_custom
+        qna_file:
+          type: string
+          nullable: true
+          description: Optional filename hint for stored QnA JSON.
+        comments:
+          type: string
+          nullable: true
+        qna:
+          type: object
+          required: [questions]
+          properties:
+            questions:
+              type: array
+              minItems: 1
+              items:
+                $ref: "#/components/schemas/QnaQuestionItem"
+        qna_user_edited:
+          type: boolean
+          default: false
+        dry_run:
+          type: boolean
+          default: false
+          description: When true, validate only — no writes to master-data storage.
+
+    RegisterClientQnaResponse:
+      type: object
+      required: [action, skill_tag, qna_storage_path, client_tags_storage_path, question_count]
+      properties:
+        action:
+          type: string
+          enum: [appended, updated, dry_run]
+        skill_tag:
+          type: string
+        qna_storage_path:
+          type: string
+        client_tags_storage_path:
+          type: string
+        question_count:
+          type: integer
+        row:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Client tag row written or previewed in `client_tags.jsonl`.
+
+    UsageEventResponse:
+      type: object
+      description: >
+        One **usage event** (billable unit) returned from `/v1/usage/events`. Additional vendor
+        fields may appear beyond the listed properties (`additionalProperties: true`).
+      additionalProperties: true
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: Usage event UUID.
+        organization_uuid:
+          type: string
+          format: uuid
+          description: Organisation that incurred the spend.
+        user_uuid:
+          type: string
+          format: uuid
+          description: User attributed on the event (often the API key user).
+        workspace_uuid:
+          type: string
+          format: uuid
+          description: Workspace attributed on the event.
+        product_area:
+          type: string
+          description: High-level product or pipeline area code (ENGINE, SCENARIO_CREATION, …).
+        failed:
+          type: boolean
+          nullable: true
+          description: Whether the underlying work ultimately failed (null until terminal).
+        created_at:
+          type: string
+          format: date-time
+          description: Event creation timestamp (RFC 3339).
+
+    UsageCallResponse:
+      type: object
+      description: >
+        One LLM **provider call** row from `/v1/usage/calls`; may include extra metering fields
+        from upstream (`additionalProperties: true`).
+      additionalProperties: true
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: Call row UUID.
+        event_uuid:
+          type: string
+          format: uuid
+          description: Parent usage event UUID this call rolled up into.
+        provider_name:
+          type: string
+          description: LLM vendor identifier string.
+        model_name:
+          type: string
+          description: Model id or display name for this call.
+        input_tokens:
+          type: integer
+          description: Billable input tokens attributed to the call.
+        output_tokens:
+          type: integer
+          description: Billable output tokens attributed to the call.
+        call_start_timestamp:
+          type: string
+          format: date-time
+          description: When the provider call began (RFC 3339).
+
+    ValidateRequest:
+      type: object
+      description: >
+        Validates a JSON **string** against a named in-product schema before you submit
+        generation payloads.
+      required: [json]
+      properties:
+        json:
+          type: string
+          description: JSON string to validate.
+        schema:
+          type: string
+          enum: [scenario]
+          default: scenario
+          description: >
+            Validator id. Use `scenario` (validates scenario input via Pydantic; same model as
+            GET /v1/validation/schema/scenario).
+
+    ValidateResponse:
+      type: object
+      description: Outcome of JSON schema validation against the selected validator (`scenario`, etc.).
+      properties:
+        result:
+          type: string
+          description: >
+            Human-readable report starting with `Validation Status:` and either `VALID` or
+            `INVALID` plus numbered errors when invalid.
+        service:
+          type: string
+          description: Internal validator service name that processed the request.
+        request_id:
+          type: string
+          description: Correlation id echoed from the validator for support tickets.
+        processing_time:
+          type: number
+          description: Server-side validation duration in seconds (floating point).
+
+    SkillTag:
+      type: object
+      description: >
+        One scenario skill tag. Use `name` in scenario generation requests. Filter by
+        `allowed_scenario_types` before POST /v1/scenarios/generate.
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Canonical tag id — pass this string in `tags` / `tag_pool`.
+        category:
+          type: string
+          description: Grouping label.
+        description:
+          type: string
+          description: Capability being measured.
+        benchmark_family:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+          description: >
+            Benchmark family when set (e.g. agentharm, gaia, qna). Benchmark tags are generally
+            info_exchange only; qna tags are interview only and must be the sole tag.
+        allowed_scenario_types:
+          type: array
+          items:
+            type: string
+            enum: [info_exchange, interview]
+          description: >
+            Scenario types that may use this tag. Empty array means not selectable. When omitted,
+            treat as both info_exchange and interview (UI backward compat).
+        custom:
+          type: boolean
+          description: True when the tag is an organization custom tag (from the org overlay); false for global catalogue tags.
