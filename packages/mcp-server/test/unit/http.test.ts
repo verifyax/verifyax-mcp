@@ -9,6 +9,7 @@ import {
   type McpSession,
   assertHostBinding,
   registerStreamableHttpRoutes,
+  sweepRateState,
   resolveAllowedHosts,
   resolveHost,
   resolvePort,
@@ -188,6 +189,21 @@ describe('sweepIdleSessions (SEC-4)', () => {
     expect(sessions.has('stale')).toBe(false);
     expect(sessions.has('fresh')).toBe(true);
     expect(closed).toEqual(['stale']);
+  });
+});
+
+describe('sweepRateState', () => {
+  it('drops entries whose window has elapsed and keeps live ones', () => {
+    const now = 1_000_000;
+    const rateState = new Map<string, { count: number; windowStartMs: number }>([
+      ['expired', { count: 5, windowStartMs: now - 60_000 }],
+      ['live', { count: 2, windowStartMs: now - 1_000 }],
+    ]);
+
+    const removed = sweepRateState(rateState, now, 60_000);
+    expect(removed).toBe(1);
+    expect(rateState.has('expired')).toBe(false);
+    expect(rateState.has('live')).toBe(true);
   });
 });
 

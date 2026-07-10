@@ -157,10 +157,13 @@ describe('get_run_details', () => {
         body: { uuid: 'r7', status: 'COMPLETED', evaluation_jobs: [{ uuid: 'e2' }] },
       },
     ]);
-    const payload = payloadOf<{ evaluation: { overall_score: number } | null }>(
-      await createGetRunDetailsHandler(ctx)({ simulation_uuid: 'r7' })
-    );
+    const payload = payloadOf<{
+      run: { evaluation_job_uuid: string | null };
+      evaluation: { overall_score: number } | null;
+    }>(await createGetRunDetailsHandler(ctx)({ simulation_uuid: 'r7' }));
     expect(payload.evaluation?.overall_score).toBe(0.77);
+    // The projection must reflect the job resolved from evaluation_jobs[], not null.
+    expect(payload.run.evaluation_job_uuid).toBe('e2');
   });
 
   it('projects the run to a compact named shape, not the raw object (CODE-6)', async () => {
