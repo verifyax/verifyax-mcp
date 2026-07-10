@@ -36,13 +36,15 @@ jobs:
         env:
           EXPECT_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
 
-      - name: Check generated SDK types are in sync with the spec mirror
+      - name: Check generated SDK types + spec provenance are in sync with the mirror
         # Regenerate from packages/sdk/openapi/verifyax.yaml and fail if the
-        # committed types.gen.ts drifted. Keeps the spec the single source of truth.
+        # committed types.gen.ts or verifyax.meta.json drifted. Keeps the spec the
+        # single source of truth and the recorded spec version/hash honest.
         run: |
           pnpm gen:types
-          git diff --exit-code -- packages/sdk/src/types.gen.ts \
-            || (echo "::error::types.gen.ts is stale — run 'pnpm gen:types' and commit the result." && exit 1)
+          pnpm gen:spec-meta
+          git diff --exit-code -- packages/sdk/src/types.gen.ts packages/sdk/openapi/verifyax.meta.json \
+            || (echo "::error::Generated SDK artifacts are stale — run 'pnpm gen:types && pnpm gen:spec-meta' and commit." && exit 1)
 
       - name: Lint
         run: pnpm lint

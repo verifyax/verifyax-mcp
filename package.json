@@ -14,6 +14,7 @@
     "typecheck": "tsc -b",
     "clean": "tsc -b --clean",
     "gen:types": "openapi-typescript packages/sdk/openapi/verifyax.yaml -o packages/sdk/src/types.gen.ts",
+    "gen:spec-meta": "node scripts/gen-spec-meta.mjs",
     "sync:spec": "bash scripts/sync-sdk-spec.sh",
     "test": "pnpm -r test",
     "test:coverage": "pnpm -r test:coverage",

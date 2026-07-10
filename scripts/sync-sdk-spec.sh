@@ -16,6 +16,6 @@ mkdir -p "$(dirname "$OUT")"
 curl -fsSL --retry 3 --retry-delay 2 --max-time 60 "$SPEC_URL" -o "$OUT"
 echo "Wrote $OUT ($(wc -c < "$OUT") bytes)"
 
-echo "Regenerating SDK types"
-( cd "$REPO_ROOT" && pnpm gen:types )
-echo "Done. Review the diff in packages/sdk/openapi/verifyax.yaml and src/types.gen.ts."
+echo "Regenerating SDK types + spec provenance"
+( cd "$REPO_ROOT" && pnpm gen:types && pnpm gen:spec-meta )
+echo "Done. Review the diff in packages/sdk/openapi/{verifyax.yaml,verifyax.meta.json} and src/types.gen.ts."

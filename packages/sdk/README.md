@@ -142,8 +142,12 @@ pnpm sync:spec     # fetch the spec into the mirror, then regenerate types
 pnpm gen:types
 ```
 
-CI fails if the committed `types.gen.ts` drifts from the mirror. The hand-written `types.ts` (request
-shapes and the resource-facing types) is being migrated onto these generated schemas incrementally.
+The spec version and content hash the types derive from are recorded in
+[`openapi/verifyax.meta.json`](openapi/verifyax.meta.json) (the `spec_sha256` matches the sidecar that
+`verifyax-agent-integrations` emits, so spec-version parity across surfaces is checkable). CI fails if
+the committed `types.gen.ts` or `verifyax.meta.json` drifts from the mirror. The hand-written
+`types.ts` (request shapes and the resource-facing types) is being migrated onto these generated
+schemas incrementally.
 
 ## License
 
