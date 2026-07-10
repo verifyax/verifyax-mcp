@@ -51,9 +51,12 @@ async function fetchAllEvents(
     const page = await ctx.client.usage.listEvents({ ...filter, limit: PAGE_SIZE, offset });
     events.push(...page);
     if (page.length < PAGE_SIZE) {
-      return { events, truncated: false };
+      // Last page (no more data). It can still overshoot the cap, so trim and
+      // flag truncation only when we actually dropped events.
+      return { events: events.slice(0, cap), truncated: events.length > cap };
     }
   }
+  // Stopped because we hit the cap on full pages — more events may remain.
   return { events: events.slice(0, cap), truncated: true };
 }
 
