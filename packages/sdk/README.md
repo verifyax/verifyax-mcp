@@ -129,6 +129,22 @@ Both accept `{ timeoutMs, intervalMs, signal }`.
 | `client.usage`       | `getBalance`, `listEvents`, `getEvent`, `listCalls`                                                                                                                                                                           |
 | `client.logs`        | `list`                                                                                                                                                                                                                        |
 
+## Types & the OpenAPI spec
+
+Response schemas in [`src/types.gen.ts`](src/types.gen.ts) are **generated** from a mirror of the
+canonical VerifyAX OpenAPI spec ([`openapi/verifyax.yaml`](openapi/verifyax.yaml)) — the spec is the
+single source of truth. Don't hand-edit either file. To refresh both from
+`console.verifyax.com/openapi.yaml`:
+
+```bash
+pnpm sync:spec     # fetch the spec into the mirror, then regenerate types
+# or, if the mirror is already current:
+pnpm gen:types
+```
+
+CI fails if the committed `types.gen.ts` drifts from the mirror. The hand-written `types.ts` (request
+shapes and the resource-facing types) is being migrated onto these generated schemas incrementally.
+
 ## License
 
 Apache-2.0.

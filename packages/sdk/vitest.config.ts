@@ -12,9 +12,10 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       // Files with no executable code are excluded so the floor reflects real
       // logic coverage: version.ts (generated), index.ts (re-export barrel), and
-      // types.ts (interfaces/types only — compiles to nothing, so it can never
-      // be "covered" and otherwise drags the whole metric down artificially).
-      exclude: ['src/version.ts', 'src/index.ts', 'src/types.ts'],
+      // types.ts / types.gen.ts (interfaces/types only — compile to nothing, so
+      // they can never be "covered" and otherwise drag the metric down artificially;
+      // types.gen.ts is generated from the OpenAPI spec).
+      exclude: ['src/version.ts', 'src/index.ts', 'src/types.ts', 'src/types.gen.ts'],
       reporter: ['text-summary'],
       // Floor set just below current coverage to stop erosion.
       thresholds: { statements: 90, lines: 90, functions: 90, branches: 85 },
