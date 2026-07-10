@@ -160,12 +160,12 @@ gcloud run services update verifyax-mcp \
 }
 ```
 
-| Goal                       | What to do                                                               |
-| -------------------------- | ------------------------------------------------------------------------ |
+| Goal                       | What to do                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------- |
 | Deploy to a project/region | Set `GCP_PROJECT`, `VERIFYAX_MCP_ALLOWED_HOSTS`, `GCP_REGION`, run `./deploy/gcp/deploy.sh` |
-| Change URL prefix          | Set `SERVICE_NAME` before deploy                                         |
-| Use your own domain        | `gcloud run domain-mappings create` + DNS + `VERIFYAX_MCP_ALLOWED_HOSTS` |
-| Verify deployment          | `curl -s https://YOUR-URL/health` → `{"status":"ok"}`                    |
+| Change URL prefix          | Set `SERVICE_NAME` before deploy                                                            |
+| Use your own domain        | `gcloud run domain-mappings create` + DNS + `VERIFYAX_MCP_ALLOWED_HOSTS`                    |
+| Verify deployment          | `curl -s https://YOUR-URL/health` → `{"status":"ok"}`                                       |
 
 ## Health check
 

@@ -45,28 +45,28 @@ writing API scripts.
 
 With the VerifyAX MCP Server, you can:
 
-* **Register and test agents** (A2A or API) and confirm connectivity before evaluation.
-* **Generate scenarios** from skill tags and wait for completion in one tool call.
-* **Run evaluations** and read scores, transcripts, and credit usage without manual polling.
+- **Register and test agents** (A2A or API) and confirm connectivity before evaluation.
+- **Generate scenarios** from skill tags and wait for completion in one tool call.
+- **Run evaluations** and read scores, transcripts, and credit usage without manual polling.
 
 It complements (does not replace) the [`verifyax-api` skill](https://github.com/verifyax/verifyax-plugins):
 the skill is for developers writing code; the MCP server is for conversational workflows.
 
 ## Contents
 
-* [Supported clients](#supported-clients)
-* [Supported tools](#supported-tools)
-* [Before you start](#before-you-start)
-* [Install the MCP server](#install-the-mcp-server)
-* [How it works](#how-it-works)
-* [Example workflows](#example-workflows)
-* [Tips and tricks](#tips-and-tricks)
-* [Data and security](#data-and-security)
-* [Troubleshooting](#troubleshooting)
-* [Support and feedback](#support-and-feedback)
-* [Disclaimer](#disclaimer)
-* [For developers](#for-developers)
-* [License](#license)
+- [Supported clients](#supported-clients)
+- [Supported tools](#supported-tools)
+- [Before you start](#before-you-start)
+- [Install the MCP server](#install-the-mcp-server)
+- [How it works](#how-it-works)
+- [Example workflows](#example-workflows)
+- [Tips and tricks](#tips-and-tricks)
+- [Data and security](#data-and-security)
+- [Troubleshooting](#troubleshooting)
+- [Support and feedback](#support-and-feedback)
+- [Disclaimer](#disclaimer)
+- [For developers](#for-developers)
+- [License](#license)
 
 ---
 
@@ -75,15 +75,15 @@ the skill is for developers writing code; the MCP server is for conversational w
 The VerifyAX MCP Server works with MCP-compatible clients that support **Streamable HTTP** or
 **stdio**:
 
-| Client | Setup reference |
-| --- | --- |
-| OpenAI ChatGPT | [Connectors / MCP guide](https://platform.openai.com/docs/guides/tools-connectors-mcp) |
-| Claude (Claude.ai, Desktop, and Code) | [Claude MCP docs](https://code.claude.com/docs/en/mcp) |
-| Cursor | [Cursor MCP docs](https://cursor.com/docs/mcp) |
-| Visual Studio Code (GitHub Copilot) | [VS Code MCP docs](https://code.visualstudio.com/docs/copilot/chat/mcp-servers) |
-| GitHub Copilot CLI | [About Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli) |
-| Google Gemini CLI | [Gemini CLI MCP docs](https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md) |
-| Amazon Quick Suite | [MCP integration guide](https://docs.aws.amazon.com/quicksuite/latest/userguide/mcp-integration.html) |
+| Client                                | Setup reference                                                                                       |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| OpenAI ChatGPT                        | [Connectors / MCP guide](https://platform.openai.com/docs/guides/tools-connectors-mcp)                |
+| Claude (Claude.ai, Desktop, and Code) | [Claude MCP docs](https://code.claude.com/docs/en/mcp)                                                |
+| Cursor                                | [Cursor MCP docs](https://cursor.com/docs/mcp)                                                        |
+| Visual Studio Code (GitHub Copilot)   | [VS Code MCP docs](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)                       |
+| GitHub Copilot CLI                    | [About Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli)             |
+| Google Gemini CLI                     | [Gemini CLI MCP docs](https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md) |
+| Amazon Quick Suite                    | [MCP integration guide](https://docs.aws.amazon.com/quicksuite/latest/userguide/mcp-integration.html) |
 
 Any client that can connect via [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) can also
 use the hosted endpoint at `https://mcp.verifyax.com/mcp`.
@@ -99,12 +99,12 @@ use the hosted endpoint at `https://mcp.verifyax.com/mcp`.
 Twelve tools mapped to user intents. Blocking tools poll internally and return only when work
 completes (typically 30s–5min).
 
-| Area | Tools | Blocking |
-| --- | --- | :---: |
-| **Agents** | `register_agent` · `list_agents` · `delete_agent` | — |
-| **Scenarios** | `list_compatible_tags` · `generate_scenario` · `list_scenarios` · `delete_scenario` | **yes** (`generate_scenario`) |
-| **Evaluation** | `evaluate_agent` · `list_recent_runs` · `get_run_details` | **yes** (`evaluate_agent`) |
-| **Usage** | `get_usage_summary` · `preview_run_cost` | — |
+| Area           | Tools                                                                               |           Blocking            |
+| -------------- | ----------------------------------------------------------------------------------- | :---------------------------: |
+| **Agents**     | `register_agent` · `list_agents` · `delete_agent`                                   |               —               |
+| **Scenarios**  | `list_compatible_tags` · `generate_scenario` · `list_scenarios` · `delete_scenario` | **yes** (`generate_scenario`) |
+| **Evaluation** | `evaluate_agent` · `list_recent_runs` · `get_run_details`                           |  **yes** (`evaluate_agent`)   |
+| **Usage**      | `get_usage_summary` · `preview_run_cost`                                            |               —               |
 
 > [!NOTE]
 > For tool descriptions (what Claude reads to pick a tool) and rationale, see
@@ -119,14 +119,14 @@ Requirements depend on how you connect.
 
 ### Remote HTTP (hosted at `mcp.verifyax.com`)
 
-* A **VerifyAX API key** (Settings → API Keys in the [console](https://console.verifyax.com))
-* An MCP client with **Streamable HTTP** support, or **Node.js 18+** to run the
+- A **VerifyAX API key** (Settings → API Keys in the [console](https://console.verifyax.com))
+- An MCP client with **Streamable HTTP** support, or **Node.js 18+** to run the
   [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) proxy
 
 ### Local stdio (`npx @verifyax/mcp-server`)
 
-* **Node.js ≥ 20**
-* A VerifyAX API key in your client config (`VERIFYAX_API_KEY`)
+- **Node.js ≥ 20**
+- A VerifyAX API key in your client config (`VERIFYAX_API_KEY`)
 
 ---
 
@@ -231,9 +231,9 @@ Restart the client after changing config, then describe what you want in natural
 
 ### Permission and billing
 
-* Actions are scoped to the **workspace** tied to your API key.
-* Usage and credits are billed to **your** VerifyAX workspace, not to the MCP server operator.
-* The hosted server sends **no telemetry** and does not persist API keys between sessions.
+- Actions are scoped to the **workspace** tied to your API key.
+- Usage and credits are billed to **your** VerifyAX workspace, not to the MCP server operator.
+- The hosted server sends **no telemetry** and does not persist API keys between sessions.
 
 ### Self-hosting
 
@@ -248,23 +248,23 @@ Once connected, describe tasks in natural language — the client picks the tool
 
 ### Agent setup
 
-* **Register**: _"Register my A2A agent at https://my-agent.example.com and confirm it's reachable."_
-* **List**: _"What agents are registered in my workspace?"_
+- **Register**: _"Register my A2A agent at https://my-agent.example.com and confirm it's reachable."_
+- **List**: _"What agents are registered in my workspace?"_
 
 ### Scenario authoring
 
-* **Discover tags**: _"List the skill tags I can use for an interview scenario."_
-* **Generate**: _"Generate an info_exchange scenario tagged empathy and coordination."_
+- **Discover tags**: _"List the skill tags I can use for an interview scenario."_
+- **Generate**: _"Generate an info_exchange scenario tagged empathy and coordination."_
 
 ### Evaluation
 
-* **Run eval**: _"Evaluate agent X against scenario Y and summarize the scores."_
-* **Review history**: _"Show details for my most recent simulation run."_
+- **Run eval**: _"Evaluate agent X against scenario Y and summarize the scores."_
+- **Review history**: _"Show details for my most recent simulation run."_
 
 ### Usage and cost
 
-* **Preview**: _"How many credits will it cost to run this scenario against my agent?"_
-* **Summary**: _"What did my last 5 simulation runs cost?"_
+- **Preview**: _"How many credits will it cost to run this scenario against my agent?"_
+- **Summary**: _"What did my last 5 simulation runs cost?"_
 
 > [!NOTE]
 > Blocking tools can take 30s–5min. Do not call them repeatedly — wait for the result.
@@ -282,6 +282,7 @@ project root (see the [AGENTS.md convention](https://agents.md/) for the format)
 ## VerifyAX MCP
 
 When connected to verifyax:
+
 - **MUST** call `list_compatible_tags` before `generate_scenario`
 - **MUST NOT** combine QnA tags with other tags (QnA must be the sole tag)
 - **MUST** use `preview_run_cost` when the user asks about credits before `evaluate_agent`
@@ -298,11 +299,11 @@ For scripts, CI, or custom multi-step logic, use the
 
 ## Data and security
 
-* All traffic to the hosted endpoint uses **HTTPS (TLS)**.
-* **API key** authentication; every action respects your VerifyAX workspace permissions.
-* The hosted server does **not** store API keys — each session supplies its own.
-* The MCP server sends **no telemetry**; it talks only to the VerifyAX API.
-* Destructive tools (`delete_agent`, `delete_scenario`) permanently remove resources — confirm
+- All traffic to the hosted endpoint uses **HTTPS (TLS)**.
+- **API key** authentication; every action respects your VerifyAX workspace permissions.
+- The hosted server does **not** store API keys — each session supplies its own.
+- The MCP server sends **no telemetry**; it talks only to the VerifyAX API.
+- Destructive tools (`delete_agent`, `delete_scenario`) permanently remove resources — confirm
   with the user before calling them.
 
 API keys are managed in the [VerifyAX console](https://console.verifyax.com) (Settings → API Keys).
@@ -312,15 +313,15 @@ Revoke a key there to cut off access immediately.
 
 ## Troubleshooting
 
-* **"VERIFYAX_API_KEY is not set"** — the key isn't reaching the server. Check the `env` block
+- **"VERIFYAX_API_KEY is not set"** — the key isn't reaching the server. Check the `env` block
   (stdio) or `Authorization` / `X-VerifyAX-API-Key` header (HTTP).
-* **Authentication failed** — the key is invalid, revoked, or from the wrong environment. Mint a
+- **Authentication failed** — the key is invalid, revoked, or from the wrong environment. Mint a
   fresh one in the console.
-* **Tool calls don't appear** — MCP clients load tools at startup; restart the client (or start a
+- **Tool calls don't appear** — MCP clients load tools at startup; restart the client (or start a
   new session) after adding the server.
-* **HTTP connection fails in Cursor** — try `mcp-remote` with `--transport http-only`, or verify
+- **HTTP connection fails in Cursor** — try `mcp-remote` with `--transport http-only`, or verify
   the URL ends with `/mcp`.
-* **Want logs?** Set `VERIFYAX_MCP_LOG_LEVEL=debug`. Logs are structured JSON on stderr; stdout is
+- **Want logs?** Set `VERIFYAX_MCP_LOG_LEVEL=debug`. Logs are structured JSON on stderr; stdout is
   reserved for the MCP protocol.
 
 ---
@@ -329,9 +330,9 @@ Revoke a key there to cut off access immediately.
 
 This project is maintained by the VerifyAX team at [Conscium](https://conscium.com).
 
-* **Bugs and feature requests:** [open an issue](https://github.com/verifyax/verifyax-mcp/issues)
-* **Development reference:** [`CONTRIBUTING.md`](CONTRIBUTING.md) (maintainers and forks)
-* **External pull requests aren't accepted** — issues are the best way to reach us
+- **Bugs and feature requests:** [open an issue](https://github.com/verifyax/verifyax-mcp/issues)
+- **Development reference:** [`CONTRIBUTING.md`](CONTRIBUTING.md) (maintainers and forks)
+- **External pull requests aren't accepted** — issues are the best way to reach us
 
 ---
 
@@ -351,10 +352,10 @@ attacks. Only use trusted MCP clients and servers, and review which tools each a
 
 This repository is a pnpm monorepo with two packages:
 
-| Package | Description |
-| --- | --- |
-| [`@verifyax/sdk`](packages/sdk) | Typed TypeScript client for the VerifyAX REST API |
-| [`@verifyax/mcp-server`](packages/mcp-server) | MCP server (12 tools) built on the SDK |
+| Package                                       | Description                                       |
+| --------------------------------------------- | ------------------------------------------------- |
+| [`@verifyax/sdk`](packages/sdk)               | Typed TypeScript client for the VerifyAX REST API |
+| [`@verifyax/mcp-server`](packages/mcp-server) | MCP server (12 tools) built on the SDK            |
 
 Requires Node ≥ 20 and [pnpm](https://pnpm.io) 10.
 
@@ -369,10 +370,10 @@ pnpm format       # format with prettier
 Network-dependent suites: `pnpm test:integration` (live API, needs `VERIFYAX_TEST_KEY`) and
 `pnpm test:conformance` (spawns the built MCP server over stdio).
 
-* **MCP Inspector:** [`docs/debugging-mcp-inspector.md`](docs/debugging-mcp-inspector.md)
-* **Execution plan:** [`docs/PLAN.md`](docs/PLAN.md)
-* **Architecture decisions:** [`CLAUDE.md`](CLAUDE.md)
-* **Cloud Run deploy:** [`deploy/gcp/README.md`](deploy/gcp/README.md)
+- **MCP Inspector:** [`docs/debugging-mcp-inspector.md`](docs/debugging-mcp-inspector.md)
+- **Execution plan:** [`docs/PLAN.md`](docs/PLAN.md)
+- **Architecture decisions:** [`CLAUDE.md`](CLAUDE.md)
+- **Cloud Run deploy:** [`deploy/gcp/README.md`](deploy/gcp/README.md)
 
 ---
 
