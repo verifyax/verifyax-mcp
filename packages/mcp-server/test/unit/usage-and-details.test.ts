@@ -78,6 +78,25 @@ describe('get_usage_summary', () => {
     expect(payload.total_events).toBe(2000);
     expect(payload.truncated).toBe(true);
   });
+
+  it('caps and flags truncation when a short final page overshoots the cap', async () => {
+    // cap=1500, pages of 1000 + 800: the short page pushes the total to 1800,
+    // which must be trimmed to the cap and reported as truncated.
+    const fullPage: UsageEvent[] = Array.from({ length: 1000 }, () => ({
+      product_area: 'x',
+      credits: 1,
+    }));
+    const shortPage: UsageEvent[] = Array.from({ length: 800 }, () => ({
+      product_area: 'x',
+      credits: 1,
+    }));
+    const payload = payloadOf<{ total_events: number; truncated: boolean; total_credits: number }>(
+      await createGetUsageSummaryHandler(pagingContext([fullPage, shortPage]))({ max_events: 1500 })
+    );
+    expect(payload.total_events).toBe(1500);
+    expect(payload.total_credits).toBe(1500); // credits summed only over the capped set
+    expect(payload.truncated).toBe(true);
+  });
 });
 
 describe('get_run_details', () => {
