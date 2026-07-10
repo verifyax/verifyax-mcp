@@ -3,6 +3,16 @@
 // Response interfaces document the fields the SDK relies on and carry an
 // `[key: string]: unknown` index signature where the API returns more than the
 // reference (docs/verifyax-api.md) pins down — forward-compatible without `any`.
+//
+// Payload shapes that the OpenAPI spec names are aliased onto the generated
+// schemas in `types.gen.ts` (the single source of truth — see
+// scripts/sync-sdk-spec.sh) rather than re-described by hand. Request shapes and
+// the resource-facing helpers below stay hand-written.
+
+import type { components } from './types.gen.js';
+
+/** Component schemas generated from the canonical OpenAPI spec. */
+type Schemas = components['schemas'];
 
 // ---------------------------------------------------------------------------
 // Enums (string unions — the API uses UPPERCASE for statuses)
@@ -104,6 +114,7 @@ export interface AgentCardTestRequest {
   agent_parameters?: AgentParameters;
 }
 
+/** The agent-card connectivity probe result; the spec doesn't schema the body. */
 export interface AgentCardTestResult {
   [key: string]: unknown;
 }
@@ -307,24 +318,32 @@ export interface ListRunsParams extends ListParams {
   scenario_uuid?: string;
 }
 
-export interface TriggerEvaluationResponse {
-  evaluation_job_uuid?: string;
+/**
+ * Response from triggering an evaluation. `job_uuid` isn't in the spec schema
+ * but some engine paths return it as a fallback for `evaluation_job_uuid`.
+ */
+export type TriggerEvaluationResponse = Schemas['TriggerEvaluationResponse'] & {
   job_uuid?: string;
-  [key: string]: unknown;
-}
+};
 
-export interface Evaluation {
-  [key: string]: unknown;
-}
+/** A completed evaluation job (scores, verdicts, and progress metadata). */
+export type Evaluation = Schemas['GetEvaluationResponse'];
 
-/** Scores payload from the evaluation/scores shortcut. */
-export interface EvaluationScores {
-  overall_score?: number;
-  per_tag_scores?: Record<string, unknown>;
-  [key: string]: unknown;
-}
+/**
+ * Scores payload from the evaluation/scores shortcut.
+ *
+ * NOTE: the spec wraps this in a `PublicSimulationScoreResponse` envelope
+ * (`{ success, data }`), but the live API returns the inner summary directly —
+ * proven by the SDK's own unit fixtures. We type the unwrapped shape; the
+ * integration suite is the drift-net if that ever changes. The batch
+ * `getScores` map values share this type.
+ */
+export type EvaluationScores = Schemas['PublicSimulationScoreSummary'];
 
-/** Parsed ScenarioOutput / response.json for a completed run. */
+/**
+ * Parsed ScenarioOutput / response.json for a completed run. The spec types the
+ * body as a free-form object, so this stays an open bag.
+ */
 export interface RunOutput {
   [key: string]: unknown;
 }
@@ -370,11 +389,15 @@ export interface ListUsageEventsParams extends ListParams {
   event_start_to?: string;
 }
 
-export interface UsageEvent {
-  uuid?: string;
+/**
+ * A billing/usage event. `credits` and `event_uuid` aren't in the spec's
+ * `UsageEventResponse` but are summed/read defensively when the API includes
+ * them (see `get_usage_summary`).
+ */
+export type UsageEvent = Schemas['UsageEventResponse'] & {
+  credits?: number;
   event_uuid?: string;
-  [key: string]: unknown;
-}
+};
 
 /** Organization credit balance for the API key's org. */
 export interface BillingBalance {
@@ -398,9 +421,7 @@ export interface ListLogsParams extends ListParams {
   action?: string;
 }
 
-export interface LogEntry {
-  [key: string]: unknown;
-}
+export type LogEntry = Schemas['PublicAuditLogEntry'];
 
 export interface ListUsageCallsParams extends ListParams {
   event_uuid?: string;
@@ -410,6 +431,4 @@ export interface ListUsageCallsParams extends ListParams {
   call_start_to?: string;
 }
 
-export interface UsageCall {
-  [key: string]: unknown;
-}
+export type UsageCall = Schemas['UsageCallResponse'];
