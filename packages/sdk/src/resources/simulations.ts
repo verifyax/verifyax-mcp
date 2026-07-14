@@ -1,5 +1,5 @@
 import type { VerifyaxClient } from '../client.js';
-import { JobFailedError } from '../errors.js';
+import { JobFailedError, VerifyaxError } from '../errors.js';
 import { type PollOptions, pollUntilTerminal } from '../polling.js';
 import type {
   BatchSimulationScoresEnvelope,
@@ -79,8 +79,15 @@ export class SimulationsResource {
       'GET',
       `/simulations/${simulationUuid}/evaluation`
     );
-    // `data` is optional on the envelope schema but always present on success.
-    return envelope.data ?? ({} as Evaluation);
+    if (envelope.success && envelope.data !== undefined) {
+      return envelope.data;
+    }
+    throw new VerifyaxError(
+      envelope.success
+        ? `Evaluation report for run ${simulationUuid} did not include a payload`
+        : `Evaluation report for run ${simulationUuid} is not available yet`,
+      { responseBody: envelope }
+    );
   }
 
   /** Just the scores ({ overall_score, per_tag_scores, ... }) for a run. */
