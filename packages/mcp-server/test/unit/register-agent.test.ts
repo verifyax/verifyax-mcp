@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canProbeDirectLine,
   createRegisterAgentHandler,
   directLineUrlFromRegion,
+  resolveAgentType,
 } from '../../src/tools/register-agent.js';
 import { payloadOf, stubContext } from './helpers.js';
 
@@ -66,6 +68,27 @@ describe('register_agent', () => {
     );
   });
 
+  it('infers DIRECTLINE when directline is set without agent_type', () => {
+    expect(resolveAgentType({ name: 'x', directline: { secret: 's' } })).toBe('DIRECTLINE');
+    expect(resolveAgentType({ name: 'x', mcp: { url: 'https://mcp.example.com/mcp' } })).toBe(
+      'MCP'
+    );
+    expect(resolveAgentType({ name: 'x', agent_url: 'https://a.example' })).toBe('A2A');
+  });
+
+  it('skips Direct Line probe when base_url overrides the regional host', () => {
+    const args = {
+      name: 'copilot',
+      agent_type: 'DIRECTLINE' as const,
+      directline: {
+        secret: 'dl-secret',
+        region: 'global' as const,
+        base_url: 'https://custom.example',
+      },
+    };
+    expect(canProbeDirectLine(args, 'https://custom.example')).toBe(false);
+  });
+
   it('probes Direct Line then creates a DIRECTLINE agent', async () => {
     const { ctx, calls } = stubContext([
       { method: 'POST', match: 'api-agent-test-directline', body: { success: true } },
@@ -96,6 +119,50 @@ describe('register_agent', () => {
       agent_url: 'https://europe.directline.botframework.com',
       agent_parameters: { directline: { secret: 'dl-secret', region: 'europe' } },
     });
+  });
+
+  it('registers DIRECTLINE without agent_type when directline is provided', async () => {
+    const { ctx, calls } = stubContext([
+      { method: 'POST', match: 'api-agent-test-directline', body: { success: true } },
+      {
+        method: 'POST',
+        match: '/agents',
+        body: { uuid: 'dl-2', name: 'copilot', agent_type: 'DIRECTLINE' },
+      },
+    ]);
+    const payload = payloadOf<{ success: boolean }>(
+      await createRegisterAgentHandler(ctx)({
+        name: 'copilot',
+        directline: { secret: 'dl-secret', region: 'global' },
+      })
+    );
+    expect(payload.success).toBe(true);
+    expect(calls[1]?.body).toMatchObject({ agent_type: 'DIRECTLINE' });
+  });
+
+  it('skips Direct Line probe for custom base_url but still creates the agent', async () => {
+    const { ctx, calls } = stubContext([
+      {
+        method: 'POST',
+        match: '/agents',
+        body: {
+          uuid: 'dl-3',
+          name: 'copilot',
+          agent_type: 'DIRECTLINE',
+          agent_url: 'https://custom.example',
+        },
+      },
+    ]);
+    const payload = payloadOf<{ connectivity_checked: boolean }>(
+      await createRegisterAgentHandler(ctx)({
+        name: 'copilot',
+        agent_type: 'DIRECTLINE',
+        directline: { secret: 'dl-secret', region: 'global', base_url: 'https://custom.example' },
+      })
+    );
+    expect(payload.connectivity_checked).toBe(false);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toMatch(/\/agents$/);
   });
 
   it('does not create a DIRECTLINE agent when the probe fails', async () => {

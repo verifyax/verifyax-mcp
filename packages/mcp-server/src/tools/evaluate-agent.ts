@@ -13,9 +13,18 @@ const DESCRIPTION =
   'Optional timeout_minutes (1–240) overrides the scenario default for this run.';
 
 // The full pipeline (run + evaluation) can take several minutes.
-const POLL_TIMEOUT_MS = 600_000;
+const DEFAULT_POLL_TIMEOUT_MS = 600_000;
+const EVAL_BUFFER_MS = 300_000;
 const RUN_INTERVAL_MS = 15_000;
 const EVAL_INTERVAL_MS = 10_000;
+
+/** Scale client-side polling to cover the requested run budget plus evaluation headroom. */
+export function evaluatePollTimeoutMs(timeoutMinutes?: number): number {
+  if (timeoutMinutes === undefined) {
+    return DEFAULT_POLL_TIMEOUT_MS;
+  }
+  return timeoutMinutes * 60_000 + EVAL_BUFFER_MS;
+}
 
 const inputObject = z.object({
   agent_uuid: z.string().describe('The agent to evaluate.'),
@@ -41,6 +50,8 @@ const inputSchema = inputObject.shape;
 export function createEvaluateAgentHandler(ctx: ToolContext) {
   return (args: Input) =>
     runTool(ctx, NAME, async () => {
+      const pollTimeoutMs = evaluatePollTimeoutMs(args.timeout_minutes);
+
       // 1. Cost preview (advisory — don't fail the evaluation if it errors).
       let creditsEstimate: number | null = null;
       try {
@@ -69,7 +80,7 @@ export function createEvaluateAgentHandler(ctx: ToolContext) {
 
       // 3. Wait for the run to finish (throws JobFailedError on FAILED/CANCELLED).
       const run = await ctx.client.simulations.waitForRun(sim.simulation_uuid, {
-        timeoutMs: POLL_TIMEOUT_MS,
+        timeoutMs: pollTimeoutMs,
         intervalMs: RUN_INTERVAL_MS,
       });
 
@@ -96,7 +107,7 @@ export function createEvaluateAgentHandler(ctx: ToolContext) {
 
       // 5. Wait for the evaluation and fetch its results.
       await ctx.client.jobs.pollUntilTerminal(evalJobUuid, {
-        timeoutMs: POLL_TIMEOUT_MS,
+        timeoutMs: pollTimeoutMs,
         intervalMs: EVAL_INTERVAL_MS,
       });
       const evaluation = await ctx.client.simulations.getEvaluation(evalJobUuid);

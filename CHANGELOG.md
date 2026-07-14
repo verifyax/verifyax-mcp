@@ -33,6 +33,12 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ### Fixed
 
+- `@verifyax/mcp-server`: DIRECTLINE registration skips the flat probe when `base_url` or a
+  custom `agent_url` would target a different host than the region-based probe; infers
+  `DIRECTLINE`/`MCP` from nested connector input when `agent_type` is omitted.
+- `@verifyax/mcp-server`: `evaluate_agent` poll budget scales with `timeout_minutes` so long runs
+  are not cut off by a fixed 10-minute client timeout.
+- `@verifyax/mcp-server`: `generate_scenario` poll budget scales with `num_scenarios` for batch jobs.
 - `@verifyax/sdk`: `SimulationsResource.list` now correctly handles the paginated envelope returned by the live API (fixing a regression where it expected a bare array and failed with `runs.map is not a function`).
 - `@verifyax/mcp-server`: `list_recent_runs` tool is now resilient to non-array responses from the SDK.
 - `@verifyax/sdk`: `getEvaluationReport`, `getEvaluationScores`, and `getScores` now throw when the gateway envelope reports `success: false` or omits the expected payload, instead of returning `undefined` or throwing on missing nested fields.
