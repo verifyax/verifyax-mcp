@@ -9,7 +9,8 @@ const NAME = 'evaluate_agent';
 const DESCRIPTION =
   'Runs an agent against a scenario and evaluates the result end to end, blocking until the ' +
   'evaluation completes (typically 30s–5min). Give it an agent uuid and a scenario uuid; it ' +
-  'previews cost, runs the simulation, waits for it, and returns the evaluation scores.';
+  'previews cost, runs the simulation, waits for it, and returns the evaluation scores. ' +
+  'Optional timeout_minutes (1–240) overrides the scenario default for this run.';
 
 // The full pipeline (run + evaluation) can take several minutes.
 const POLL_TIMEOUT_MS = 600_000;
@@ -26,6 +27,13 @@ const inputObject = z.object({
     .max(10)
     .optional()
     .describe('Parallel repetitions, 1-10 (default 1).'),
+  timeout_minutes: z
+    .number()
+    .int()
+    .min(1)
+    .max(240)
+    .optional()
+    .describe('Wall-clock budget in minutes for this run (overrides scenario default).'),
 });
 type Input = z.infer<typeof inputObject>;
 const inputSchema = inputObject.shape;
@@ -41,6 +49,7 @@ export function createEvaluateAgentHandler(ctx: ToolContext) {
           scenario_uuid: args.scenario_uuid,
           agent_uuid: args.agent_uuid,
           ...(args.num_runs !== undefined ? { num_runs: args.num_runs } : {}),
+          ...(args.timeout_minutes !== undefined ? { timeout_minutes: args.timeout_minutes } : {}),
         });
         creditsEstimate = preview.newRunEstimatedCredits ?? null;
       } catch (error) {
@@ -55,6 +64,7 @@ export function createEvaluateAgentHandler(ctx: ToolContext) {
         agent_uuid: args.agent_uuid,
         evaluate_on_complete: true,
         ...(args.num_runs !== undefined ? { num_runs: args.num_runs } : {}),
+        ...(args.timeout_minutes !== undefined ? { timeout_minutes: args.timeout_minutes } : {}),
       });
 
       // 3. Wait for the run to finish (throws JobFailedError on FAILED/CANCELLED).

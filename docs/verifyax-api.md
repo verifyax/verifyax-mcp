@@ -135,7 +135,6 @@ POST /v1/agents/tests/mcp-connection    // discover MCP tools + optional adapter
 POST /v1/scenarios/generate
 {
   "name": "string (required, workspace-unique)",
-  "description": "string (optional)",
   "scenario_type": "info_exchange | interview",   // info_exchange is the default
   "context_prompt": "string",
   "tags": ["tag1", "tag2"],             // tag `name` from GET /api/v1/tags; max 5 info_exchange / 2 interview

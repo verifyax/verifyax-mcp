@@ -103,6 +103,24 @@ describe('get_usage_summary', () => {
     expect(payload.total_spend_usd).toBe(1500); // spend summed only over the capped set
     expect(payload.truncated).toBe(true);
   });
+
+  it('forwards job_uuid filters to usage events', async () => {
+    const { ctx, calls } = stubContext([
+      {
+        method: 'GET',
+        match: '/usage/events',
+        body: [{ product_area: 'evaluation', actual_total_event_cost: 1 }],
+      },
+    ]);
+    await createGetUsageSummaryHandler(ctx)({
+      job_uuid: 'job-1',
+      simulation_job_uuid: 'sim-job-1',
+      evaluation_job_uuid: 'eval-job-1',
+    });
+    expect(calls[0]?.url).toContain('job_uuid=job-1');
+    expect(calls[0]?.url).toContain('simulation_job_uuid=sim-job-1');
+    expect(calls[0]?.url).toContain('evaluation_job_uuid=eval-job-1');
+  });
 });
 
 describe('get_run_details', () => {

@@ -31,6 +31,14 @@ export type AgentType = 'A2A' | 'API' | 'DIRECTLINE' | 'EXTENSION' | 'MCP';
 export type ScenarioType = 'info_exchange' | 'interview';
 export type AuthMethod = 'no-auth' | 'bearer' | 'cs' | 'http-basic';
 export type IncludeFullContext = 'always' | 'never' | 'first_only';
+export type DirectLineRegion =
+  | 'global'
+  | 'europe'
+  | 'india'
+  | 'unitedstates'
+  | 'asia'
+  | 'australia'
+  | 'northamerica';
 
 /**
  * Common pagination params accepted by list endpoints. The index signature
@@ -50,7 +58,8 @@ export interface ListParams {
 /** Copilot Studio Direct Line connection (DIRECTLINE agents). */
 export interface DirectLineParameters {
   secret: string;
-  region?: string;
+  region?: DirectLineRegion;
+  base_url?: string | null;
 }
 
 /** Remote MCP server connection, reached via the catalogue MCP adapter (MCP agents). */
@@ -84,7 +93,7 @@ export interface AgentParameters {
 export interface RegisterAgentRequest {
   name: string;
   description?: string;
-  agent_url: string;
+  agent_url?: string;
   agent_type?: AgentType;
   agent_parameters?: AgentParameters;
 }
@@ -163,6 +172,9 @@ export interface McpConnectionTestRequest {
   token?: string;
   transport?: 'streamable-http' | 'sse' | 'auto';
   agent_url?: string;
+  agent_uuid?: string;
+  agent_parameters?: Record<string, unknown>;
+  message?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -171,7 +183,6 @@ export interface McpConnectionTestRequest {
 
 export interface GenerateScenarioRequest {
   name: string;
-  description?: string;
   scenario_type: ScenarioType;
   context_prompt?: string;
   tags?: string[];
@@ -282,12 +293,25 @@ export interface CreditPreviewRequest {
   num_runs?: number;
   timeout_minutes?: number;
   agent_uuid?: string;
+  /** Required for `scenario_generation` — number of scenario creates to price. */
+  num_scenarios?: number;
+}
+
+export interface CreditPreviewGenerationItem {
+  jobUuid: string;
+  estimatedCredits: number;
+  status?: string | null;
 }
 
 export interface CreditPreview {
   balance?: number;
-  newRunEstimatedCredits?: number;
-  existingRuns?: number;
+  newRunEstimatedCredits?: number | null;
+  newRunEstimateMetadata?: Record<string, unknown> | null;
+  newGenerationEstimatedCredits?: number | null;
+  existingRuns?: unknown[];
+  existingRunsEstimatedTotal?: number;
+  existingGenerations?: CreditPreviewGenerationItem[];
+  pendingGenerationsEstimatedTotal?: number;
   pendingCommittedTotal?: number;
   [key: string]: unknown;
 }
@@ -316,6 +340,10 @@ export interface ListRunsParams extends ListParams {
   status?: RunStatus | (string & {});
   agent_uuid?: string;
   scenario_uuid?: string;
+  run_group_uuid?: string;
+  date_from?: string;
+  date_to?: string;
+  search?: string;
 }
 
 /**

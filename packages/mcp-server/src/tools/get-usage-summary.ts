@@ -7,9 +7,9 @@ import { runTool } from './result.js';
 const NAME = 'get_usage_summary';
 
 const DESCRIPTION =
-  'Summarizes VerifyAX usage events over an optional time range or for a specific simulation or ' +
-  'scenario. Paginates across all matching events (up to a cap) and returns the total event ' +
-  'count, a breakdown by product area, and total platform spend in USD when the API reports it.';
+  'Summarizes VerifyAX usage events over an optional time range or for a specific simulation, ' +
+  'scenario, or job. Paginates across all matching events (up to a cap) and returns the total ' +
+  'event count, a breakdown by product area, and total platform spend in USD when the API reports it.';
 
 /** Page size and overall safety cap when paginating usage events. */
 const PAGE_SIZE = 1000;
@@ -18,6 +18,9 @@ const DEFAULT_MAX_EVENTS = 10_000;
 const inputObject = z.object({
   simulation_uuid: z.string().optional(),
   scenario_uuid: z.string().optional(),
+  job_uuid: z.string().optional().describe('Filter by async job UUID.'),
+  simulation_job_uuid: z.string().optional().describe('Filter by simulation job UUID.'),
+  evaluation_job_uuid: z.string().optional().describe('Filter by evaluation job UUID.'),
   product_area: z.string().optional(),
   failed: z.boolean().optional(),
   event_start_from: z.string().optional().describe('ISO 8601 start of the window.'),

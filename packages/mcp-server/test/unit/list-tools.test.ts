@@ -65,6 +65,19 @@ describe('list_recent_runs', () => {
     expect(payloadOf<{ success: boolean }>(result).success).toBe(true);
     expect(calls[0]?.url).toContain('status=QUEUED_FUTURE_VALUE');
   });
+
+  it('forwards date, search, and run_group_uuid filters', async () => {
+    const { ctx, calls } = stubContext([{ method: 'GET', match: '/simulations', body: [] }]);
+    await createListRecentRunsHandler(ctx)({
+      date_from: '2026-01-01T00:00:00Z',
+      date_to: '2026-01-31T23:59:59Z',
+      search: 'demo',
+      run_group_uuid: 'rg-1',
+    });
+    expect(calls[0]?.url).toContain('date_from=2026-01-01T00%3A00%3A00Z');
+    expect(calls[0]?.url).toContain('search=demo');
+    expect(calls[0]?.url).toContain('run_group_uuid=rg-1');
+  });
 });
 
 describe('preview_run_cost', () => {
@@ -82,5 +95,21 @@ describe('preview_run_cost', () => {
     expect(payload.estimated_credits).toBe(8);
     expect(payload.balance).toBe(100);
     expect(calls[0]?.body).toMatchObject({ mode: 'scenario_run', scenario_uuid: 's1' });
+  });
+
+  it('forwards timeout_minutes to the credit preview', async () => {
+    const { ctx, calls } = stubContext([
+      {
+        method: 'POST',
+        match: 'workspace-credit-preview',
+        body: { balance: 100, newRunEstimatedCredits: 8 },
+      },
+    ]);
+    await createPreviewRunCostHandler(ctx)({
+      scenario_uuid: 's1',
+      agent_uuid: 'a1',
+      timeout_minutes: 45,
+    });
+    expect(calls[0]?.body).toMatchObject({ timeout_minutes: 45 });
   });
 });

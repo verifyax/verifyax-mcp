@@ -6,11 +6,14 @@ import { runTool } from './result.js';
 const NAME = 'list_agents';
 
 const DESCRIPTION =
-  'Lists the AI agents registered in your VerifyAX workspace, optionally filtered by type ' +
-  '(A2A or API). Returns each agent’s uuid, name, type, and URL.';
+  'Lists the AI agents registered in your VerifyAX workspace, optionally filtered by connector ' +
+  'type (A2A, API, DIRECTLINE, EXTENSION, or MCP). Returns each agent’s uuid, name, type, and URL.';
 
 const inputObject = z.object({
-  agent_type: z.enum(['A2A', 'API']).optional().describe('Filter to a single agent type.'),
+  agent_type: z
+    .enum(['A2A', 'API', 'DIRECTLINE', 'EXTENSION', 'MCP'])
+    .optional()
+    .describe('Filter to a single agent type.'),
   limit: z.number().int().positive().max(1000).optional(),
   offset: z.number().int().nonnegative().optional(),
 });
