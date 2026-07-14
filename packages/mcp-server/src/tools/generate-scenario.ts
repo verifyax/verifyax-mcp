@@ -46,12 +46,7 @@ const inputObject = z.object({
     .max(5)
     .optional()
     .describe('Batch only; tags drawn per scenario from tag_pool.'),
-  max_tags_per_npc: z
-    .number()
-    .int()
-    .min(1)
-    .optional()
-    .describe('Batch only; caps tags per NPC.'),
+  max_tags_per_npc: z.number().int().min(1).optional().describe('Batch only; caps tags per NPC.'),
 });
 type Input = z.infer<typeof inputObject>;
 const inputSchema = inputObject.shape;
@@ -84,7 +79,9 @@ export function createGenerateScenarioHandler(ctx: ToolContext) {
         scenario_uuid: generated.uuid,
         scenario_type: args.scenario_type,
         job_status: job.current_status,
-        ...(isBatch && generated.batch_uuid !== undefined ? { batch_uuid: generated.batch_uuid } : {}),
+        ...(isBatch && generated.batch_uuid !== undefined
+          ? { batch_uuid: generated.batch_uuid }
+          : {}),
         ...(isBatch && generated.batch_scenario_uuids !== undefined
           ? { batch_scenario_uuids: generated.batch_scenario_uuids }
           : {}),

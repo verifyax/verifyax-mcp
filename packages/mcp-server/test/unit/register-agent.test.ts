@@ -61,7 +61,9 @@ describe('register_agent', () => {
   it('derives the Direct Line regional host from region', () => {
     expect(directLineUrlFromRegion('global')).toBe('https://directline.botframework.com');
     expect(directLineUrlFromRegion('europe')).toBe('https://europe.directline.botframework.com');
-    expect(directLineUrlFromRegion('global', 'https://custom.example')).toBe('https://custom.example');
+    expect(directLineUrlFromRegion('global', 'https://custom.example')).toBe(
+      'https://custom.example'
+    );
   });
 
   it('probes Direct Line then creates a DIRECTLINE agent', async () => {
