@@ -13,8 +13,19 @@ const DESCRIPTION =
   'uuids when batching, or a structured error with details if generation fails (e.g. incompatible tags).';
 
 // Generation can take a couple of minutes; allow generous headroom.
-const POLL_TIMEOUT_MS = 300_000;
+const BASE_GENERATION_POLL_MS = 300_000;
+const PER_SCENARIO_POLL_MS = 60_000;
+const MAX_GENERATION_POLL_MS = 3_600_000;
 const POLL_INTERVAL_MS = 3_000;
+
+/** Scale generation polling with batch size — larger batches need more wall-clock time. */
+export function generationPollTimeoutMs(numScenarios: number): number {
+  const count = Math.max(1, numScenarios);
+  return Math.min(
+    BASE_GENERATION_POLL_MS + (count - 1) * PER_SCENARIO_POLL_MS,
+    MAX_GENERATION_POLL_MS
+  );
+}
 
 const inputObject = z.object({
   name: z.string().describe('Workspace-unique scenario name.'),
@@ -67,10 +78,12 @@ export function createGenerateScenarioHandler(ctx: ToolContext) {
       };
       const generated = await ctx.client.scenarios.generate(request);
 
+      const pollTimeoutMs = generationPollTimeoutMs(args.num_scenarios ?? 1);
+
       // Block until the async generation job reaches a terminal state. A FAILED
       // job throws JobFailedError (carrying error_details), surfaced by runTool.
       const job = await ctx.client.jobs.pollUntilTerminal(generated.job_uuid, {
-        timeoutMs: POLL_TIMEOUT_MS,
+        timeoutMs: pollTimeoutMs,
         intervalMs: POLL_INTERVAL_MS,
       });
 

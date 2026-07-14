@@ -98,6 +98,37 @@ export function directLineUrlFromRegion(
   return `https://${region}.directline.botframework.com`;
 }
 
+/**
+ * The flat Direct Line probe only accepts secret + region (the API maps region to a host).
+ * Skip probing when the registered URL would differ from that mapping.
+ */
+export function canProbeDirectLine(args: Input, agentUrl: string): boolean {
+  const dl = args.directline;
+  if (dl === undefined) {
+    return false;
+  }
+  if (dl.base_url !== undefined) {
+    return false;
+  }
+  const region = (dl.region ?? 'global') as DirectLineRegion;
+  const regionalUrl = directLineUrlFromRegion(region);
+  return agentUrl === regionalUrl;
+}
+
+/** Infer connector type from explicit input or nested connector blocks. */
+export function resolveAgentType(args: Input): NonNullable<Input['agent_type']> {
+  if (args.agent_type !== undefined) {
+    return args.agent_type;
+  }
+  if (args.directline !== undefined) {
+    return 'DIRECTLINE';
+  }
+  if (args.mcp !== undefined) {
+    return 'MCP';
+  }
+  return 'A2A';
+}
+
 function buildFlatAgentParameters(args: Input): AgentParameters {
   const params: AgentParameters = {};
   if (args.auth_method !== undefined) params.auth_method = args.auth_method;
@@ -182,7 +213,7 @@ function resolveAgentUrl(args: Input, agentType: NonNullable<Input['agent_type']
 export function createRegisterAgentHandler(ctx: ToolContext) {
   return (args: Input) =>
     runTool(ctx, NAME, async () => {
-      const agentType = args.agent_type ?? 'A2A';
+      const agentType = resolveAgentType(args);
       const agentUrl = resolveAgentUrl(args, agentType);
       const agentParameters = buildAgentParameters(args, agentType);
 
@@ -199,12 +230,14 @@ export function createRegisterAgentHandler(ctx: ToolContext) {
         if (dl === undefined) {
           throw new VerifyaxError('DIRECTLINE agents require directline.secret.');
         }
-        await ctx.client.agents.testApiAgentDirectline({
-          secret: dl.secret,
-          region: dl.region ?? 'global',
-          message: 'Hello',
-        });
-        connectivityChecked = true;
+        if (canProbeDirectLine(args, agentUrl)) {
+          await ctx.client.agents.testApiAgentDirectline({
+            secret: dl.secret,
+            region: dl.region ?? 'global',
+            message: 'Hello',
+          });
+          connectivityChecked = true;
+        }
       } else if (agentType === 'MCP') {
         const mcp = args.mcp;
         if (mcp === undefined) {

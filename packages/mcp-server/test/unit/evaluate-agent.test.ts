@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { createEvaluateAgentHandler } from '../../src/tools/evaluate-agent.js';
+import {
+  createEvaluateAgentHandler,
+  evaluatePollTimeoutMs,
+} from '../../src/tools/evaluate-agent.js';
 import { payloadOf, stubContext } from './helpers.js';
 
 describe('evaluate_agent', () => {
+  it('scales poll timeout with timeout_minutes', () => {
+    expect(evaluatePollTimeoutMs(undefined)).toBe(600_000);
+    expect(evaluatePollTimeoutMs(60)).toBe(60 * 60_000 + 300_000);
+    expect(evaluatePollTimeoutMs(240)).toBe(240 * 60_000 + 300_000);
+  });
+
   it('runs the full pipeline and returns the evaluation', async () => {
     const { ctx } = stubContext([
       { method: 'POST', match: 'workspace-credit-preview', body: { newRunEstimatedCredits: 7 } },

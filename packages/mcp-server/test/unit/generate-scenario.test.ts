@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { createGenerateScenarioHandler } from '../../src/tools/generate-scenario.js';
+import {
+  createGenerateScenarioHandler,
+  generationPollTimeoutMs,
+} from '../../src/tools/generate-scenario.js';
 import { payloadOf, stubContext } from './helpers.js';
 
 describe('generate_scenario', () => {
+  it('scales poll timeout with batch size', () => {
+    expect(generationPollTimeoutMs(1)).toBe(300_000);
+    expect(generationPollTimeoutMs(2)).toBe(360_000);
+    expect(generationPollTimeoutMs(50)).toBe(3_240_000);
+  });
+
   it('generates and blocks until the job completes', async () => {
     const { ctx } = stubContext([
       { method: 'POST', match: '/scenarios/generate', body: { uuid: 's1', job_uuid: 'job-1' } },
