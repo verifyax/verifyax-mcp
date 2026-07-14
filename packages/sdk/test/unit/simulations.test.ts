@@ -131,7 +131,10 @@ describe('simulations', () => {
   it('fetches evaluation scores and run output', async () => {
     server.use(
       http.get(`${API_BASE}/simulations/run-1/evaluation/scores`, () =>
-        HttpResponse.json({ overall_score: 0.91, per_tag_scores: { empathy: 0.9 } })
+        HttpResponse.json({
+          success: true,
+          data: { overall_score: 0.91, per_tag_scores: { empathy: 0.9 } },
+        })
       ),
       http.get(`${API_BASE}/simulations/run-1/output`, () =>
         HttpResponse.json({ rounds: [{ messages: [] }] })
@@ -171,7 +174,10 @@ describe('simulations', () => {
       ),
       http.get(`${API_BASE}/simulations/scores`, ({ request }) => {
         seenUrl = request.url;
-        return HttpResponse.json({ 'run-1': { overall_score: 0.8 } });
+        return HttpResponse.json({
+          success: true,
+          data: { scores: { 'run-1': { overall_score: 0.8 } } },
+        });
       })
     );
 

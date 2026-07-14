@@ -17,21 +17,21 @@ function pagingContext(pages: UsageEvent[][]): ToolContext {
 }
 
 describe('summarizeUsage', () => {
-  it('counts by product area and sums credits when present', () => {
+  it('counts by product area and sums spend when present', () => {
     const events: UsageEvent[] = [
-      { product_area: 'scenario_run', credits: 3 },
-      { product_area: 'scenario_run', credits: 2 },
-      { product_area: 'evaluation', credits: 5 },
+      { product_area: 'scenario_run', actual_total_event_cost: 3 },
+      { product_area: 'scenario_run', actual_total_event_cost: 2 },
+      { product_area: 'evaluation', actual_total_event_cost: 5 },
       { product_area: undefined },
     ];
     const summary = summarizeUsage(events);
     expect(summary.total_events).toBe(4);
     expect(summary.by_product_area).toEqual({ scenario_run: 2, evaluation: 1, unknown: 1 });
-    expect(summary.total_credits).toBe(10);
+    expect(summary.total_spend_usd).toBe(10);
   });
 
-  it('reports null credits when no event carries a numeric credit', () => {
-    expect(summarizeUsage([{ product_area: 'x' }]).total_credits).toBeNull();
+  it('reports null credits when no event carries a numeric cost', () => {
+    expect(summarizeUsage([{ product_area: 'x' }]).total_spend_usd).toBeNull();
   });
 });
 
@@ -42,29 +42,29 @@ describe('get_usage_summary', () => {
         method: 'GET',
         match: '/usage/events',
         body: [
-          { product_area: 'scenario_run', credits: 4 },
-          { product_area: 'scenario_run', credits: 1 },
+          { product_area: 'scenario_run', actual_total_event_cost: 4 },
+          { product_area: 'scenario_run', actual_total_event_cost: 1 },
         ],
       },
     ]);
-    const payload = payloadOf<{ total_events: number; total_credits: number }>(
+    const payload = payloadOf<{ total_events: number; total_spend_usd: number }>(
       await createGetUsageSummaryHandler(ctx)({ simulation_uuid: 'r1' })
     );
     expect(payload.total_events).toBe(2);
-    expect(payload.total_credits).toBe(5);
+    expect(payload.total_spend_usd).toBe(5);
   });
 
   it('paginates across pages until a short page (CODE-5)', async () => {
     const fullPage: UsageEvent[] = Array.from({ length: 1000 }, () => ({
       product_area: 'scenario_run',
-      credits: 1,
+      actual_total_event_cost: 1,
     }));
-    const lastPage: UsageEvent[] = [{ product_area: 'evaluation', credits: 2 }];
-    const payload = payloadOf<{ total_events: number; truncated: boolean; total_credits: number }>(
+    const lastPage: UsageEvent[] = [{ product_area: 'evaluation', actual_total_event_cost: 2 }];
+    const payload = payloadOf<{ total_events: number; truncated: boolean; total_spend_usd: number }>(
       await createGetUsageSummaryHandler(pagingContext([fullPage, lastPage]))({})
     );
     expect(payload.total_events).toBe(1001); // both pages, not just the first 1000
-    expect(payload.total_credits).toBe(1002);
+    expect(payload.total_spend_usd).toBe(1002);
     expect(payload.truncated).toBe(false);
   });
 
@@ -84,17 +84,17 @@ describe('get_usage_summary', () => {
     // which must be trimmed to the cap and reported as truncated.
     const fullPage: UsageEvent[] = Array.from({ length: 1000 }, () => ({
       product_area: 'x',
-      credits: 1,
+      actual_total_event_cost: 1,
     }));
     const shortPage: UsageEvent[] = Array.from({ length: 800 }, () => ({
       product_area: 'x',
-      credits: 1,
+      actual_total_event_cost: 1,
     }));
-    const payload = payloadOf<{ total_events: number; truncated: boolean; total_credits: number }>(
+    const payload = payloadOf<{ total_events: number; truncated: boolean; total_spend_usd: number }>(
       await createGetUsageSummaryHandler(pagingContext([fullPage, shortPage]))({ max_events: 1500 })
     );
     expect(payload.total_events).toBe(1500);
-    expect(payload.total_credits).toBe(1500); // credits summed only over the capped set
+    expect(payload.total_spend_usd).toBe(1500); // spend summed only over the capped set
     expect(payload.truncated).toBe(true);
   });
 });

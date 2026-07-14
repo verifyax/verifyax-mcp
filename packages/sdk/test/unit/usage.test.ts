@@ -9,7 +9,7 @@ describe('usage', () => {
     server.use(
       http.get(`${API_BASE}/usage/events`, ({ request }) => {
         seenUrl = request.url;
-        return HttpResponse.json([{ event_uuid: 'ev1' }]);
+        return HttpResponse.json([{ uuid: 'ev1' }]);
       })
     );
 
@@ -22,12 +22,12 @@ describe('usage', () => {
 
   it('gets a single event', async () => {
     server.use(
-      http.get(`${API_BASE}/usage/events/ev1`, () => HttpResponse.json({ event_uuid: 'ev1' }))
+      http.get(`${API_BASE}/usage/events/ev1`, () => HttpResponse.json({ uuid: 'ev1' }))
     );
 
     const event = await makeClient().usage.getEvent('ev1');
 
-    expect(event.event_uuid).toBe('ev1');
+    expect(event.uuid).toBe('ev1');
   });
 
   it('lists calls for an event', async () => {

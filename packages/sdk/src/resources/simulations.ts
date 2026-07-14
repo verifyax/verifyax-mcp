@@ -2,6 +2,7 @@ import type { VerifyaxClient } from '../client.js';
 import { JobFailedError } from '../errors.js';
 import { type PollOptions, pollUntilTerminal } from '../polling.js';
 import type {
+  BatchSimulationScoresEnvelope,
   CreditPreview,
   CreditPreviewRequest,
   Evaluation,
@@ -10,7 +11,9 @@ import type {
   RunOutput,
   SimulateRequest,
   SimulateResponse,
+  SimulationEvaluationEnvelope,
   SimulationRun,
+  SimulationScoreEnvelope,
   TriggerEvaluationResponse,
 } from '../types.js';
 
@@ -62,24 +65,33 @@ export class SimulationsResource {
     return this.client.request<Evaluation>('GET', `/simulations/evaluations/${evaluationJobUuid}`);
   }
 
-  /** Gateway reporting shortcut — the evaluation scores payload for a run. */
+  /** Gateway reporting shortcut — the evaluation payload for a run. */
   async getEvaluationReport(simulationUuid: string): Promise<Evaluation> {
-    return this.client.request<Evaluation>('GET', `/simulations/${simulationUuid}/evaluation`);
+    const envelope = await this.client.request<SimulationEvaluationEnvelope>(
+      'GET',
+      `/simulations/${simulationUuid}/evaluation`
+    );
+    // `data` is optional on the envelope schema but always present on success.
+    return envelope.data ?? ({} as Evaluation);
   }
 
   /** Just the scores ({ overall_score, per_tag_scores, ... }) for a run. */
   async getEvaluationScores(simulationUuid: string): Promise<EvaluationScores> {
-    return this.client.request<EvaluationScores>(
+    const envelope = await this.client.request<SimulationScoreEnvelope>(
       'GET',
       `/simulations/${simulationUuid}/evaluation/scores`
     );
+    return envelope.data;
   }
 
   /** Batch scores for multiple runs by uuid. */
   async getScores(simulationUuids: string[]): Promise<Record<string, EvaluationScores>> {
-    return this.client.request<Record<string, EvaluationScores>>('GET', '/simulations/scores', {
-      query: { ids: simulationUuids.join(',') },
-    });
+    const envelope = await this.client.request<BatchSimulationScoresEnvelope>(
+      'GET',
+      '/simulations/scores',
+      { query: { ids: simulationUuids.join(',') } }
+    );
+    return envelope.data.scores as Record<string, EvaluationScores>;
   }
 
   /** Parsed JSON run output (ScenarioOutput / response.json) for a completed run. */

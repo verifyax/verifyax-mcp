@@ -9,7 +9,7 @@ const NAME = 'get_usage_summary';
 const DESCRIPTION =
   'Summarizes VerifyAX usage events over an optional time range or for a specific simulation or ' +
   'scenario. Paginates across all matching events (up to a cap) and returns the total event ' +
-  'count, a breakdown by product area, and total credits when the API reports them.';
+  'count, a breakdown by product area, and total platform spend in USD when the API reports it.';
 
 /** Page size and overall safety cap when paginating usage events. */
 const PAGE_SIZE = 1000;
@@ -35,7 +35,7 @@ const inputSchema = inputObject.shape;
 export interface UsageSummary {
   total_events: number;
   by_product_area: Record<string, number>;
-  total_credits: number | null;
+  total_spend_usd: number | null;
   /** True when the cap was hit and the summary covers only part of the range. */
   truncated: boolean;
 }
@@ -60,27 +60,32 @@ async function fetchAllEvents(
   return { events: events.slice(0, cap), truncated: true };
 }
 
-/** Aggregate raw usage events into counts by product area and a credits total. */
+/**
+ * Aggregate raw usage events into counts by product area and a spend total.
+ * `total_spend_usd` is sourced from per-event `actual_total_event_cost`
+ * (LiteLLM USD actuals + compute) — platform spend in USD, not customer
+ * billing credits (see `GET /billing/balance` for credit balance).
+ */
 export function summarizeUsage(events: UsageEvent[]): Omit<UsageSummary, 'truncated'> {
   const byProductArea: Record<string, number> = {};
-  let creditsSeen = false;
-  let totalCredits = 0;
+  let costSeen = false;
+  let totalCost = 0;
 
   for (const event of events) {
     const area = typeof event.product_area === 'string' ? event.product_area : 'unknown';
     byProductArea[area] = (byProductArea[area] ?? 0) + 1;
 
-    const credits = event.credits;
-    if (typeof credits === 'number' && Number.isFinite(credits)) {
-      creditsSeen = true;
-      totalCredits += credits;
+    const cost = event.actual_total_event_cost;
+    if (typeof cost === 'number' && Number.isFinite(cost)) {
+      costSeen = true;
+      totalCost += cost;
     }
   }
 
   return {
     total_events: events.length,
     by_product_area: byProductArea,
-    total_credits: creditsSeen ? totalCredits : null,
+    total_spend_usd: costSeen ? totalCost : null,
   };
 }
 

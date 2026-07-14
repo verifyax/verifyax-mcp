@@ -901,7 +901,7 @@ paths:
                     directline:
                       secret: "<direct-line-secret-from-copilot-studio>"
                       region: global
-                    include_full_context: first_only
+                    include_full_scenario: first_only
                     include_message_history: false
       responses:
         "200":
@@ -1743,7 +1743,7 @@ paths:
     get:
       tags: [Usage]
       summary: List usage events
-      description: Lists billing or analytics usage events with filters for product area, related resource IDs, and pagination.
+      description: Lists usage telemetry events (LiteLLM/compute USD actuals) with filters for product area, related resource IDs, and pagination.
       operationId: listUsageEvents
       parameters:
         - $ref: "#/components/parameters/XRequestId"
@@ -2217,7 +2217,7 @@ components:
     EventStartTo:
       name: event_start_to
       in: query
-      description: Upper bound on usage event start timestamp (inclusive).
+      description: Upper bound on usage event start timestamp (exclusive — events with `event_start_timestamp` equal to this value are excluded).
       schema:
         type: string
         format: date-time
@@ -2263,7 +2263,7 @@ components:
     CallStartTo:
       name: call_start_to
       in: query
-      description: Upper bound on per-call start timestamp when listing usage calls (inclusive).
+      description: Upper bound on per-call start timestamp when listing usage calls (exclusive — calls with `call_start_timestamp` equal to this value are excluded).
       schema:
         type: string
         format: date-time
@@ -3996,8 +3996,10 @@ components:
     UsageEventResponse:
       type: object
       description: >
-        One **usage event** (billable unit) returned from `/v1/usage/events`. Additional vendor
-        fields may appear beyond the listed properties (`additionalProperties: true`).
+        One **usage event** (billable execution telemetry row) from `/v1/usage/events`. Costs are
+        LiteLLM USD actuals and optional compute; they are **not** customer billing credits
+        (see `GET /v1/billing/balance` for credit balance). Additional fields may appear beyond
+        those listed (`additionalProperties: true`).
       additionalProperties: true
       properties:
         uuid:
@@ -4016,9 +4018,98 @@ components:
           type: string
           format: uuid
           description: Workspace attributed on the event.
+        session_id:
+          type: string
+          nullable: true
+          description: >
+            Correlation id for the billable session (for example `sim-{run_uuid}` or
+            `eval-{run_uuid}`).
+        event_start_timestamp:
+          type: string
+          format: date-time
+          description: When the billable work started (RFC 3339).
+        event_end_timestamp:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the billable work finished (null while in progress).
+        event_duration_seconds:
+          type: number
+          nullable: true
+          description: Wall-clock duration from start to end in seconds.
         product_area:
           type: string
           description: High-level product or pipeline area code (ENGINE, SCENARIO_CREATION, …).
+        compute_runtime_seconds:
+          type: number
+          nullable: true
+          description: Compute runtime attributed to the event in seconds.
+        compute_machine_class:
+          type: string
+          nullable: true
+          description: Machine class used for compute cost attribution.
+        memory_tier:
+          type: string
+          nullable: true
+          description: Memory tier used for compute cost attribution.
+        input_tokens:
+          type: integer
+          nullable: true
+          description: Sum of input tokens across child usage calls.
+        output_tokens:
+          type: integer
+          nullable: true
+          description: Sum of output tokens across child usage calls.
+        cached_tokens:
+          type: integer
+          nullable: true
+          description: Sum of cached tokens across child usage calls.
+        cache_read_input_tokens:
+          type: integer
+          nullable: true
+          description: Sum of cache-read input tokens across child usage calls.
+        cache_creation_input_tokens:
+          type: integer
+          nullable: true
+          description: Sum of cache-creation input tokens across child usage calls.
+        total_calls:
+          type: integer
+          nullable: true
+          description: Number of child usage calls rolled up into this event.
+        actual_total_llm_cost:
+          type: number
+          nullable: true
+          description: >
+            Sum of LiteLLM USD actual LLM cost across child calls (`actual_total_llm_cost`). Use
+            this (or `actual_total_event_cost`) to aggregate platform spend — not billing
+            credits.
+        actual_input_token_cost:
+          type: number
+          nullable: true
+          description: Sum of USD input-token cost across child calls.
+        actual_output_token_cost:
+          type: number
+          nullable: true
+          description: Sum of USD output-token cost across child calls.
+        actual_compute_cost:
+          type: number
+          nullable: true
+          description: USD compute cost attributed to the event.
+        actual_total_event_cost:
+          type: number
+          nullable: true
+          description: >
+            Total USD event cost (LLM + compute). Preferred field when summing per-event platform
+            spend across `/v1/usage/events`.
+        event_metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: >
+            Product-specific metadata (for example `simulation_uuid`, `job_uuid`,
+            `evaluation_job_uuid`, `estimated_credits` on some ENGINE runs). Billing debits are
+            written separately to the ledger; they are not returned as a top-level `credits`
+            field on this object.
         failed:
           type: boolean
           nullable: true
@@ -4043,22 +4134,71 @@ components:
           type: string
           format: uuid
           description: Parent usage event UUID this call rolled up into.
+        request_id:
+          type: string
+          nullable: true
+          description: LiteLLM request or call id for UI correlation.
         provider_name:
           type: string
           description: LLM vendor identifier string.
         model_name:
           type: string
           description: Model id or display name for this call.
+        model_version:
+          type: string
+          nullable: true
+          description: Provider-reported model version when available.
         input_tokens:
           type: integer
           description: Billable input tokens attributed to the call.
         output_tokens:
           type: integer
           description: Billable output tokens attributed to the call.
+        cached_tokens:
+          type: integer
+          nullable: true
+          description: Cached tokens attributed to the call.
+        cache_read_input_tokens:
+          type: integer
+          nullable: true
+          description: Cache-read input tokens attributed to the call.
+        cache_creation_input_tokens:
+          type: integer
+          nullable: true
+          description: Cache-creation input tokens attributed to the call.
+        actual_total_llm_cost:
+          type: number
+          nullable: true
+          description: LiteLLM USD actual total LLM cost for this call.
+        actual_input_token_cost:
+          type: number
+          nullable: true
+          description: USD input-token cost for this call.
+        actual_output_token_cost:
+          type: number
+          nullable: true
+          description: USD output-token cost for this call.
+        tool_usage_units:
+          type: number
+          nullable: true
+          description: Non-LLM tool usage quantity (for example Tavily search credits).
+        tool_usage_unit_of_measure:
+          type: string
+          nullable: true
+          description: Unit for `tool_usage_units` (for example `credit`, `second`).
         call_start_timestamp:
           type: string
           format: date-time
           description: When the provider call began (RFC 3339).
+        call_end_timestamp:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the provider call finished (RFC 3339).
+        created_at:
+          type: string
+          format: date-time
+          description: Row creation timestamp (RFC 3339).
 
     ValidateRequest:
       type: object
