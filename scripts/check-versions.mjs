@@ -24,9 +24,7 @@ const versions = {
   'packages/sdk/package.json': read('packages/sdk/package.json').version,
   'packages/mcp-server/package.json': read('packages/mcp-server/package.json').version,
   'packages/sdk/src/version.ts': readGeneratedVersion('packages/sdk/src/version.ts'),
-  'packages/mcp-server/src/version.ts': readGeneratedVersion(
-    'packages/mcp-server/src/version.ts'
-  ),
+  'packages/mcp-server/src/version.ts': readGeneratedVersion('packages/mcp-server/src/version.ts'),
 };
 
 const serverJson = read('server.json');
