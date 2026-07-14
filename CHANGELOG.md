@@ -7,6 +7,34 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+
+## [0.3.0] - 2026-07-14
+
+Minor release: regenerate SDK types from the fixed OpenAPI spec and drop the
+hand-added spec overrides (issue #25). Includes a breaking change to the
+`get_usage_summary` tool output.
+
+### Changed
+- `@verifyax/sdk`: regenerated `types.gen.ts` from the updated OpenAPI mirror.
+  `UsageEvent` now aliases the spec's `UsageEventResponse` directly (the
+  `credits`/`event_uuid` manual intersection is gone); per-event spend is read
+  from `actual_total_event_cost`.
+- `@verifyax/sdk`: `EvaluationScores` and the score/evaluation-report SDK
+  methods now unwrap the gateway's `{ success, data }` envelope instead of
+  relying on the live API returning the inner shape directly.
+- `@verifyax/sdk`: `BillingBalance` now aliases `PublicBillingBalanceResponse`
+  instead of a hand-written interface.
+
+### Removed
+- `@verifyax/sdk`: the `credits?` and `event_uuid?` overrides on `UsageEvent`.
+- `@verifyax/sdk`: the "spec wraps this in an envelope" override note on
+  `EvaluationScores`.
+
+### Breaking
+- `@verifyax/mcp-server`: `get_usage_summary` output field `total_credits` is
+  renamed to `total_spend_usd` (now sourced from `actual_total_event_cost`,
+  representing USD platform spend, not billing credits).
+
 ## [0.2.1] - 2026-06-28
 
 Patch release: list `@verifyax/mcp-server` in the official MCP registry. No runtime changes.
