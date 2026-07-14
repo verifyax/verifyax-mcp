@@ -36,7 +36,15 @@ export class SimulationsResource {
   }
 
   async list(params: ListRunsParams = {}): Promise<SimulationRun[]> {
-    return this.client.request<SimulationRun[]>('GET', '/simulations', { query: params });
+    const response = await this.client.request<SimulationRun[] | { items: SimulationRun[] }>(
+      'GET',
+      '/simulations',
+      { query: params }
+    );
+    if (Array.isArray(response)) {
+      return response;
+    }
+    return response?.items ?? [];
   }
 
   /** Runs for a single scenario. */

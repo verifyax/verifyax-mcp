@@ -85,13 +85,19 @@ describe('simulations', () => {
     server.use(
       http.get(`${API_BASE}/simulations`, ({ request }) => {
         seenUrl = request.url;
-        return HttpResponse.json([{ uuid: 'run-1', status: 'COMPLETED' }]);
+        return HttpResponse.json({
+          items: [{ uuid: 'run-1', status: 'COMPLETED' }],
+          total: 1,
+          limit: 100,
+          offset: 0,
+        });
       })
     );
 
     const runs = await makeClient().simulations.list({ status: 'COMPLETED', agent_uuid: 'agt-1' });
 
     expect(runs).toHaveLength(1);
+    expect(runs[0].uuid).toBe('run-1');
     expect(seenUrl).toContain('status=COMPLETED');
     expect(seenUrl).toContain('agent_uuid=agt-1');
   });
