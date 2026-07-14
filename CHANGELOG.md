@@ -7,6 +7,8 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-07-15
+
 ### Changed
 
 - `@verifyax/sdk`: aligned hand-written types with the OpenAPI spec — `DirectLineParameters`
@@ -142,7 +144,8 @@ First public release. `@verifyax/sdk` and `@verifyax/mcp-server` published to np
 - Documentation: top-level README, per-package READMEs, `docs/tool-descriptions.md`,
   `CONTRIBUTING.md`.
 
-[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/verifyax/verifyax-mcp/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/verifyax/verifyax-mcp/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/verifyax/verifyax-mcp/releases/tag/v0.2.0
