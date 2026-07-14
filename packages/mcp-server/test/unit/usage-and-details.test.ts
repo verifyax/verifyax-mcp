@@ -60,9 +60,11 @@ describe('get_usage_summary', () => {
       actual_total_event_cost: 1,
     }));
     const lastPage: UsageEvent[] = [{ product_area: 'evaluation', actual_total_event_cost: 2 }];
-    const payload = payloadOf<{ total_events: number; truncated: boolean; total_spend_usd: number }>(
-      await createGetUsageSummaryHandler(pagingContext([fullPage, lastPage]))({})
-    );
+    const payload = payloadOf<{
+      total_events: number;
+      truncated: boolean;
+      total_spend_usd: number;
+    }>(await createGetUsageSummaryHandler(pagingContext([fullPage, lastPage]))({}));
     expect(payload.total_events).toBe(1001); // both pages, not just the first 1000
     expect(payload.total_spend_usd).toBe(1002);
     expect(payload.truncated).toBe(false);
@@ -90,7 +92,11 @@ describe('get_usage_summary', () => {
       product_area: 'x',
       actual_total_event_cost: 1,
     }));
-    const payload = payloadOf<{ total_events: number; truncated: boolean; total_spend_usd: number }>(
+    const payload = payloadOf<{
+      total_events: number;
+      truncated: boolean;
+      total_spend_usd: number;
+    }>(
       await createGetUsageSummaryHandler(pagingContext([fullPage, shortPage]))({ max_events: 1500 })
     );
     expect(payload.total_events).toBe(1500);
