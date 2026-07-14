@@ -1,6 +1,6 @@
 {
   "name": "@verifyax/sdk",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Typed TypeScript client for the VerifyAX agent-evaluation REST API.",
   "license": "Apache-2.0",
   "author": "Conscium",

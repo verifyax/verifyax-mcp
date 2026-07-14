@@ -1,7 +1,7 @@
 {
   "name": "@verifyax/mcp-server",
   "mcpName": "io.github.verifyax/mcp-server",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "MCP server exposing the VerifyAX agent-evaluation platform as conversational tools.",
   "license": "Apache-2.0",
   "author": "Conscium",
