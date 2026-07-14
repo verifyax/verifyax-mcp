@@ -8,6 +8,7 @@ packages are versioned in lockstep for v1.x. Format follows
 ## [Unreleased]
 
 ### Fixed
+
 - `@verifyax/sdk`: `SimulationsResource.list` now correctly handles the paginated envelope returned by the live API (fixing a regression where it expected a bare array and failed with `runs.map is not a function`).
 - `@verifyax/mcp-server`: `list_recent_runs` tool is now resilient to non-array responses from the SDK.
 
@@ -18,6 +19,7 @@ hand-added spec overrides (issue #25). Includes a breaking change to the
 `get_usage_summary` tool output.
 
 ### Changed
+
 - `@verifyax/sdk`: regenerated `types.gen.ts` from the updated OpenAPI mirror.
   `UsageEvent` now aliases the spec's `UsageEventResponse` directly (the
   `credits`/`event_uuid` manual intersection is gone); per-event spend is read
@@ -29,11 +31,13 @@ hand-added spec overrides (issue #25). Includes a breaking change to the
   instead of a hand-written interface.
 
 ### Removed
+
 - `@verifyax/sdk`: the `credits?` and `event_uuid?` overrides on `UsageEvent`.
 - `@verifyax/sdk`: the "spec wraps this in an envelope" override note on
   `EvaluationScores`.
 
 ### Breaking
+
 - `@verifyax/mcp-server`: `get_usage_summary` output field `total_credits` is
   renamed to `total_spend_usd` (now sourced from `actual_total_event_cost`,
   representing USD platform spend, not billing credits).

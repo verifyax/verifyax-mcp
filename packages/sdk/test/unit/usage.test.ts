@@ -21,9 +21,7 @@ describe('usage', () => {
   });
 
   it('gets a single event', async () => {
-    server.use(
-      http.get(`${API_BASE}/usage/events/ev1`, () => HttpResponse.json({ uuid: 'ev1' }))
-    );
+    server.use(http.get(`${API_BASE}/usage/events/ev1`, () => HttpResponse.json({ uuid: 'ev1' })));
 
     const event = await makeClient().usage.getEvent('ev1');
 
