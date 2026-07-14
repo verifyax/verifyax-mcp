@@ -34,7 +34,11 @@ const directLineRegionSchema = z.enum([
 const directlineInputSchema = z.object({
   secret: z.string().min(1).describe('Direct Line secret from Copilot Studio. Sensitive.'),
   region: directLineRegionSchema.optional().describe('Defaults to global.'),
-  base_url: z.string().url().optional().describe('Optional override for the regional Direct Line host.'),
+  base_url: z
+    .string()
+    .url()
+    .optional()
+    .describe('Optional override for the regional Direct Line host.'),
 });
 
 const mcpInputSchema = z.object({
@@ -55,10 +59,7 @@ const inputObject = z.object({
       'Endpoint URL. Required for A2A, API, and MCP (catalogue adapter A2A URL). ' +
         'Optional for DIRECTLINE — derived from region when omitted.'
     ),
-  agent_type: z
-    .enum(['A2A', 'API', 'DIRECTLINE', 'MCP'])
-    .optional()
-    .describe('Defaults to A2A.'),
+  agent_type: z.enum(['A2A', 'API', 'DIRECTLINE', 'MCP']).optional().describe('Defaults to A2A.'),
   description: z.string().optional(),
   auth_method: z.enum(['no-auth', 'bearer', 'cs', 'http-basic']).optional(),
   token: z
@@ -103,7 +104,8 @@ function buildFlatAgentParameters(args: Input): AgentParameters {
   if (args.token !== undefined) params.token = args.token;
   if (args.basic_username !== undefined) params.basic_username = args.basic_username;
   if (args.basic_password !== undefined) params.basic_password = args.basic_password;
-  if (args.include_full_context !== undefined) params.include_full_context = args.include_full_context;
+  if (args.include_full_context !== undefined)
+    params.include_full_context = args.include_full_context;
   if (args.include_message_history !== undefined) {
     params.include_message_history = args.include_message_history;
   }
@@ -111,7 +113,8 @@ function buildFlatAgentParameters(args: Input): AgentParameters {
     params.max_requests_per_minute = args.max_requests_per_minute;
   }
   if (args.timeout !== undefined) params.timeout = args.timeout;
-  if (args.default_output_modes !== undefined) params.default_output_modes = args.default_output_modes;
+  if (args.default_output_modes !== undefined)
+    params.default_output_modes = args.default_output_modes;
   if (args.agent_card_url !== undefined) params.agent_card_url = args.agent_card_url;
   if (args.agent_card_path !== undefined) params.agent_card_path = args.agent_card_path;
   return params;
@@ -144,7 +147,10 @@ function buildMcpParameters(args: Input): McpParameters {
   };
 }
 
-function buildAgentParameters(args: Input, agentType: Input['agent_type']): AgentParameters | undefined {
+function buildAgentParameters(
+  args: Input,
+  agentType: Input['agent_type']
+): AgentParameters | undefined {
   const params = buildFlatAgentParameters(args);
 
   if (agentType === 'DIRECTLINE') {
