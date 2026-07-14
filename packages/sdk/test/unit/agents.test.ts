@@ -70,10 +70,82 @@ describe('agents', () => {
       mcp_url: 'https://mcp.example.com/mcp',
       auth_method: 'bearer',
       token: 'pat-123',
+      agent_uuid: 'a1',
+      message: 'Hello',
     });
 
     expect(result).toMatchObject({ tools: expect.anything() });
-    expect(received).toMatchObject({ mcp_url: 'https://mcp.example.com/mcp' });
+    expect(received).toMatchObject({
+      mcp_url: 'https://mcp.example.com/mcp',
+      agent_uuid: 'a1',
+      message: 'Hello',
+    });
+  });
+
+  it('creates a DIRECTLINE agent without a top-level agent_url', async () => {
+    let received: unknown;
+    server.use(
+      http.post(`${API_BASE}/agents`, async ({ request }) => {
+        received = await request.json();
+        return HttpResponse.json({
+          uuid: 'dl-1',
+          name: 'copilot',
+          agent_type: 'DIRECTLINE',
+          agent_url: 'https://europe.directline.botframework.com',
+        });
+      })
+    );
+
+    const agent = await makeClient().agents.create({
+      name: 'copilot',
+      agent_type: 'DIRECTLINE',
+      agent_parameters: {
+        directline: { secret: 'dl-secret', region: 'europe' },
+      },
+    });
+
+    expect(agent.uuid).toBe('dl-1');
+    expect(received).toMatchObject({
+      name: 'copilot',
+      agent_type: 'DIRECTLINE',
+      agent_parameters: { directline: { secret: 'dl-secret', region: 'europe' } },
+    });
+  });
+
+  it('creates an MCP agent with nested mcp parameters', async () => {
+    let received: unknown;
+    server.use(
+      http.post(`${API_BASE}/agents`, async ({ request }) => {
+        received = await request.json();
+        return HttpResponse.json({
+          uuid: 'mcp-1',
+          name: 'remote-mcp',
+          agent_type: 'MCP',
+          agent_url: 'https://adapter.example.run.app',
+        });
+      })
+    );
+
+    const agent = await makeClient().agents.create({
+      name: 'remote-mcp',
+      agent_type: 'MCP',
+      agent_url: 'https://adapter.example.run.app',
+      agent_parameters: {
+        mcp: {
+          url: 'https://mcp.example.com/mcp',
+          auth_method: 'bearer',
+          token: 'pat-123',
+        },
+      },
+    });
+
+    expect(agent.uuid).toBe('mcp-1');
+    expect(received).toMatchObject({
+      agent_url: 'https://adapter.example.run.app',
+      agent_parameters: {
+        mcp: { url: 'https://mcp.example.com/mcp', auth_method: 'bearer', token: 'pat-123' },
+      },
+    });
   });
 
   it('maps a missing agent to NotFoundError', async () => {

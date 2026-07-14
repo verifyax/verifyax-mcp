@@ -7,6 +7,30 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `@verifyax/sdk`: aligned hand-written types with the OpenAPI spec — `DirectLineParameters`
+  region enum and `base_url`, optional `agent_url` on `RegisterAgentRequest`, expanded
+  `McpConnectionTestRequest`, `CreditPreviewRequest.num_scenarios`, richer `CreditPreview`
+  response fields, and `ListRunsParams` date/search/run-group filters.
+- `@verifyax/mcp-server`: `register_agent` now supports DIRECTLINE (Copilot Studio) and MCP
+  connector types with pre-registration probes, plus full `agent_parameters` knobs.
+- `@verifyax/mcp-server`: `list_agents` filter accepts all five connector types.
+- `@verifyax/mcp-server`: `generate_scenario` exposes batch fields (`num_scenarios`, `tag_pool`,
+  etc.) and returns batch uuids when batching.
+- `@verifyax/mcp-server`: `evaluate_agent` and `preview_run_cost` accept optional
+  `timeout_minutes`.
+- `@verifyax/mcp-server`: `list_recent_runs` accepts `date_from`, `date_to`, `search`, and
+  `run_group_uuid` filters.
+- `@verifyax/mcp-server`: `get_usage_summary` accepts `job_uuid`, `simulation_job_uuid`, and
+  `evaluation_job_uuid` filters.
+
+### Removed
+
+- `@verifyax/sdk`: `description` on `GenerateScenarioRequest` (not in the spec; the gateway
+  strips it on `POST /scenarios/generate`).
+- `@verifyax/mcp-server`: `description` input on `generate_scenario` (same reason).
+
 ### Fixed
 
 - `@verifyax/sdk`: `SimulationsResource.list` now correctly handles the paginated envelope returned by the live API (fixing a regression where it expected a bare array and failed with `runs.map is not a function`).

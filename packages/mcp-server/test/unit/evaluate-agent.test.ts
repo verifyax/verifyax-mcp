@@ -88,4 +88,29 @@ describe('evaluate_agent', () => {
     expect(payload.success).toBe(false);
     expect(payload.reason).toMatch(/no evaluation could be started/i);
   });
+
+  it('forwards timeout_minutes to simulate and credit preview', async () => {
+    const { ctx, calls } = stubContext([
+      { method: 'POST', match: 'workspace-credit-preview', body: { newRunEstimatedCredits: 7 } },
+      {
+        method: 'POST',
+        match: 'engine/simulate/scenario',
+        body: { simulation_uuid: 'r1', evaluation_job_uuid: 'eval-1' },
+      },
+      { method: 'GET', match: '/simulations/evaluations/', body: { overall_score: 0.83 } },
+      { method: 'GET', match: '/simulations/r1', body: { uuid: 'r1', status: 'COMPLETED' } },
+      {
+        method: 'GET',
+        match: '/jobs/eval-1',
+        body: { uuid: 'eval-1', current_status: 'COMPLETED' },
+      },
+    ]);
+    await createEvaluateAgentHandler(ctx)({
+      agent_uuid: 'a1',
+      scenario_uuid: 's1',
+      timeout_minutes: 60,
+    });
+    expect(calls[0]?.body).toMatchObject({ timeout_minutes: 60 });
+    expect(calls[1]?.body).toMatchObject({ timeout_minutes: 60 });
+  });
 });

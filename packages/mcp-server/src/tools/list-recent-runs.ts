@@ -7,7 +7,8 @@ const NAME = 'list_recent_runs';
 
 const DESCRIPTION =
   'Lists recent simulation runs in your VerifyAX workspace, optionally filtered by status, ' +
-  'agent, or scenario. Returns each run’s uuid, status, agent, scenario, and evaluation handle.';
+  'agent, scenario, date range, search text, or run group. Returns each run’s uuid, status, ' +
+  'agent, scenario, and evaluation handle.';
 
 const inputObject = z.object({
   status: z
@@ -19,6 +20,10 @@ const inputObject = z.object({
     ),
   agent_uuid: z.string().optional(),
   scenario_uuid: z.string().optional(),
+  run_group_uuid: z.string().optional().describe('Filter to runs in a linked run group.'),
+  date_from: z.string().optional().describe('ISO 8601 start of the created-at window.'),
+  date_to: z.string().optional().describe('ISO 8601 end of the created-at window.'),
+  search: z.string().optional().describe('Free-text search across run metadata.'),
   limit: z.number().int().positive().max(1000).optional(),
   offset: z.number().int().nonnegative().optional(),
 });
