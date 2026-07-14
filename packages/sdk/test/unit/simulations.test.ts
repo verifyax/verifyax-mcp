@@ -1,6 +1,6 @@
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { JobFailedError } from '../../src/index.js';
+import { JobFailedError, VerifyaxError } from '../../src/index.js';
 import { API_BASE, server } from '../server.js';
 import { makeClient } from '../helpers.js';
 
@@ -132,6 +132,44 @@ describe('simulations', () => {
 
     const evaluation = await client.simulations.getEvaluation('eval-1');
     expect(evaluation).toMatchObject({ overall_score: 0.82 });
+  });
+
+  it('unwraps the evaluation report envelope on success', async () => {
+    server.use(
+      http.get(`${API_BASE}/simulations/run-1/evaluation`, () =>
+        HttpResponse.json({
+          success: true,
+          data: { overall_score: 0.75, current_status: 'COMPLETED' },
+        })
+      )
+    );
+
+    const report = await makeClient().simulations.getEvaluationReport('run-1');
+    expect(report).toMatchObject({ overall_score: 0.75, current_status: 'COMPLETED' });
+  });
+
+  it('throws when the evaluation report envelope has no payload', async () => {
+    server.use(
+      http.get(`${API_BASE}/simulations/run-1/evaluation`, () =>
+        HttpResponse.json({ success: false })
+      )
+    );
+
+    await expect(makeClient().simulations.getEvaluationReport('run-1')).rejects.toBeInstanceOf(
+      VerifyaxError
+    );
+  });
+
+  it('throws when the evaluation report envelope omits data despite success', async () => {
+    server.use(
+      http.get(`${API_BASE}/simulations/run-1/evaluation`, () =>
+        HttpResponse.json({ success: true })
+      )
+    );
+
+    await expect(makeClient().simulations.getEvaluationReport('run-1')).rejects.toBeInstanceOf(
+      VerifyaxError
+    );
   });
 
   it('fetches evaluation scores and run output', async () => {
