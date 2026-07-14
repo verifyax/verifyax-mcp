@@ -10,9 +10,23 @@ import { dirname, join } from 'node:path';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => JSON.parse(readFileSync(join(root, rel), 'utf8'));
 
+/** @param {string} rel */
+function readGeneratedVersion(rel) {
+  const content = readFileSync(join(root, rel), 'utf8');
+  const match = content.match(/export const VERSION = '([^']+)';/);
+  if (!match) {
+    throw new Error(`Could not parse VERSION from ${rel}`);
+  }
+  return match[1];
+}
+
 const versions = {
   'packages/sdk/package.json': read('packages/sdk/package.json').version,
   'packages/mcp-server/package.json': read('packages/mcp-server/package.json').version,
+  'packages/sdk/src/version.ts': readGeneratedVersion('packages/sdk/src/version.ts'),
+  'packages/mcp-server/src/version.ts': readGeneratedVersion(
+    'packages/mcp-server/src/version.ts'
+  ),
 };
 
 const serverJson = read('server.json');
