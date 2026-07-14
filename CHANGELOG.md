@@ -11,7 +11,7 @@ packages are versioned in lockstep for v1.x. Format follows
 
 - `@verifyax/sdk`: `SimulationsResource.list` now correctly handles the paginated envelope returned by the live API (fixing a regression where it expected a bare array and failed with `runs.map is not a function`).
 - `@verifyax/mcp-server`: `list_recent_runs` tool is now resilient to non-array responses from the SDK.
-- `@verifyax/sdk`: `getEvaluationReport` now throws when the gateway envelope reports `success: false` or omits `data`, instead of returning an empty object that looked like a finished evaluation with no scores.
+- `@verifyax/sdk`: `getEvaluationReport`, `getEvaluationScores`, and `getScores` now throw when the gateway envelope reports `success: false` or omits the expected payload, instead of returning `undefined` or throwing on missing nested fields.
 
 ## [0.3.0] - 2026-07-14
 

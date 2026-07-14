@@ -172,6 +172,52 @@ describe('simulations', () => {
     );
   });
 
+  it('throws when the evaluation scores envelope has no payload', async () => {
+    server.use(
+      http.get(`${API_BASE}/simulations/run-1/evaluation/scores`, () =>
+        HttpResponse.json({ success: false })
+      )
+    );
+
+    await expect(makeClient().simulations.getEvaluationScores('run-1')).rejects.toBeInstanceOf(
+      VerifyaxError
+    );
+  });
+
+  it('throws when the evaluation scores envelope omits data despite success', async () => {
+    server.use(
+      http.get(`${API_BASE}/simulations/run-1/evaluation/scores`, () =>
+        HttpResponse.json({ success: true })
+      )
+    );
+
+    await expect(makeClient().simulations.getEvaluationScores('run-1')).rejects.toBeInstanceOf(
+      VerifyaxError
+    );
+  });
+
+  it('throws when the batch scores envelope has no payload', async () => {
+    server.use(
+      http.get(`${API_BASE}/simulations/scores`, () => HttpResponse.json({ success: false }))
+    );
+
+    await expect(makeClient().simulations.getScores(['run-1'])).rejects.toBeInstanceOf(
+      VerifyaxError
+    );
+  });
+
+  it('throws when the batch scores envelope omits scores despite success', async () => {
+    server.use(
+      http.get(`${API_BASE}/simulations/scores`, () =>
+        HttpResponse.json({ success: true, data: {} })
+      )
+    );
+
+    await expect(makeClient().simulations.getScores(['run-1'])).rejects.toBeInstanceOf(
+      VerifyaxError
+    );
+  });
+
   it('fetches evaluation scores and run output', async () => {
     server.use(
       http.get(`${API_BASE}/simulations/run-1/evaluation/scores`, () =>

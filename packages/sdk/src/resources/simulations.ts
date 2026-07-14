@@ -96,7 +96,15 @@ export class SimulationsResource {
       'GET',
       `/simulations/${simulationUuid}/evaluation/scores`
     );
-    return envelope.data;
+    if (envelope.success && envelope.data !== undefined) {
+      return envelope.data;
+    }
+    throw new VerifyaxError(
+      envelope.success
+        ? `Evaluation scores for run ${simulationUuid} did not include a payload`
+        : `Evaluation scores for run ${simulationUuid} are not available yet`,
+      { responseBody: envelope }
+    );
   }
 
   /** Batch scores for multiple runs by uuid. */
@@ -106,7 +114,15 @@ export class SimulationsResource {
       '/simulations/scores',
       { query: { ids: simulationUuids.join(',') } }
     );
-    return envelope.data.scores as Record<string, EvaluationScores>;
+    if (envelope.success && envelope.data?.scores !== undefined) {
+      return envelope.data.scores as Record<string, EvaluationScores>;
+    }
+    throw new VerifyaxError(
+      envelope.success
+        ? 'Batch simulation scores response did not include a scores map'
+        : 'Batch simulation scores are not available',
+      { responseBody: envelope }
+    );
   }
 
   /** Parsed JSON run output (ScenarioOutput / response.json) for a completed run. */
