@@ -7,6 +7,9 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+### Fixed
+- `@verifyax/sdk`: `SimulationsResource.list` now correctly handles the paginated envelope returned by the live API (fixing a regression where it expected a bare array and failed with `runs.map is not a function`).
+- `@verifyax/mcp-server`: `list_recent_runs` tool is now resilient to non-array responses from the SDK.
 
 ## [0.3.0] - 2026-07-14
 

@@ -28,7 +28,9 @@ const inputSchema = inputObject.shape;
 export function createListRecentRunsHandler(ctx: ToolContext) {
   return (args: Input) =>
     runTool(ctx, NAME, async () => {
-      const runs = await ctx.client.simulations.list(args);
+      const result = await ctx.client.simulations.list(args);
+      const runs = Array.isArray(result) ? result : [];
+
       return {
         count: runs.length,
         runs: runs.map((r) => ({
