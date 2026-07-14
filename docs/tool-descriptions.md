@@ -87,8 +87,8 @@ in-progress run, so a null evaluation isn't read as an error.
 ## get_usage_summary
 
 > Summarizes VerifyAX usage events over an optional time range or for a specific simulation or
-> scenario. Returns the total event count, a breakdown by product area, and total credits when
-> reported.
+> scenario. Returns the total event count, a breakdown by product area, and total platform spend
+> in USD when reported.
 
 ## preview_run_cost
 

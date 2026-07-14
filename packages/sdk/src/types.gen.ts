@@ -811,7 +811,7 @@ export interface paths {
         };
         /**
          * List usage events
-         * @description Lists billing or analytics usage events with filters for product area, related resource IDs, and pagination.
+         * @description Lists usage telemetry events (LiteLLM/compute USD actuals) with filters for product area, related resource IDs, and pagination.
          */
         get: operations["listUsageEvents"];
         put?: never;
@@ -2023,7 +2023,7 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
-        /** @description One **usage event** (billable unit) returned from `/v1/usage/events`. Additional vendor fields may appear beyond the listed properties (`additionalProperties: true`). */
+        /** @description One **usage event** (billable execution telemetry row) from `/v1/usage/events`. Costs are LiteLLM USD actuals and optional compute; they are **not** customer billing credits (see `GET /v1/billing/balance` for credit balance). Additional fields may appear beyond those listed (`additionalProperties: true`). */
         UsageEventResponse: {
             /**
              * Format: uuid
@@ -2045,8 +2045,54 @@ export interface components {
              * @description Workspace attributed on the event.
              */
             workspace_uuid?: string;
+            /** @description Correlation id for the billable session (for example `sim-{run_uuid}` or `eval-{run_uuid}`). */
+            session_id?: string | null;
+            /**
+             * Format: date-time
+             * @description When the billable work started (RFC 3339).
+             */
+            event_start_timestamp?: string;
+            /**
+             * Format: date-time
+             * @description When the billable work finished (null while in progress).
+             */
+            event_end_timestamp?: string | null;
+            /** @description Wall-clock duration from start to end in seconds. */
+            event_duration_seconds?: number | null;
             /** @description High-level product or pipeline area code (ENGINE, SCENARIO_CREATION, …). */
             product_area?: string;
+            /** @description Compute runtime attributed to the event in seconds. */
+            compute_runtime_seconds?: number | null;
+            /** @description Machine class used for compute cost attribution. */
+            compute_machine_class?: string | null;
+            /** @description Memory tier used for compute cost attribution. */
+            memory_tier?: string | null;
+            /** @description Sum of input tokens across child usage calls. */
+            input_tokens?: number | null;
+            /** @description Sum of output tokens across child usage calls. */
+            output_tokens?: number | null;
+            /** @description Sum of cached tokens across child usage calls. */
+            cached_tokens?: number | null;
+            /** @description Sum of cache-read input tokens across child usage calls. */
+            cache_read_input_tokens?: number | null;
+            /** @description Sum of cache-creation input tokens across child usage calls. */
+            cache_creation_input_tokens?: number | null;
+            /** @description Number of child usage calls rolled up into this event. */
+            total_calls?: number | null;
+            /** @description Sum of LiteLLM USD actual LLM cost across child calls (`actual_total_llm_cost`). Use this (or `actual_total_event_cost`) to aggregate platform spend — not billing credits. */
+            actual_total_llm_cost?: number | null;
+            /** @description Sum of USD input-token cost across child calls. */
+            actual_input_token_cost?: number | null;
+            /** @description Sum of USD output-token cost across child calls. */
+            actual_output_token_cost?: number | null;
+            /** @description USD compute cost attributed to the event. */
+            actual_compute_cost?: number | null;
+            /** @description Total USD event cost (LLM + compute). Preferred field when summing per-event platform spend across `/v1/usage/events`. */
+            actual_total_event_cost?: number | null;
+            /** @description Product-specific metadata (for example `simulation_uuid`, `job_uuid`, `evaluation_job_uuid`, `estimated_credits` on some ENGINE runs). Billing debits are written separately to the ledger; they are not returned as a top-level `credits` field on this object. */
+            event_metadata?: {
+                [key: string]: unknown;
+            } | null;
             /** @description Whether the underlying work ultimately failed (null until terminal). */
             failed?: boolean | null;
             /**
@@ -2069,19 +2115,49 @@ export interface components {
              * @description Parent usage event UUID this call rolled up into.
              */
             event_uuid?: string;
+            /** @description LiteLLM request or call id for UI correlation. */
+            request_id?: string | null;
             /** @description LLM vendor identifier string. */
             provider_name?: string;
             /** @description Model id or display name for this call. */
             model_name?: string;
+            /** @description Provider-reported model version when available. */
+            model_version?: string | null;
             /** @description Billable input tokens attributed to the call. */
             input_tokens?: number;
             /** @description Billable output tokens attributed to the call. */
             output_tokens?: number;
+            /** @description Cached tokens attributed to the call. */
+            cached_tokens?: number | null;
+            /** @description Cache-read input tokens attributed to the call. */
+            cache_read_input_tokens?: number | null;
+            /** @description Cache-creation input tokens attributed to the call. */
+            cache_creation_input_tokens?: number | null;
+            /** @description LiteLLM USD actual total LLM cost for this call. */
+            actual_total_llm_cost?: number | null;
+            /** @description USD input-token cost for this call. */
+            actual_input_token_cost?: number | null;
+            /** @description USD output-token cost for this call. */
+            actual_output_token_cost?: number | null;
+            /** @description Non-LLM tool usage quantity (for example Tavily search credits). */
+            tool_usage_units?: number | null;
+            /** @description Unit for `tool_usage_units` (for example `credit`, `second`). */
+            tool_usage_unit_of_measure?: string | null;
             /**
              * Format: date-time
              * @description When the provider call began (RFC 3339).
              */
             call_start_timestamp?: string;
+            /**
+             * Format: date-time
+             * @description When the provider call finished (RFC 3339).
+             */
+            call_end_timestamp?: string | null;
+            /**
+             * Format: date-time
+             * @description Row creation timestamp (RFC 3339).
+             */
+            created_at?: string;
         } & {
             [key: string]: unknown;
         };
@@ -2232,7 +2308,7 @@ export interface components {
         Failed: boolean;
         /** @description Lower bound on usage event start timestamp (inclusive). */
         EventStartFrom: string;
-        /** @description Upper bound on usage event start timestamp (inclusive). */
+        /** @description Upper bound on usage event start timestamp (exclusive — events with `event_start_timestamp` equal to this value are excluded). */
         EventStartTo: string;
         /** @description Filter usage events tied to this scenario-creation or simulation job identifier string. */
         SimulationJobUuid: string;
@@ -2246,7 +2322,7 @@ export interface components {
         ModelName: string;
         /** @description Lower bound on per-call start timestamp when listing usage calls (inclusive). */
         CallStartFrom: string;
-        /** @description Upper bound on per-call start timestamp when listing usage calls (inclusive). */
+        /** @description Upper bound on per-call start timestamp when listing usage calls (exclusive — calls with `call_start_timestamp` equal to this value are excluded). */
         CallStartTo: string;
         /** @description UUID of a scenario in the authenticated workspace. Use the `uuid` field from scenario create, generate, list, or get responses (not a response field named `scenario_uuid`). */
         ScenarioUuid: string;
@@ -4238,7 +4314,7 @@ export interface operations {
                 failed?: components["parameters"]["Failed"];
                 /** @description Lower bound on usage event start timestamp (inclusive). */
                 event_start_from?: components["parameters"]["EventStartFrom"];
-                /** @description Upper bound on usage event start timestamp (inclusive). */
+                /** @description Upper bound on usage event start timestamp (exclusive — events with `event_start_timestamp` equal to this value are excluded). */
                 event_start_to?: components["parameters"]["EventStartTo"];
                 /** @description Filter usage events linked to a specific verification run. */
                 simulation_uuid?: components["parameters"]["SimulationUuidQueryOptional"];
@@ -4323,7 +4399,7 @@ export interface operations {
                 model_name?: components["parameters"]["ModelName"];
                 /** @description Lower bound on per-call start timestamp when listing usage calls (inclusive). */
                 call_start_from?: components["parameters"]["CallStartFrom"];
-                /** @description Upper bound on per-call start timestamp when listing usage calls (inclusive). */
+                /** @description Upper bound on per-call start timestamp when listing usage calls (exclusive — calls with `call_start_timestamp` equal to this value are excluded). */
                 call_start_to?: components["parameters"]["CallStartTo"];
                 /**
                  * @description Maximum number of records to return (pagination page size).

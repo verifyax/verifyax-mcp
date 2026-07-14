@@ -330,15 +330,21 @@ export type TriggerEvaluationResponse = Schemas['TriggerEvaluationResponse'] & {
 export type Evaluation = Schemas['GetEvaluationResponse'];
 
 /**
- * Scores payload from the evaluation/scores shortcut.
- *
- * NOTE: the spec wraps this in a `PublicSimulationScoreResponse` envelope
- * (`{ success, data }`), but the live API returns the inner summary directly —
- * proven by the SDK's own unit fixtures. We type the unwrapped shape; the
- * integration suite is the drift-net if that ever changes. The batch
- * `getScores` map values share this type.
+ * Scores payload from the evaluation/scores shortcut. The API returns this
+ * wrapped in a `PublicSimulationScoreResponse` (`{ success, data }`) envelope;
+ * the SDK resource methods unwrap it. The batch `getScores` map values share
+ * this type.
  */
 export type EvaluationScores = Schemas['PublicSimulationScoreSummary'];
+
+/** Wire envelope for `GET /simulations/{id}/evaluation/scores`. */
+export type SimulationScoreEnvelope = Schemas['PublicSimulationScoreResponse'];
+
+/** Wire envelope for `GET /simulations/scores` (batch). */
+export type BatchSimulationScoresEnvelope = Schemas['PublicBatchSimulationScoresResponse'];
+
+/** Wire envelope for `GET /simulations/{id}/evaluation`. */
+export type SimulationEvaluationEnvelope = Schemas['PublicSimulationEvaluationResponse'];
 
 /**
  * Parsed ScenarioOutput / response.json for a completed run. The spec types the
@@ -390,23 +396,13 @@ export interface ListUsageEventsParams extends ListParams {
 }
 
 /**
- * A billing/usage event. `credits` and `event_uuid` aren't in the spec's
- * `UsageEventResponse` but are summed/read defensively when the API includes
- * them (see `get_usage_summary`).
+ * A billing/usage event. Per-event spend is sourced from `actual_total_event_cost`
+ * (LLM + compute USD actuals); see `get_usage_summary` for aggregation.
  */
-export type UsageEvent = Schemas['UsageEventResponse'] & {
-  credits?: number;
-  event_uuid?: string;
-};
+export type UsageEvent = Schemas['UsageEventResponse'];
 
 /** Organization credit balance for the API key's org. */
-export interface BillingBalance {
-  credits_remaining?: number;
-  credits_used?: number;
-  plan?: string;
-  billing_period_end?: string;
-  [key: string]: unknown;
-}
+export type BillingBalance = Schemas['PublicBillingBalanceResponse'];
 
 // ---------------------------------------------------------------------------
 // Audit logs

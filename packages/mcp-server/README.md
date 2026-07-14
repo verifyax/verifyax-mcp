@@ -151,7 +151,7 @@ The full v1 catalogue of 12 tools:
 | `evaluate_agent`       | Runs an agent against a scenario and returns the evaluation, end to end.         | **yes**  |
 | `list_recent_runs`     | Lists recent simulation runs, optionally filtered.                               | no       |
 | `get_run_details`      | Fetches a run plus its evaluation when available.                                | no       |
-| `get_usage_summary`    | Summarizes usage events (counts by area, total credits).                         | no       |
+| `get_usage_summary`    | Summarizes usage events (counts by area, total USD spend).                       | no       |
 | `preview_run_cost`     | Estimates the credit cost of a run before triggering it.                         | no       |
 
 Blocking tools poll internally and return only when the work completes (typically 30s–5min).
