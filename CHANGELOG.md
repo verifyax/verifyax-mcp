@@ -24,6 +24,10 @@ packages are versioned in lockstep for v1.x. Format follows
 
 - `@verifyax/mcp-server`: `run-with-env-file.mjs` passes `-o` to `dotenv-cli` so `.env.*`
   values override shell `VERIFYAX_*` vars — preflight and runtime now agree.
+- `@verifyax/mcp-server`: preflight parses `.env.*` with `dotenv` + `dotenv-expand` (same as
+  `dotenv-cli`) so inline `#` comments and `$VAR` expansion cannot bypass dev/test guards.
+- `@verifyax/mcp-server`: dev/test guards normalize trailing slashes on base URLs before
+  comparing to production, matching SDK client behavior.
 
 ## [0.3.1] - 2026-07-15
 

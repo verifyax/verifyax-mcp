@@ -50,6 +50,24 @@ describe('checkNonProductionBaseUrls', () => {
     ).toEqual({ ok: false, reason: 'production' });
   });
 
+  it('rejects production base URLs with trailing slashes', () => {
+    expect(
+      checkNonProductionBaseUrls({
+        VERIFYAX_BASE_URL: `${PRODUCTION_API_BASE_URL}/`,
+        VERIFYAX_WEB_BASE_URL: `${PRODUCTION_WEB_BASE_URL}/`,
+      })
+    ).toEqual({ ok: false, reason: 'production' });
+  });
+
+  it('rejects when only one base URL is production (trailing slash)', () => {
+    expect(
+      checkNonProductionBaseUrls({
+        VERIFYAX_BASE_URL: 'https://dev.example.com/api/v1',
+        VERIFYAX_WEB_BASE_URL: `${PRODUCTION_WEB_BASE_URL}/`,
+      })
+    ).toEqual({ ok: false, reason: 'production' });
+  });
+
   it('accepts non-production base URLs', () => {
     expect(
       checkNonProductionBaseUrls({

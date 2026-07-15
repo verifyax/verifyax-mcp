@@ -27,6 +27,16 @@ describe('assertTargetEnvironment', () => {
     ).toThrow(/production/);
   });
 
+  it('refuses development when production URLs have trailing slashes', () => {
+    expect(() =>
+      assertTargetEnvironment({
+        VERIFYAX_MCP_TARGET_ENV: 'development',
+        VERIFYAX_BASE_URL: `${PRODUCTION_API_BASE_URL}/`,
+        VERIFYAX_WEB_BASE_URL: `${PRODUCTION_WEB_BASE_URL}/`,
+      })
+    ).toThrow(/production/);
+  });
+
   it('allows development with non-production base URLs', () => {
     expect(() =>
       assertTargetEnvironment({
