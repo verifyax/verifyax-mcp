@@ -210,7 +210,8 @@ Each user connects with their own key; usage is billed to their VerifyAX workspa
 
 ```bash
 pnpm build
-pnpm --filter @verifyax/mcp-server start:dev  # Runs local development configuration
+# Copy packages/mcp-server/.env.example → .env.dev with your dev gateway URLs first.
+pnpm --filter @verifyax/mcp-server start:dev
 # → http://127.0.0.1:8080/mcp  (send API key in Authorization header when connecting)
 ```
 

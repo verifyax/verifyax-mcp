@@ -50,25 +50,28 @@ Add to `claude_desktop_config.json` (Settings → Developer → Edit Config):
 
 #### Development testing
 
-For testing the mcp server with the development VerifyAX env, you have to configure the development VERIFYAX_BASE_URL and VERIFYAX_WEB_BASE_URL environmentvariables
-
-The mcp configuration should look like this:
+To point the published package at a non-production VerifyAX gateway, add
+`VERIFYAX_BASE_URL` and `VERIFYAX_WEB_BASE_URL` to the MCP client's `env` block (alongside your
+API key):
 
 ```json
-    {
-       "mcpServers": {
-         "verifyax": {
-           "command": "npx",
-           "args": ["-y", "@verifyax/mcp-server"],
-           "env": {
-             "VERIFYAX_API_KEY": "sk-ver-api-...",
-             "VERIFYAX_BASE_URL": "https://dev-url.com/api/v1",
-             "VERIFYAX_WEB_BASE_URL":
-      "https://dev-url.com/web/api/v1"
-          }
-        }
+{
+  "mcpServers": {
+    "verifyax": {
+      "command": "npx",
+      "args": ["-y", "@verifyax/mcp-server"],
+      "env": {
+        "VERIFYAX_API_KEY": "sk-ver-api-...",
+        "VERIFYAX_BASE_URL": "https://dev-gateway.example.com/api/v1",
+        "VERIFYAX_WEB_BASE_URL": "https://dev-gateway.example.com/web/api/v1"
       }
+    }
+  }
+}
 ```
+
+Monorepo developers can instead use gitignored `.env.dev` / `.env.test` files and the convenience
+scripts below — see [Environments](#environments).
 
 ### Remote agent (Streamable HTTP — Cloud Run or local HTTP server)
 
@@ -170,11 +173,14 @@ An `.env.example` file is provided to show the available configuration options. 
 
 The following scripts are available to run the server in different modes from the root of the project:
 
-| Command                                         | Description                                |
-| ----------------------------------------------- | ------------------------------------------ |
-| `pnpm --filter @verifyax/mcp-server start`      | Starts the server in **production** mode.  |
-| `pnpm --filter @verifyax/mcp-server start:dev`  | Starts the server in **development** mode. |
-| `pnpm --filter @verifyax/mcp-server start:test` | Starts the server in **testing** mode.     |
+| Command                                           | Description                                    |
+| ------------------------------------------------- | ---------------------------------------------- |
+| `pnpm --filter @verifyax/mcp-server start`        | HTTP server in **production** mode.            |
+| `pnpm --filter @verifyax/mcp-server start:dev`    | HTTP server in **development** mode.           |
+| `pnpm --filter @verifyax/mcp-server start:test`   | HTTP server in **testing** mode.               |
+| `pnpm --filter @verifyax/mcp-server inspect`      | MCP Inspector (stdio) in **production** mode.  |
+| `pnpm --filter @verifyax/mcp-server inspect:dev`  | MCP Inspector (stdio) in **development** mode. |
+| `pnpm --filter @verifyax/mcp-server inspect:test` | MCP Inspector (stdio) in **testing** mode.     |
 
 These scripts use `scripts/run-with-env-file.mjs`, which refuses to start when a required `.env.*` file is missing or still points at production. `start:dev` / `start:test` / `inspect:dev` / `inspect:test` set `VERIFYAX_MCP_TARGET_ENV`, and the server aborts at startup if non-production base URLs are not configured.
 
