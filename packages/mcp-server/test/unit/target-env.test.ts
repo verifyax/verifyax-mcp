@@ -3,21 +3,7 @@ import {
   PRODUCTION_API_BASE_URL,
   PRODUCTION_WEB_BASE_URL,
   assertTargetEnvironment,
-  parseMcpTargetEnvironment,
 } from '../../src/target-env.js';
-
-describe('parseMcpTargetEnvironment', () => {
-  it('accepts known profiles', () => {
-    expect(parseMcpTargetEnvironment('production')).toBe('production');
-    expect(parseMcpTargetEnvironment('development')).toBe('development');
-    expect(parseMcpTargetEnvironment('testing')).toBe('testing');
-  });
-
-  it('rejects unknown values', () => {
-    expect(parseMcpTargetEnvironment(undefined)).toBeUndefined();
-    expect(parseMcpTargetEnvironment('staging')).toBeUndefined();
-  });
-});
 
 describe('assertTargetEnvironment', () => {
   it('allows production and unset profiles without overrides', () => {

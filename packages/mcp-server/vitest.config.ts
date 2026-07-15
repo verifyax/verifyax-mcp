@@ -1,5 +1,8 @@
 import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
+
+const packageRoot = fileURLToPath(new URL('.', import.meta.url));
 
 // Resolve the SDK to its TypeScript source during tests so the MCP server's
 // unit tests don't require a prior `pnpm build` of @verifyax/sdk.
@@ -18,8 +21,15 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      '@verifyax/sdk': fileURLToPath(new URL('../sdk/src/index.ts', import.meta.url)),
-    },
+    alias: [
+      {
+        find: /^\.\.\/dist\/target-env-guard\.js$/,
+        replacement: resolve(packageRoot, 'src/target-env-guard.ts'),
+      },
+      {
+        find: '@verifyax/sdk',
+        replacement: fileURLToPath(new URL('../sdk/src/index.ts', import.meta.url)),
+      },
+    ],
   },
 });

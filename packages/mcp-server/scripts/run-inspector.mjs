@@ -3,8 +3,9 @@
 // …) to the spawned stdio server unless variables are set explicitly with -e.
 
 import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 /** Env vars the stdio server reads; forwarded to Inspector as -e KEY=value pairs. */
 export const VERIFYAX_INSPECTOR_ENV_KEYS = [
@@ -61,6 +62,18 @@ function main() {
   });
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+function isMainModule() {
+  const invoked = process.argv[1];
+  if (!invoked) {
+    return false;
+  }
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(invoked)).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   main();
 }
