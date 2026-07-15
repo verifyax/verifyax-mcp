@@ -34,7 +34,7 @@ export default tseslint.config(
   },
   {
     // Build/tooling scripts run under Node and may log to the console.
-    files: ['scripts/**/*.{js,mjs}'],
+    files: ['**/scripts/**/*.{js,mjs}'],
     languageOptions: {
       globals: { console: 'readonly', process: 'readonly' },
     },

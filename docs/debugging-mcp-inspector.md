@@ -9,19 +9,21 @@ required.
 > of `\`.
 >
 > **Pass the key with `-e`:** Inspector does **not** inherit your shell environment — the spawned
-> server only sees variables passed explicitly via `-e KEY=value`.
+> server only sees variables passed explicitly via `-e KEY=value`. The `inspect*` convenience
+> scripts load `.env.*` with dotenv and forward `VERIFYAX_*` vars as `-e` flags automatically;
+> set `VERIFYAX_API_KEY` in the shell or in your `.env.*` file before running them.
 
 ## stdio (local default)
 
-Inspector spawns the server as a subprocess. Build first, then run the inspector for the desired environment (passing your API key):
+Inspector spawns the server as a subprocess. Build first, then run the inspector for the desired environment (set your API key in the shell or in the matching `.env.*` file):
 
 ```bash
 pnpm build
 
-# Production
+# Production — VERIFYAX_API_KEY from shell prefix or .env.prod
 VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect
 
-# Development
+# Development — base URLs from .env.dev; API key from shell or .env.dev
 VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect:dev
 
 # Testing
