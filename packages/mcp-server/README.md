@@ -103,10 +103,12 @@ Restart the client, then try: _“List the skill tags I can use for an interview
 
 Build once: `pnpm build` from the monorepo root.
 
-| Mode                | Command                                   | API key                                                |
-| ------------------- | ----------------------------------------- | ------------------------------------------------------ |
-| **stdio**           | `VERIFYAX_API_KEY=... node dist/index.js` | Server env (`VERIFYAX_API_KEY`)                        |
-| **Streamable HTTP** | `node dist/http.js`                       | Client header on connect (`Authorization: Bearer ...`) |
+All commands below are run from the monorepo root:
+
+| Mode                | Command                                                                 | API key                                                |
+| ------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------ |
+| **stdio**           | `VERIFYAX_API_KEY=... node packages/mcp-server/dist/index.js`           | Server env (`VERIFYAX_API_KEY`)                        |
+| **Streamable HTTP** | `pnpm --filter @verifyax/mcp-server start:dev`                          | Client header on connect (`Authorization: Bearer ...`) |
 
 HTTP server listens on `127.0.0.1:8080` by default (`HOST`, `PORT` override). Endpoints:
 
@@ -115,13 +117,44 @@ HTTP server listens on `127.0.0.1:8080` by default (`HOST`, `PORT` override). En
 
 **MCP Inspector (stdio):**
 
+First, ensure you have built the server by running `pnpm build` from the monorepo root.
+
+To run the inspector against a specific environment, you must provide your `VERIFYAX_API_KEY` for that environment. You can run the inspector using the following convenience scripts:
+
 ```bash
-npx @modelcontextprotocol/inspector \
-  -e VERIFYAX_API_KEY=sk-ver-api-... \
-  node packages/mcp-server/dist/index.js
+# Production
+VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect
+
+# Development
+VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect:dev
+
+# Testing
+VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect:test
 ```
 
-**MCP Inspector (Streamable HTTP)** — start the HTTP server, then connect with your API key in the Authorization header.
+**MCP Inspector (Streamable HTTP)** — start the HTTP server in the desired environment (e.g., `pnpm --filter @verifyax/mcp-server start:dev`), then connect with your API key in the Authorization header.
+
+## Environments
+
+The published npm package is pre-configured to connect only to the production VerifyAX API (`console.verifyax.com`). 
+
+For local development and testing of new changes on the server, you can configure the server to run against different VerifyAX environments (e.g., development, testing) using `.env` files.
+
+-   `.env.dev`: For the development environment.
+-   `.env.test`: For the testing environment.
+-   `.env.prod`: For the production environment.
+
+An `.env.example` file is provided to show the available configuration options. You can copy it to create your own `.env.*` files. These files are not committed to git and are not included in the published package.
+
+The following scripts are available to run the server in different modes from the root of the project:
+
+| Command          | Description                                 |
+| ---------------- | ------------------------------------------- |
+| `pnpm --filter @verifyax/mcp-server start`     | Starts the server in **production** mode.   |
+| `pnpm --filter @verifyax/mcp-server start:dev` | Starts the server in **development** mode.  |
+| `pnpm --filter @verifyax/mcp-server start:test`| Starts the server in **testing** mode.      |
+
+These scripts use `dotenv-cli` to load the appropriate `.env` file.
 
 ## Configuration
 
@@ -129,8 +162,8 @@ npx @modelcontextprotocol/inspector \
 | ---------------------------- | ---------- | ---------------------------------------------------------------------------------------- |
 | `VERIFYAX_API_KEY`           | stdio only | Your VerifyAX API key for the stdio entry point.                                         |
 | `VERIFYAX_MCP_LOG_LEVEL`     | no         | `debug` \| `info` (default) \| `warn` \| `error` \| `silent`. Logs go to stderr.         |
-| `VERIFYAX_BASE_URL`          | no         | Override the API base (self-hosting / testing).                                          |
-| `VERIFYAX_WEB_BASE_URL`      | no         | Override the tag-catalogue base.                                                         |
+| `VERIFYAX_BASE_URL`          | no         | Override the API base (for self-hosting/testing. Monorepo devs typically use convenience scripts). |
+| `VERIFYAX_WEB_BASE_URL`      | no         | Override the tag-catalogue base (for self-hosting/testing).                             |
 | `HOST`                       | no         | Bind address for HTTP server (default `127.0.0.1`; use `0.0.0.0` on Cloud Run).          |
 | `PORT`                       | no         | HTTP port (default `8080`).                                                              |
 | `VERIFYAX_MCP_ALLOWED_HOSTS` | no         | Comma-separated Host header allowlist (DNS rebinding protection when binding `0.0.0.0`). |

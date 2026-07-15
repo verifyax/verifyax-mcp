@@ -13,20 +13,25 @@ required.
 
 ## stdio (local default)
 
-Inspector spawns the server as a subprocess. Build first, then:
+Inspector spawns the server as a subprocess. Build first, then run the inspector for the desired environment (passing your API key):
 
 ```bash
 pnpm build
 
-npx @modelcontextprotocol/inspector \
-  -e VERIFYAX_API_KEY=sk-ver-api-... \
-  node packages/mcp-server/dist/index.js
+# Production
+VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect
+
+# Development
+VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect:dev
+
+# Testing
+VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect:test
 ```
 
 ```powershell
-# Windows PowerShell (single line)
+# Windows PowerShell (single line, Production)
 pnpm build
-npx @modelcontextprotocol/inspector -e VERIFYAX_API_KEY=sk-ver-api-... node packages/mcp-server/dist/index.js
+$env:VERIFYAX_API_KEY="sk-ver-api-..." ; pnpm --filter @verifyax/mcp-server inspect
 ```
 
 Inspector opens a browser tab (default `http://localhost:6274`). Use the **Tools** pane to call
@@ -51,13 +56,12 @@ npx @modelcontextprotocol/inspector \
 ## Streamable HTTP
 
 For the HTTP entry point (`verifyax-mcp-server-http`). Works the same on all platforms (no command
-spawn, so the spaces caveat above doesn't apply). Start the server in one terminal, then open
-Inspector in another:
+spawn, so the spaces caveat above doesn't apply). Start the server in one terminal (specifying the environment), then open Inspector in another:
 
 ```bash
 # terminal 1
 pnpm build
-node packages/mcp-server/dist/http.js
+pnpm --filter @verifyax/mcp-server start:dev  # Runs in development environment
 
 # terminal 2
 npx @modelcontextprotocol/inspector

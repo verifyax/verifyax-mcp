@@ -39,7 +39,12 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "start:http": "node dist/http.js",
+    "start": "dotenv -e .env.prod -- node dist/http.js",
+    "start:dev": "dotenv -e .env.dev -- node dist/http.js",
+    "start:test": "dotenv -e .env.test -- node dist/http.js",
+    "inspect": "dotenv -e .env.prod -- npx @modelcontextprotocol/inspector node dist/index.js",
+    "inspect:dev": "dotenv -e .env.dev -- npx @modelcontextprotocol/inspector node dist/index.js",
+    "inspect:test": "dotenv -e .env.test -- npx @modelcontextprotocol/inspector node dist/index.js",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:conformance": "tsc -b && vitest run --config vitest.conformance.config.ts"
@@ -54,6 +59,7 @@
     "access": "public"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6"
+    "@types/express": "^5.0.6",
+    "dotenv-cli": "^11.0.0"
   }
 }
