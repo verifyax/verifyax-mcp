@@ -49,6 +49,36 @@ describe('VerifyaxClient transport', () => {
     }
   });
 
+  it('falls back to production defaults when env base URLs are empty', () => {
+    const keys = ['VERIFYAX_API_KEY', 'VERIFYAX_BASE_URL', 'VERIFYAX_WEB_BASE_URL'];
+    const saved: Record<string, string | undefined> = {};
+    for (const key of keys) {
+      saved[key] = process.env[key];
+    }
+
+    process.env.VERIFYAX_API_KEY = 'env-key';
+    process.env.VERIFYAX_BASE_URL = '';
+    process.env.VERIFYAX_WEB_BASE_URL = '   ';
+
+    try {
+      const client = new VerifyaxClient();
+      const internalClient = client as unknown as {
+        baseUrl: string;
+        webBaseUrl: string;
+      };
+      expect(internalClient.baseUrl).toBe('https://console.verifyax.com/api/v1');
+      expect(internalClient.webBaseUrl).toBe('https://console.verifyax.com/web/api/v1');
+    } finally {
+      for (const key of keys) {
+        if (saved[key] === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = saved[key];
+        }
+      }
+    }
+  });
+
   it('allows options to override environment variable fallbacks', () => {
     const keys = ['VERIFYAX_API_KEY', 'VERIFYAX_BASE_URL', 'VERIFYAX_WEB_BASE_URL'];
     const saved: Record<string, string | undefined> = {};

@@ -92,11 +92,13 @@ export class VerifyaxClient {
     this.apiKey = apiKey;
 
     const envBaseUrl = globalProcess?.env?.VERIFYAX_BASE_URL;
-    this.baseUrl = stripTrailingSlash(options.baseUrl ?? envBaseUrl ?? DEFAULT_BASE_URL);
+    this.baseUrl = stripTrailingSlash(
+      resolveBaseUrl(options.baseUrl, envBaseUrl, DEFAULT_BASE_URL)
+    );
 
     const envWebBaseUrl = globalProcess?.env?.VERIFYAX_WEB_BASE_URL;
     this.webBaseUrl = stripTrailingSlash(
-      options.webBaseUrl ?? envWebBaseUrl ?? DEFAULT_WEB_BASE_URL
+      resolveBaseUrl(options.webBaseUrl, envWebBaseUrl, DEFAULT_WEB_BASE_URL)
     );
 
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -218,6 +220,21 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
     };
     signal?.addEventListener('abort', onAbort, { once: true });
   });
+}
+
+/** Treat empty or whitespace-only strings as unset so env overrides do not block defaults. */
+function resolveBaseUrl(
+  option: string | undefined,
+  env: string | undefined,
+  fallback: string
+): string {
+  for (const candidate of [option, env, fallback]) {
+    const trimmed = candidate?.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return fallback;
 }
 
 function stripTrailingSlash(url: string): string {
