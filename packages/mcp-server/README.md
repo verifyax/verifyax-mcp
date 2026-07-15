@@ -48,6 +48,28 @@ Add to `claude_desktop_config.json` (Settings → Developer → Edit Config):
 }
 ```
 
+#### Development testing
+
+For testing the mcp server with the development VerifyAX env, you have to configure the development VERIFYAX_BASE_URL and VERIFYAX_WEB_BASE_URL environmentvariables
+
+The mcp configuration should look like this:
+
+```json
+    {
+       "mcpServers": {
+         "verifyax": {
+           "command": "npx",
+           "args": ["-y", "@verifyax/mcp-server"],
+           "env": {
+             "VERIFYAX_API_KEY": "sk-ver-api-...",
+             "VERIFYAX_BASE_URL": "https://dev-url.com/api/v1",
+             "VERIFYAX_WEB_BASE_URL":
+      "https://dev-url.com/web/api/v1"
+          }
+        }
+      }
+```
+
 ### Remote agent (Streamable HTTP — Cloud Run or local HTTP server)
 
 **Option A — native URL (Cursor v0.48+):**
