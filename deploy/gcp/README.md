@@ -217,6 +217,7 @@ pnpm --filter @verifyax/mcp-server start:dev  # Runs local development configura
 **stdio** (Cursor, Claude Desktop):
 
 To run locally against production:
+
 ```bash
 VERIFYAX_API_KEY=sk-ver-api-... node packages/mcp-server/dist/index.js
 ```

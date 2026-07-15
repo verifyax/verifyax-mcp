@@ -7,13 +7,82 @@ import {
   RateLimitError,
   TimeoutError,
   VerifyaxError,
+  VerifyaxClient,
 } from '../../src/index.js';
 import { API_BASE, server } from '../server.js';
 import { makeClient } from '../helpers.js';
 
 describe('VerifyaxClient transport', () => {
   it('rejects construction without an API key', () => {
-    expect(() => makeClient({ apiKey: '' })).toThrow(VerifyaxError);
+    expect(() => new VerifyaxClient({ apiKey: '' })).toThrow(VerifyaxError);
+  });
+
+  it('supports environment variable fallback for API key and base URLs', () => {
+    const keys = ['VERIFYAX_API_KEY', 'VERIFYAX_BASE_URL', 'VERIFYAX_WEB_BASE_URL'];
+    const saved: Record<string, string | undefined> = {};
+    for (const key of keys) {
+      saved[key] = process.env[key];
+    }
+
+    process.env.VERIFYAX_API_KEY = 'env-key';
+    process.env.VERIFYAX_BASE_URL = 'https://env-base.com/api/v1';
+    process.env.VERIFYAX_WEB_BASE_URL = 'https://env-web.com/web/api/v1';
+
+    try {
+      const client = new VerifyaxClient();
+      const internalClient = client as unknown as {
+        apiKey: string;
+        baseUrl: string;
+        webBaseUrl: string;
+      };
+      expect(internalClient.apiKey).toBe('env-key');
+      expect(internalClient.baseUrl).toBe('https://env-base.com/api/v1');
+      expect(internalClient.webBaseUrl).toBe('https://env-web.com/web/api/v1');
+    } finally {
+      for (const key of keys) {
+        if (saved[key] === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = saved[key];
+        }
+      }
+    }
+  });
+
+  it('allows options to override environment variable fallbacks', () => {
+    const keys = ['VERIFYAX_API_KEY', 'VERIFYAX_BASE_URL', 'VERIFYAX_WEB_BASE_URL'];
+    const saved: Record<string, string | undefined> = {};
+    for (const key of keys) {
+      saved[key] = process.env[key];
+    }
+
+    process.env.VERIFYAX_API_KEY = 'env-key';
+    process.env.VERIFYAX_BASE_URL = 'https://env-base.com/api/v1';
+    process.env.VERIFYAX_WEB_BASE_URL = 'https://env-web.com/web/api/v1';
+
+    try {
+      const client = new VerifyaxClient({
+        apiKey: 'override-key',
+        baseUrl: 'https://override-base.com/api/v1',
+        webBaseUrl: 'https://override-web.com/web/api/v1',
+      });
+      const internalClient = client as unknown as {
+        apiKey: string;
+        baseUrl: string;
+        webBaseUrl: string;
+      };
+      expect(internalClient.apiKey).toBe('override-key');
+      expect(internalClient.baseUrl).toBe('https://override-base.com/api/v1');
+      expect(internalClient.webBaseUrl).toBe('https://override-web.com/web/api/v1');
+    } finally {
+      for (const key of keys) {
+        if (saved[key] === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = saved[key];
+        }
+      }
+    }
   });
 
   it('sends the bearer token and serializes query params', async () => {

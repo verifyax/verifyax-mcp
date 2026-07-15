@@ -105,10 +105,10 @@ Build once: `pnpm build` from the monorepo root.
 
 All commands below are run from the monorepo root:
 
-| Mode                | Command                                                                 | API key                                                |
-| ------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------ |
-| **stdio**           | `VERIFYAX_API_KEY=... node packages/mcp-server/dist/index.js`           | Server env (`VERIFYAX_API_KEY`)                        |
-| **Streamable HTTP** | `pnpm --filter @verifyax/mcp-server start:dev`                          | Client header on connect (`Authorization: Bearer ...`) |
+| Mode                | Command                                                       | API key                                                |
+| ------------------- | ------------------------------------------------------------- | ------------------------------------------------------ |
+| **stdio**           | `VERIFYAX_API_KEY=... node packages/mcp-server/dist/index.js` | Server env (`VERIFYAX_API_KEY`)                        |
+| **Streamable HTTP** | `pnpm --filter @verifyax/mcp-server start:dev`                | Client header on connect (`Authorization: Bearer ...`) |
 
 HTTP server listens on `127.0.0.1:8080` by default (`HOST`, `PORT` override). Endpoints:
 
@@ -136,37 +136,37 @@ VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect:test
 
 ## Environments
 
-The published npm package is pre-configured to connect only to the production VerifyAX API (`console.verifyax.com`). 
+The published npm package is pre-configured to connect only to the production VerifyAX API (`console.verifyax.com`).
 
 For local development and testing of new changes on the server, you can configure the server to run against different VerifyAX environments (e.g., development, testing) using `.env` files.
 
--   `.env.dev`: For the development environment.
--   `.env.test`: For the testing environment.
--   `.env.prod`: For the production environment.
+- `.env.dev`: For the development environment.
+- `.env.test`: For the testing environment.
+- `.env.prod`: For the production environment.
 
 An `.env.example` file is provided to show the available configuration options. You can copy it to create your own `.env.*` files. These files are not committed to git and are not included in the published package.
 
 The following scripts are available to run the server in different modes from the root of the project:
 
-| Command          | Description                                 |
-| ---------------- | ------------------------------------------- |
-| `pnpm --filter @verifyax/mcp-server start`     | Starts the server in **production** mode.   |
-| `pnpm --filter @verifyax/mcp-server start:dev` | Starts the server in **development** mode.  |
-| `pnpm --filter @verifyax/mcp-server start:test`| Starts the server in **testing** mode.      |
+| Command                                         | Description                                |
+| ----------------------------------------------- | ------------------------------------------ |
+| `pnpm --filter @verifyax/mcp-server start`      | Starts the server in **production** mode.  |
+| `pnpm --filter @verifyax/mcp-server start:dev`  | Starts the server in **development** mode. |
+| `pnpm --filter @verifyax/mcp-server start:test` | Starts the server in **testing** mode.     |
 
 These scripts use `dotenv-cli` to load the appropriate `.env` file.
 
 ## Configuration
 
-| Env var                      | Required   | Description                                                                              |
-| ---------------------------- | ---------- | ---------------------------------------------------------------------------------------- |
-| `VERIFYAX_API_KEY`           | stdio only | Your VerifyAX API key for the stdio entry point.                                         |
-| `VERIFYAX_MCP_LOG_LEVEL`     | no         | `debug` \| `info` (default) \| `warn` \| `error` \| `silent`. Logs go to stderr.         |
+| Env var                      | Required   | Description                                                                                        |
+| ---------------------------- | ---------- | -------------------------------------------------------------------------------------------------- |
+| `VERIFYAX_API_KEY`           | stdio only | Your VerifyAX API key for the stdio entry point.                                                   |
+| `VERIFYAX_MCP_LOG_LEVEL`     | no         | `debug` \| `info` (default) \| `warn` \| `error` \| `silent`. Logs go to stderr.                   |
 | `VERIFYAX_BASE_URL`          | no         | Override the API base (for self-hosting/testing. Monorepo devs typically use convenience scripts). |
-| `VERIFYAX_WEB_BASE_URL`      | no         | Override the tag-catalogue base (for self-hosting/testing).                             |
-| `HOST`                       | no         | Bind address for HTTP server (default `127.0.0.1`; use `0.0.0.0` on Cloud Run).          |
-| `PORT`                       | no         | HTTP port (default `8080`).                                                              |
-| `VERIFYAX_MCP_ALLOWED_HOSTS` | no         | Comma-separated Host header allowlist (DNS rebinding protection when binding `0.0.0.0`). |
+| `VERIFYAX_WEB_BASE_URL`      | no         | Override the tag-catalogue base (for self-hosting/testing).                                        |
+| `HOST`                       | no         | Bind address for HTTP server (default `127.0.0.1`; use `0.0.0.0` on Cloud Run).                    |
+| `PORT`                       | no         | HTTP port (default `8080`).                                                                        |
+| `VERIFYAX_MCP_ALLOWED_HOSTS` | no         | Comma-separated Host header allowlist (DNS rebinding protection when binding `0.0.0.0`).           |
 
 ## Tools
 

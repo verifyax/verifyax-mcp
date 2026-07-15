@@ -35,10 +35,11 @@ const IDEMPOTENT_METHODS = new Set(['GET', 'HEAD', 'PUT', 'DELETE', 'OPTIONS']);
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 export interface VerifyaxClientOptions {
-  apiKey: string;
-  /** Override the `/api/v1` base. Defaults to the production gateway. */
+  /** Your VerifyAX API key. Defaults to process.env.VERIFYAX_API_KEY if available. */
+  apiKey?: string;
+  /** Override the `/api/v1` base. Defaults to process.env.VERIFYAX_BASE_URL if available, else production gateway. */
   baseUrl?: string;
-  /** Override the `/web/api/v1` base used by the tag catalogue. */
+  /** Override the `/web/api/v1` base used by the tag catalogue. Defaults to process.env.VERIFYAX_WEB_BASE_URL if available, else production gateway. */
   webBaseUrl?: string;
   /** Per-request timeout in milliseconds. Defaults to 30s. */
   timeoutMs?: number;
@@ -82,13 +83,22 @@ export class VerifyaxClient {
   private readonly retryBaseMs: number;
   private readonly fetchImpl: FetchLike;
 
-  constructor(options: VerifyaxClientOptions) {
-    if (!options.apiKey) {
+  constructor(options: VerifyaxClientOptions = {}) {
+    const globalProcess = typeof process !== 'undefined' ? process : undefined;
+    const apiKey = options.apiKey ?? globalProcess?.env?.VERIFYAX_API_KEY;
+    if (!apiKey) {
       throw new VerifyaxError('A VerifyAX API key is required to construct the client.');
     }
-    this.apiKey = options.apiKey;
-    this.baseUrl = stripTrailingSlash(options.baseUrl ?? DEFAULT_BASE_URL);
-    this.webBaseUrl = stripTrailingSlash(options.webBaseUrl ?? DEFAULT_WEB_BASE_URL);
+    this.apiKey = apiKey;
+
+    const envBaseUrl = globalProcess?.env?.VERIFYAX_BASE_URL;
+    this.baseUrl = stripTrailingSlash(options.baseUrl ?? envBaseUrl ?? DEFAULT_BASE_URL);
+
+    const envWebBaseUrl = globalProcess?.env?.VERIFYAX_WEB_BASE_URL;
+    this.webBaseUrl = stripTrailingSlash(
+      options.webBaseUrl ?? envWebBaseUrl ?? DEFAULT_WEB_BASE_URL
+    );
+
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
     this.retryBaseMs = options.retryBaseMs ?? DEFAULT_RETRY_BASE_MS;
