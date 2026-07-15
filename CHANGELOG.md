@@ -20,6 +20,11 @@ packages are versioned in lockstep for v1.x. Format follows
   `VERIFYAX_MCP_TARGET_ENV`); the server aborts at startup when a dev/test profile lacks
   non-production `VERIFYAX_*_BASE_URL` values.
 
+### Fixed
+
+- `@verifyax/mcp-server`: `run-with-env-file.mjs` passes `-o` to `dotenv-cli` so `.env.*`
+  values override shell `VERIFYAX_*` vars — preflight and runtime now agree.
+
 ## [0.3.1] - 2026-07-15
 
 ### Changed

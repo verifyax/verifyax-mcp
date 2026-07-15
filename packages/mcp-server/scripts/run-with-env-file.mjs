@@ -5,11 +5,17 @@ import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import {
+  PRODUCTION_API_BASE_URL,
+  PRODUCTION_WEB_BASE_URL,
+  checkNonProductionBaseUrls,
+  nonProductionEnvFileName,
+  requiresNonProductionBaseUrls,
+} from '../dist/target-env-guard.js';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-export const PRODUCTION_API_BASE_URL = 'https://console.verifyax.com/api/v1';
-export const PRODUCTION_WEB_BASE_URL = 'https://console.verifyax.com/web/api/v1';
+export { PRODUCTION_API_BASE_URL, PRODUCTION_WEB_BASE_URL };
 
 /**
  * @param {string} content
@@ -46,15 +52,18 @@ export function parseEnvFile(content) {
  * @returns {{ ok: true } | { ok: false, message: string }}
  */
 export function validateProfileEnv(env, profile, envFileName = undefined) {
-  if (profile !== 'development' && profile !== 'testing') {
+  if (!requiresNonProductionBaseUrls(profile)) {
     return { ok: true };
   }
 
-  const envFile = envFileName ?? (profile === 'development' ? '.env.dev' : '.env.test');
-  const baseUrl = env.VERIFYAX_BASE_URL?.trim();
-  const webBaseUrl = env.VERIFYAX_WEB_BASE_URL?.trim();
+  const envFile = envFileName ?? nonProductionEnvFileName(profile);
+  const check = checkNonProductionBaseUrls(env);
 
-  if (!baseUrl || !webBaseUrl) {
+  if (check.ok) {
+    return { ok: true };
+  }
+
+  if (check.reason === 'missing') {
     return {
       ok: false,
       message:
@@ -64,16 +73,12 @@ export function validateProfileEnv(env, profile, envFileName = undefined) {
     };
   }
 
-  if (baseUrl === PRODUCTION_API_BASE_URL || webBaseUrl === PRODUCTION_WEB_BASE_URL) {
-    return {
-      ok: false,
-      message:
-        `${envFile} still points at production (console.verifyax.com). ` +
-        `Update VERIFYAX_BASE_URL and VERIFYAX_WEB_BASE_URL with your ${profile} gateway URLs.`,
-    };
-  }
-
-  return { ok: true };
+  return {
+    ok: false,
+    message:
+      `${envFile} still points at production (console.verifyax.com). ` +
+      `Update VERIFYAX_BASE_URL and VERIFYAX_WEB_BASE_URL with your ${profile} gateway URLs.`,
+  };
 }
 
 /**
@@ -151,6 +156,25 @@ export function preflight(options) {
   return 0;
 }
 
+/**
+ * @param {{
+ *   envFile: string;
+ *   profile: 'production' | 'development' | 'testing';
+ *   command: string[];
+ * }} options
+ * @param {boolean} envFileExists
+ * @returns {string[]}
+ */
+export function buildDotenvArgs(options, envFileExists) {
+  const dotenvArgs = ['dotenv'];
+  if (envFileExists) {
+    // File values must win over shell VERIFYAX_* overrides so preflight matches runtime.
+    dotenvArgs.push('-o', '-e', options.envFile);
+  }
+  dotenvArgs.push('-v', `VERIFYAX_MCP_TARGET_ENV=${options.profile}`, '--', ...options.command);
+  return dotenvArgs;
+}
+
 function main() {
   let options;
   try {
@@ -166,11 +190,7 @@ function main() {
   }
 
   const envPath = resolve(packageRoot, options.envFile);
-  const dotenvArgs = ['dotenv'];
-  if (existsSync(envPath)) {
-    dotenvArgs.push('-e', options.envFile);
-  }
-  dotenvArgs.push('-v', `VERIFYAX_MCP_TARGET_ENV=${options.profile}`, '--', ...options.command);
+  const dotenvArgs = buildDotenvArgs(options, existsSync(envPath));
 
   const child = spawn('npx', dotenvArgs, {
     cwd: packageRoot,
