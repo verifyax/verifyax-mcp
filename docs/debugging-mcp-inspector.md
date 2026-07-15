@@ -17,6 +17,11 @@ required.
 
 Inspector spawns the server as a subprocess. Build first, then run the inspector for the desired environment (set your API key in the shell or in the matching `.env.*` file):
 
+> **Dev/test profiles:** before `inspect:dev` or `inspect:test`, copy
+> `packages/mcp-server/.env.example` to `.env.dev` or `.env.test` with your non-production gateway
+> URLs. The convenience scripts refuse to start if that file is missing or still points at
+> `console.verifyax.com`.
+
 ```bash
 pnpm build
 
