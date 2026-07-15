@@ -5,6 +5,8 @@ import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import dotenv from 'dotenv';
+import { expand } from 'dotenv-expand';
 import {
   PRODUCTION_API_BASE_URL,
   PRODUCTION_WEB_BASE_URL,
@@ -18,35 +20,23 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export { PRODUCTION_API_BASE_URL, PRODUCTION_WEB_BASE_URL };
 
 /**
+ * Resolve .env file values the same way dotenv-cli does: parse with dotenv,
+ * apply file entries over {@link parentEnv} (-o / --override), then expand
+ * $VAR / ${VAR} references.
+ *
  * @param {string} content
- * @returns {Record<string, string>}
+ * @param {NodeJS.ProcessEnv} [parentEnv]
+ * @returns {NodeJS.ProcessEnv}
  */
-export function parseEnvFile(content) {
-  const env = {};
-  for (const line of content.split('\n')) {
-    const trimmed = line.trim();
-    if (trimmed.length === 0 || trimmed.startsWith('#')) {
-      continue;
-    }
-    const separator = trimmed.indexOf('=');
-    if (separator === -1) {
-      continue;
-    }
-    const key = trimmed.slice(0, separator).trim();
-    let value = trimmed.slice(separator + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    env[key] = value;
-  }
-  return env;
+export function parseEnvFile(content, parentEnv = process.env) {
+  const parsed = dotenv.parse(content);
+  const merged = { ...parentEnv, ...parsed };
+  expand({ parsed: merged, processEnv: merged });
+  return merged;
 }
 
 /**
- * @param {Record<string, string>} env
+ * @param {NodeJS.ProcessEnv} env
  * @param {'production' | 'development' | 'testing'} profile
  * @param {string} [envFileName]
  * @returns {{ ok: true } | { ok: false, message: string }}

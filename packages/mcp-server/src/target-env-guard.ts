@@ -35,6 +35,12 @@ export type NonProductionBaseUrlCheck =
   | { ok: true }
   | { ok: false; reason: 'missing' | 'production' };
 
+/** Must match {@link VerifyaxClient}'s stripTrailingSlash in @verifyax/sdk. */
+export function normalizeBaseUrl(url: string): string {
+  const trimmed = url.trim();
+  return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+}
+
 /** Validate VERIFYAX_*_BASE_URL values for development/testing profiles. */
 export function checkNonProductionBaseUrls(env: {
   VERIFYAX_BASE_URL?: string;
@@ -47,7 +53,10 @@ export function checkNonProductionBaseUrls(env: {
     return { ok: false, reason: 'missing' };
   }
 
-  if (baseUrl === PRODUCTION_API_BASE_URL || webBaseUrl === PRODUCTION_WEB_BASE_URL) {
+  if (
+    normalizeBaseUrl(baseUrl) === PRODUCTION_API_BASE_URL ||
+    normalizeBaseUrl(webBaseUrl) === PRODUCTION_WEB_BASE_URL
+  ) {
     return { ok: false, reason: 'production' };
   }
 

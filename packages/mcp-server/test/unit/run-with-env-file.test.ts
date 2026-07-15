@@ -11,16 +11,41 @@ import {
 
 describe('parseEnvFile', () => {
   it('parses key/value pairs and ignores comments', () => {
-    expect(
-      parseEnvFile(`
+    const env = parseEnvFile(
+      `
 # comment
 VERIFYAX_BASE_URL=https://dev.example.com/api/v1
 VERIFYAX_WEB_BASE_URL="https://dev.example.com/web/api/v1"
-`)
-    ).toEqual({
-      VERIFYAX_BASE_URL: 'https://dev.example.com/api/v1',
-      VERIFYAX_WEB_BASE_URL: 'https://dev.example.com/web/api/v1',
-    });
+`,
+      {}
+    );
+    expect(env.VERIFYAX_BASE_URL).toBe('https://dev.example.com/api/v1');
+    expect(env.VERIFYAX_WEB_BASE_URL).toBe('https://dev.example.com/web/api/v1');
+  });
+
+  it('strips unquoted inline # comments like dotenv-cli', () => {
+    const env = parseEnvFile(
+      `
+VERIFYAX_BASE_URL=https://dev.example.com/api/v1
+VERIFYAX_WEB_BASE_URL=${PRODUCTION_WEB_BASE_URL} # dev gateway
+`,
+      {}
+    );
+    expect(env.VERIFYAX_WEB_BASE_URL).toBe(PRODUCTION_WEB_BASE_URL);
+    expect(validateProfileEnv(env, 'development').ok).toBe(false);
+  });
+
+  it('expands $VAR / ${VAR} references like dotenv-cli', () => {
+    const env = parseEnvFile(
+      `
+PROD_URL=${PRODUCTION_API_BASE_URL}
+VERIFYAX_BASE_URL=$PROD_URL
+VERIFYAX_WEB_BASE_URL=https://dev.example.com/web/api/v1
+`,
+      {}
+    );
+    expect(env.VERIFYAX_BASE_URL).toBe(PRODUCTION_API_BASE_URL);
+    expect(validateProfileEnv(env, 'development').ok).toBe(false);
   });
 });
 
