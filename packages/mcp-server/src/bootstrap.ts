@@ -3,6 +3,7 @@
 import { VerifyaxClient, type VerifyaxClientOptions } from '@verifyax/sdk';
 import { readApiKey } from './auth.js';
 import { createLogger, type Logger } from './logging.js';
+import { assertTargetEnvironment } from './target-env.js';
 import type { ToolContext } from './tools/context.js';
 
 export function buildVerifyaxClientOptions(
@@ -23,6 +24,7 @@ export function buildVerifyaxClientOptions(
 
 /** Build tool context for stdio mode (API key from env). */
 export function createToolContext(env: NodeJS.ProcessEnv = process.env): ToolContext {
+  assertTargetEnvironment(env);
   const logger = createLogger();
   const client = new VerifyaxClient(buildVerifyaxClientOptions(readApiKey(env), env));
   return { client, logger };

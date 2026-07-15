@@ -141,13 +141,13 @@ HTTP server listens on `127.0.0.1:8080` by default (`HOST`, `PORT` override). En
 
 First, ensure you have built the server by running `pnpm build` from the monorepo root.
 
-To run the inspector against a specific environment, you must provide your `VERIFYAX_API_KEY` for that environment. You can run the inspector using the following convenience scripts:
+To run the inspector against a specific environment, provide your `VERIFYAX_API_KEY` (in the shell or in the matching `.env.*` file). The `inspect*` scripts load that file with dotenv and forward `VERIFYAX_*` variables to Inspector via `-e` (required — Inspector does not pass your shell env to the spawned stdio server):
 
 ```bash
-# Production
+# Production — VERIFYAX_API_KEY from shell prefix or .env.prod
 VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect
 
-# Development
+# Development — base URLs from .env.dev
 VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect:dev
 
 # Testing
@@ -176,19 +176,20 @@ The following scripts are available to run the server in different modes from th
 | `pnpm --filter @verifyax/mcp-server start:dev`  | Starts the server in **development** mode. |
 | `pnpm --filter @verifyax/mcp-server start:test` | Starts the server in **testing** mode.     |
 
-These scripts use `dotenv-cli` to load the appropriate `.env` file.
+These scripts use `scripts/run-with-env-file.mjs`, which refuses to start when a required `.env.*` file is missing or still points at production. `start:dev` / `start:test` / `inspect:dev` / `inspect:test` set `VERIFYAX_MCP_TARGET_ENV`, and the server aborts at startup if non-production base URLs are not configured.
 
 ## Configuration
 
-| Env var                      | Required   | Description                                                                                        |
-| ---------------------------- | ---------- | -------------------------------------------------------------------------------------------------- |
-| `VERIFYAX_API_KEY`           | stdio only | Your VerifyAX API key for the stdio entry point.                                                   |
-| `VERIFYAX_MCP_LOG_LEVEL`     | no         | `debug` \| `info` (default) \| `warn` \| `error` \| `silent`. Logs go to stderr.                   |
-| `VERIFYAX_BASE_URL`          | no         | Override the API base (for self-hosting/testing. Monorepo devs typically use convenience scripts). |
-| `VERIFYAX_WEB_BASE_URL`      | no         | Override the tag-catalogue base (for self-hosting/testing).                                        |
-| `HOST`                       | no         | Bind address for HTTP server (default `127.0.0.1`; use `0.0.0.0` on Cloud Run).                    |
-| `PORT`                       | no         | HTTP port (default `8080`).                                                                        |
-| `VERIFYAX_MCP_ALLOWED_HOSTS` | no         | Comma-separated Host header allowlist (DNS rebinding protection when binding `0.0.0.0`).           |
+| Env var                      | Required   | Description                                                                                                                                                         |
+| ---------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VERIFYAX_API_KEY`           | stdio only | Your VerifyAX API key for the stdio entry point.                                                                                                                    |
+| `VERIFYAX_MCP_LOG_LEVEL`     | no         | `debug` \| `info` (default) \| `warn` \| `error` \| `silent`. Logs go to stderr.                                                                                    |
+| `VERIFYAX_BASE_URL`          | no         | Override the API base (for self-hosting/testing. Monorepo devs typically use convenience scripts).                                                                  |
+| `VERIFYAX_WEB_BASE_URL`      | no         | Override the tag-catalogue base (for self-hosting/testing).                                                                                                         |
+| `HOST`                       | no         | Bind address for HTTP server (default `127.0.0.1`; use `0.0.0.0` on Cloud Run).                                                                                     |
+| `PORT`                       | no         | HTTP port (default `8080`).                                                                                                                                         |
+| `VERIFYAX_MCP_TARGET_ENV`    | no         | Set by convenience scripts (`production` \| `development` \| `testing`). When `development` or `testing`, non-production `VERIFYAX_*_BASE_URL` values are required. |
+| `VERIFYAX_MCP_ALLOWED_HOSTS` | no         | Comma-separated Host header allowlist (DNS rebinding protection when binding `0.0.0.0`).                                                                            |
 
 ## Tools
 

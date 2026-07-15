@@ -39,12 +39,12 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "start": "dotenv -e .env.prod -- node dist/http.js",
-    "start:dev": "dotenv -e .env.dev -- node dist/http.js",
-    "start:test": "dotenv -e .env.test -- node dist/http.js",
-    "inspect": "dotenv -e .env.prod -- npx @modelcontextprotocol/inspector node dist/index.js",
-    "inspect:dev": "dotenv -e .env.dev -- npx @modelcontextprotocol/inspector node dist/index.js",
-    "inspect:test": "dotenv -e .env.test -- npx @modelcontextprotocol/inspector node dist/index.js",
+    "start": "node scripts/run-with-env-file.mjs --dotenv-file .env.prod --profile production --allow-missing-env-file -- node dist/http.js",
+    "start:dev": "node scripts/run-with-env-file.mjs --dotenv-file .env.dev --profile development -- node dist/http.js",
+    "start:test": "node scripts/run-with-env-file.mjs --dotenv-file .env.test --profile testing -- node dist/http.js",
+    "inspect": "node scripts/run-with-env-file.mjs --dotenv-file .env.prod --profile production --allow-missing-env-file -- node scripts/run-inspector.mjs",
+    "inspect:dev": "node scripts/run-with-env-file.mjs --dotenv-file .env.dev --profile development -- node scripts/run-inspector.mjs",
+    "inspect:test": "node scripts/run-with-env-file.mjs --dotenv-file .env.test --profile testing -- node scripts/run-inspector.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:conformance": "tsc -b && vitest run --config vitest.conformance.config.ts"

@@ -26,6 +26,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { readApiKeyFromRequest } from './auth.js';
 import { createToolContextFromApiKey, reportFatal } from './bootstrap.js';
+import { assertTargetEnvironment } from './target-env.js';
 import { createLogger } from './logging.js';
 import { isMainModule } from './main-module.js';
 import { createServer } from './server.js';
@@ -362,6 +363,7 @@ async function closeSessions(sessions: Map<string, McpSession>): Promise<void> {
 }
 
 export async function main(env: NodeJS.ProcessEnv = process.env): Promise<void> {
+  assertTargetEnvironment(env);
   const logger = createLogger();
   const host = resolveHost(env);
   const port = resolvePort(env);
