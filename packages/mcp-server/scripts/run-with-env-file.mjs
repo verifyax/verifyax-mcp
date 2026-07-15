@@ -2,11 +2,12 @@
 // scripts cannot silently fall back to production VerifyAX defaults.
 
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import { expand } from 'dotenv-expand';
+import { isMainModule } from '../dist/main-module.js';
 import {
   PRODUCTION_API_BASE_URL,
   PRODUCTION_WEB_BASE_URL,
@@ -202,18 +203,6 @@ function main() {
   });
 }
 
-function isMainModule() {
-  const invoked = process.argv[1];
-  if (!invoked) {
-    return false;
-  }
-  try {
-    return import.meta.url === pathToFileURL(realpathSync(invoked)).href;
-  } catch {
-    return false;
-  }
-}
-
-if (isMainModule()) {
+if (isMainModule(import.meta.url)) {
   main();
 }
