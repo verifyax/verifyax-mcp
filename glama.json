@@ -1,6 +1,4 @@
 {
-    "$schema": "https://glama.ai/mcp/schemas/server.json",
-    "maintainers": [
-      "iliaspap-conscium"
-    ]
-  }
+  "$schema": "https://glama.ai/mcp/schemas/server.json",
+  "maintainers": ["iliaspap-conscium"]
+}
