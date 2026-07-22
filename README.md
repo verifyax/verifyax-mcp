@@ -29,6 +29,12 @@
 </p>
 
 <p align="center">
+  <a href="https://glama.ai/mcp/servers/verifyax/verifyax-mcp">
+    <img src="https://glama.ai/mcp/servers/verifyax/verifyax-mcp/badges/score.svg" alt="verifyax/verifyax-mcp MCP server">
+  </a>
+</p>
+
+<p align="center">
   <a href="#install-the-mcp-server"><b>Getting started</b></a> ·
   <a href="#supported-tools"><b>Supported tools</b></a> ·
   <a href="#data-and-security"><b>Security</b></a> ·
