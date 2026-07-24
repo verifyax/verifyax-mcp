@@ -39,7 +39,12 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "start:http": "node dist/http.js",
+    "start": "node scripts/run-with-env-file.mjs --dotenv-file .env.prod --profile production --allow-missing-env-file -- node dist/http.js",
+    "start:dev": "node scripts/run-with-env-file.mjs --dotenv-file .env.dev --profile development -- node dist/http.js",
+    "start:test": "node scripts/run-with-env-file.mjs --dotenv-file .env.test --profile testing -- node dist/http.js",
+    "inspect": "node scripts/run-with-env-file.mjs --dotenv-file .env.prod --profile production --allow-missing-env-file -- node scripts/run-inspector.mjs",
+    "inspect:dev": "node scripts/run-with-env-file.mjs --dotenv-file .env.dev --profile development -- node scripts/run-inspector.mjs",
+    "inspect:test": "node scripts/run-with-env-file.mjs --dotenv-file .env.test --profile testing -- node scripts/run-inspector.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:conformance": "tsc -b && vitest run --config vitest.conformance.config.ts"
@@ -54,6 +59,9 @@
     "access": "public"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6"
+    "@types/express": "^5.0.6",
+    "dotenv": "^17.4.2",
+    "dotenv-cli": "^11.0.0",
+    "dotenv-expand": "^12.0.3"
   }
 }

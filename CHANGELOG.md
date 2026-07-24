@@ -7,6 +7,28 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- `@verifyax/mcp-server`: `inspect`, `inspect:dev`, and `inspect:test` convenience scripts for MCP
+  Inspector (stdio); they load `.env.*` and forward `VERIFYAX_*` variables to Inspector via `-e`.
+- `@verifyax/mcp-server`: `run-with-env-file.mjs` preflight for dev/test — refuses to start when
+  `.env.dev` / `.env.test` is missing or still points at production.
+
+### Changed
+
+- `@verifyax/mcp-server`: `start` / `start:dev` / `start:test` use `run-with-env-file.mjs` (sets
+  `VERIFYAX_MCP_TARGET_ENV`); the server aborts at startup when a dev/test profile lacks
+  non-production `VERIFYAX_*_BASE_URL` values.
+
+### Fixed
+
+- `@verifyax/mcp-server`: `run-with-env-file.mjs` passes `-o` to `dotenv-cli` so `.env.*`
+  values override shell `VERIFYAX_*` vars — preflight and runtime now agree.
+- `@verifyax/mcp-server`: preflight parses `.env.*` with `dotenv` + `dotenv-expand` (same as
+  `dotenv-cli`) so inline `#` comments and `$VAR` expansion cannot bypass dev/test guards.
+- `@verifyax/mcp-server`: dev/test guards normalize trailing slashes on base URLs before
+  comparing to production, matching SDK client behavior.
+
 ## [0.3.1] - 2026-07-15
 
 ### Changed
