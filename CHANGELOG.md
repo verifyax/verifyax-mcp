@@ -7,6 +7,11 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-07-28
+
+Patch release: dev/test environment guards, MCP Inspector convenience scripts, and stricter
+base URL handling in the SDK.
+
 ### Added
 
 - `@verifyax/mcp-server`: `inspect`, `inspect:dev`, and `inspect:test` convenience scripts for MCP
@@ -22,6 +27,8 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ### Fixed
 
+- `@verifyax/sdk`: `VerifyaxClient` treats empty or whitespace-only `VERIFYAX_*_BASE_URL` values as
+  unset and falls back to production defaults.
 - `@verifyax/mcp-server`: `run-with-env-file.mjs` passes `-o` to `dotenv-cli` so `.env.*`
   values override shell `VERIFYAX_*` vars — preflight and runtime now agree.
 - `@verifyax/mcp-server`: preflight parses `.env.*` with `dotenv` + `dotenv-expand` (same as
@@ -166,7 +173,8 @@ First public release. `@verifyax/sdk` and `@verifyax/mcp-server` published to np
 - Documentation: top-level README, per-package READMEs, `docs/tool-descriptions.md`,
   `CONTRIBUTING.md`.
 
-[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/verifyax/verifyax-mcp/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/verifyax/verifyax-mcp/compare/v0.2.0...v0.2.1
