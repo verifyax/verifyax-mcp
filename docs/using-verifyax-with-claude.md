@@ -3,11 +3,11 @@
 There are three ways to drive the [VerifyAX](https://verifyax.com) agent-evaluation platform from
 Claude or your own code. They overlap on purpose — pick by how you work, not by capability.
 
-| Surface                         | What it is                                       | Best for                                                                               | Install                                                                                                        |
-| ------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Surface                         | What it is                                       | Best for                                                                               | Install                                                                                                                               |
+| ------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | **`verifyax-mcp`** (MCP server) | Native MCP tools Claude calls directly           | Conversational workflows — "register this agent and evaluate it" — with no code        | `/plugin install verifyax-mcp@verifyax-plugins`, or `claude mcp add verifyax … -- npx -y -p @verifyax/mcp-server verifyax-mcp-server` |
-| **`verifyax-api`** (skill)      | Teaches Claude to drive the REST API via scripts | Developers who want Claude to _write code_ against the API, or custom multi-step logic | `/plugin install verifyax-api@verifyax-plugins`                                                                |
-| **`@verifyax/sdk`** (library)   | Typed TypeScript client                          | Building your own app, service, or automation on VerifyAX                              | `npm install @verifyax/sdk`                                                                                    |
+| **`verifyax-api`** (skill)      | Teaches Claude to drive the REST API via scripts | Developers who want Claude to _write code_ against the API, or custom multi-step logic | `/plugin install verifyax-api@verifyax-plugins`                                                                                       |
+| **`@verifyax/sdk`** (library)   | Typed TypeScript client                          | Building your own app, service, or automation on VerifyAX                              | `npm install @verifyax/sdk`                                                                                                           |
 
 ## How to choose
 
