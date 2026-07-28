@@ -8,13 +8,13 @@
     "url": "https://github.com/verifyax/verifyax-mcp",
     "source": "github"
   },
-  "version": "0.3.2",
+  "version": "0.3.3",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@verifyax/mcp-server",
-      "version": "0.3.2",
+      "version": "0.3.3",
       "transport": {
         "type": "stdio"
       },

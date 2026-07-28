@@ -7,6 +7,22 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-07-28
+
+Patch release: fix credit previews failing when `num_runs` is omitted.
+
+### Fixed
+
+- `@verifyax/mcp-server`: `preview_run_cost` failed with "Request validation failed" whenever
+  `num_runs` was omitted — the tool schema documents `num_runs` as optional with a default of 1,
+  but the handler never applied that default and the gateway requires `num_runs` for
+  `mode: scenario_run` credit previews. The handler now sends `num_runs: 1` when the caller omits
+  it.
+- `@verifyax/mcp-server`: the same omission in `evaluate_agent`'s advisory cost preview made
+  `credits_estimate` silently come back `null` on every default-run evaluation (the preview error
+  is swallowed by design). The preview now also defaults `num_runs` to 1; the `simulate` call is
+  unchanged (the engine applies its own server-side default there).
+
 ## [0.3.2] - 2026-07-28
 
 Patch release: dev/test environment guards, MCP Inspector convenience scripts, and stricter
