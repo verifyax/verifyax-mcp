@@ -31,8 +31,9 @@ export function createPreviewRunCostHandler(ctx: ToolContext) {
       const preview = await ctx.client.simulations.creditPreview({
         mode: 'scenario_run',
         scenario_uuid: args.scenario_uuid,
+        // The gateway requires num_runs for scenario_run previews; apply the documented default.
+        num_runs: args.num_runs ?? 1,
         ...(args.agent_uuid !== undefined ? { agent_uuid: args.agent_uuid } : {}),
-        ...(args.num_runs !== undefined ? { num_runs: args.num_runs } : {}),
         ...(args.timeout_minutes !== undefined ? { timeout_minutes: args.timeout_minutes } : {}),
       });
       return {
