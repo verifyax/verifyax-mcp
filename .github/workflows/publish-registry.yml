@@ -1,0 +1,72 @@
+name: Publish to MCP Registry
+
+# Publishes server.json to the official MCP Registry (io.github.verifyax/mcp-server)
+# via GitHub OIDC — no PAT, no local mcp-publisher binary, and no personal-account
+# org authorization needed. Because this workflow runs in the verifyax org, its
+# OIDC identity is authorized for the `io.github.verifyax/*` namespace (a personal
+# account gets a 403 there — the reason 0.3.0/0.3.1 were skipped).
+#
+# Ordering: the registry validates ownership against the *published* npm package,
+# so the matching npm version must already be live. This repo publishes to npm
+# manually (dry-run-gated — see docs/releasing.md), and the GitHub Release is
+# created *after* that npm publish, so `release: published` fires in the right
+# order. A raw `push: tags` trigger would race ahead of the npm publish and fail.
+# `workflow_dispatch` is kept for catch-up / recovery (e.g. a release whose
+# registry publish was skipped).
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # GitHub OIDC -> MCP Registry auth for the io.github.verifyax/* namespace
+
+env:
+  # Pin the publisher for reproducible runs (bump deliberately).
+  MCP_PUBLISHER_VERSION: v1.8.0
+
+jobs:
+  publish-registry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # On a release, check out the released tag; on manual dispatch, the ref chosen in the UI.
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      - name: Verify server.json matches a published npm release
+        # Fail fast with a clear message if run before npm publish: the registry
+        # verifies ownership against the live npm package, so its version must
+        # already exist on npm (and server.json must agree with package.json).
+        run: |
+          SERVER_VERSION=$(jq -r '.version' server.json)
+          PKG_VERSION=$(jq -r '.version' packages/mcp-server/package.json)
+          if [ "$SERVER_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::server.json version ($SERVER_VERSION) != packages/mcp-server/package.json ($PKG_VERSION)"
+            exit 1
+          fi
+          if ! npm view "@verifyax/mcp-server@${SERVER_VERSION}" version >/dev/null 2>&1; then
+            echo "::error::@verifyax/mcp-server@${SERVER_VERSION} is not on npm yet — publish to npm first (docs/releasing.md §4)."
+            exit 1
+          fi
+          echo "Publishing server.json ${SERVER_VERSION} to the MCP Registry."
+
+      - name: Install mcp-publisher ${{ env.MCP_PUBLISHER_VERSION }}
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz" \
+            | tar xz mcp-publisher
+
+      - name: Authenticate via GitHub OIDC
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish server.json
+        run: ./mcp-publisher publish
+
+      - name: Confirm the registry now lists the new version
+        run: |
+          SERVER_VERSION=$(jq -r '.version' server.json)
+          LATEST=$(curl -fsSL "https://registry.modelcontextprotocol.io/v0/servers/io.github.verifyax%2Fmcp-server/versions/latest" | jq -r '.server.version')
+          echo "Registry latest is now: ${LATEST} (expected ${SERVER_VERSION})"
+          [ "$LATEST" = "$SERVER_VERSION" ] || echo "::warning::Registry latest ($LATEST) does not yet match ($SERVER_VERSION) — mirrors may lag a sync cycle."

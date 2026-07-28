@@ -154,12 +154,23 @@ Create a release from the `vX.Y.Z` tag:
 
 ## 6. MCP Registry
 
-If `server.json` changed (version bump always does), update the official MCP registry entry
-after npm publish succeeds. Use the `mcp-publisher` CLI from the repo root against the updated
-`server.json` (see the [MCP registry docs](https://github.com/modelcontextprotocol/registry)).
+**Automated.** The [`Publish to MCP Registry`](../.github/workflows/publish-registry.yml) workflow
+publishes `server.json` to the official registry via **GitHub OIDC** — no local `mcp-publisher`
+binary, PAT, or personal-account org authorization (the org-authorized OIDC identity is what makes
+the `io.github.verifyax/*` namespace publishable; a personal account 403s, which is why 0.3.0/0.3.1
+were skipped).
 
-The registry lists `@verifyax/mcp-server` under the `io.github.verifyax` namespace; its version
-must match what shipped to npm.
+It runs automatically **when you publish the GitHub Release** (step 5) — which is after the npm
+publish (step 4), the order the registry requires (it validates ownership against the live npm
+package). Nothing else to do; just confirm the run is green in the Actions tab.
+
+**Manual catch-up / recovery.** If a release's registry publish was skipped or failed, run the
+workflow from **Actions → Publish to MCP Registry → Run workflow**, selecting the release tag. It
+verifies `server.json` matches a published npm version before publishing, so it fails fast (clear
+message) if run too early.
+
+The registry lists `@verifyax/mcp-server` under the `io.github.verifyax` namespace; its version must
+match what shipped to npm (`server.json` `.version` == `packages/mcp-server/package.json` `.version`).
 
 ## 7. Smoke test
 
@@ -184,8 +195,8 @@ Copy for each release (replace `X.Y.Z`):
 [ ] Merge PR → main CI green
 [ ] git tag vX.Y.Z && git push origin vX.Y.Z → tag CI green
 [ ] Actions: Publish (dry_run=true, then dry_run=false)
-[ ] GitHub Release from tag (CHANGELOG body)
-[ ] MCP registry publish (server.json)
+[ ] GitHub Release from tag (CHANGELOG body) → auto-triggers the MCP registry publish
+[ ] Confirm "Publish to MCP Registry" Actions run is green (registry shows the new version)
 [ ] Smoke test @verifyax/mcp-server@X.Y.Z and @verifyax/sdk@X.Y.Z
 ```
 
