@@ -1,8 +1,13 @@
 name: Publish
 
 # Manual, opt-in publishing (CLAUDE.md: publish manually until volume justifies
-# automation). Trigger from the Actions tab once npm auth (NPM_TOKEN secret) and
-# the @verifyax org are in place. Bump versions and tag the release first.
+# automation). Trigger from the Actions tab. Bump versions and tag the release first.
+#
+# Auth is npm Trusted Publishing (OIDC): both packages list this repo + workflow as a
+# trusted publisher on npmjs.com, so no NPM_TOKEN secret and no OTP are involved. The
+# token path died with EOTP once the account required 2FA for writes (see v0.3.2/v0.3.3
+# release attempts); do not reintroduce NODE_AUTH_TOKEN — with OIDC configured it is
+# unnecessary, and pnpm >= 10.13 handles trusted publishing natively.
 on:
   workflow_dispatch:
     inputs:
@@ -52,5 +57,3 @@ jobs:
       - name: Publish
         if: ${{ !inputs.dry_run }}
         run: pnpm -r publish --access public --no-git-checks --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
