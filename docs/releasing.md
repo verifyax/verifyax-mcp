@@ -174,10 +174,16 @@ match what shipped to npm (`server.json` `.version` == `packages/mcp-server/pack
 
 ## 7. Smoke test
 
-Confirm the published artifact works outside the dev tree:
+Confirm the published artifact works outside the dev tree. The package ships two binaries
+(`verifyax-mcp-server` for stdio, `verifyax-mcp-server-http` for HTTP), so `npx` needs the
+explicit command name:
 
 ```bash
-npx -y @verifyax/mcp-server@X.Y.Z --help
+# stdio — exits immediately with an auth error without VERIFYAX_API_KEY; that confirms install + launch
+VERIFYAX_API_KEY=test npx -y -p @verifyax/mcp-server@X.Y.Z verifyax-mcp-server
+
+# confirm the SDK tarball landed too
+npm view @verifyax/sdk@X.Y.Z version
 ```
 
 For interactive tool calls, see [debugging-mcp-inspector.md](./debugging-mcp-inspector.md) and
@@ -197,7 +203,7 @@ Copy for each release (replace `X.Y.Z`):
 [ ] Actions: Publish (dry_run=true, then dry_run=false)
 [ ] GitHub Release from tag (CHANGELOG body) → auto-triggers the MCP registry publish
 [ ] Confirm "Publish to MCP Registry" Actions run is green (registry shows the new version)
-[ ] Smoke test @verifyax/mcp-server@X.Y.Z and @verifyax/sdk@X.Y.Z
+[ ] Smoke test: `npx -y -p @verifyax/mcp-server@X.Y.Z verifyax-mcp-server` and `npm view @verifyax/sdk@X.Y.Z version`
 ```
 
 ## Troubleshooting

@@ -49,7 +49,7 @@ To exercise the published package without a local build:
 ```bash
 npx @modelcontextprotocol/inspector \
   -e VERIFYAX_API_KEY=sk-ver-api-... \
-  npx -y @verifyax/mcp-server
+  npx -y -p @verifyax/mcp-server verifyax-mcp-server
 ```
 
 > **Windows — avoid spaces in the Command path.** Inspector's stdio launcher splits the spawn
