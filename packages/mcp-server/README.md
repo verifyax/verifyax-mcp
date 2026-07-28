@@ -24,12 +24,16 @@ The package exposes two binaries:
 - `verifyax-mcp-server` — MCP over **stdio** (local MCP clients; API key via env)
 - `verifyax-mcp-server-http` — MCP over **Streamable HTTP** (remote deploy; API key from client headers)
 
+With two binaries, `npx` cannot infer a default — use
+`npx -y -p @verifyax/mcp-server verifyax-mcp-server` (stdio) or
+`npx -y -p @verifyax/mcp-server verifyax-mcp-server-http` (HTTP).
+
 ## Configure your MCP client
 
 ### Claude Code (stdio — local)
 
 ```bash
-claude mcp add verifyax --env VERIFYAX_API_KEY=sk-ver-api-... -- npx -y @verifyax/mcp-server
+claude mcp add verifyax --env VERIFYAX_API_KEY=sk-ver-api-... -- npx -y -p @verifyax/mcp-server verifyax-mcp-server
 ```
 
 ### Claude Desktop (stdio — local)
@@ -41,7 +45,7 @@ Add to `claude_desktop_config.json` (Settings → Developer → Edit Config):
   "mcpServers": {
     "verifyax": {
       "command": "npx",
-      "args": ["-y", "@verifyax/mcp-server"],
+      "args": ["-y", "-p", "@verifyax/mcp-server", "verifyax-mcp-server"],
       "env": { "VERIFYAX_API_KEY": "sk-ver-api-..." }
     }
   }
@@ -59,7 +63,7 @@ API key):
   "mcpServers": {
     "verifyax": {
       "command": "npx",
-      "args": ["-y", "@verifyax/mcp-server"],
+      "args": ["-y", "-p", "@verifyax/mcp-server", "verifyax-mcp-server"],
       "env": {
         "VERIFYAX_API_KEY": "sk-ver-api-...",
         "VERIFYAX_BASE_URL": "https://dev-gateway.example.com/api/v1",

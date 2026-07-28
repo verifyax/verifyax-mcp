@@ -129,10 +129,13 @@ Requirements depend on how you connect.
 - An MCP client with **Streamable HTTP** support, or **Node.js 18+** to run the
   [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) proxy
 
-### Local stdio (`npx @verifyax/mcp-server`)
+### Local stdio (`verifyax-mcp-server` via npx)
 
 - **Node.js ≥ 20**
 - A VerifyAX API key in your client config (`VERIFYAX_API_KEY`)
+
+The npm package exposes two binaries (`verifyax-mcp-server` and `verifyax-mcp-server-http`); pass
+the stdio binary name explicitly when using `npx`.
 
 ---
 
@@ -203,7 +206,7 @@ Restart your MCP client after changing config.
 **Claude Code:**
 
 ```bash
-claude mcp add verifyax --env VERIFYAX_API_KEY=sk-ver-api-... -- npx -y @verifyax/mcp-server
+claude mcp add verifyax --env VERIFYAX_API_KEY=sk-ver-api-... -- npx -y -p @verifyax/mcp-server verifyax-mcp-server
 ```
 
 **Claude Desktop:**
@@ -213,7 +216,7 @@ claude mcp add verifyax --env VERIFYAX_API_KEY=sk-ver-api-... -- npx -y @verifya
   "mcpServers": {
     "verifyax": {
       "command": "npx",
-      "args": ["-y", "@verifyax/mcp-server"],
+      "args": ["-y", "-p", "@verifyax/mcp-server", "verifyax-mcp-server"],
       "env": { "VERIFYAX_API_KEY": "sk-ver-api-..." }
     }
   }
@@ -229,7 +232,7 @@ Restart the client after changing config, then describe what you want in natural
 ### Architecture and communication
 
 1. Your MCP client connects to `https://mcp.verifyax.com/mcp` (remote HTTP) or spawns
-   `npx @verifyax/mcp-server` (local stdio).
+   `npx -p @verifyax/mcp-server verifyax-mcp-server` (local stdio).
 2. The client sends **your** VerifyAX API key on initialize (`Authorization: Bearer …` or
    `X-VerifyAX-API-Key` for HTTP; `VERIFYAX_API_KEY` env for stdio).
 3. The server calls the VerifyAX API on your behalf. Blocking tools (`generate_scenario`,
