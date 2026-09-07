@@ -32,7 +32,11 @@ describe('preview_run_cost', () => {
       { method: 'POST', match: 'workspace-credit-preview', body: PREVIEW_BODY },
     ]);
     await createPreviewRunCostHandler(ctx)({ scenario_uuid: 's1' });
-    expect(calls[0]?.body).toMatchObject({ mode: 'scenario_run', scenario_uuid: 's1', num_runs: 1 });
+    expect(calls[0]?.body).toMatchObject({
+      mode: 'scenario_run',
+      scenario_uuid: 's1',
+      num_runs: 1,
+    });
   });
 
   it('forwards an explicit num_runs, agent_uuid, and timeout_minutes', async () => {

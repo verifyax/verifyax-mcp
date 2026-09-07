@@ -18,7 +18,7 @@
 // inherent to a bring-your-own-key pass-through. Eliminating custody entirely is
 // the OAuth roadmap item, not this transport.
 
-import { pbkdf2Sync, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { AuthError } from '@verifyax/sdk';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
@@ -43,12 +43,14 @@ const MAX_SESSIONS = 500;
 /** Per-key request rate limit. */
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX_REQUESTS = 240;
+/** New session attempts allowed per direct network peer. */
+const PRE_AUTH_RATE_MAX_REQUESTS = 60;
 
 export interface McpSession {
   transport: StreamableHTTPServerTransport;
   ctx: ToolContext;
-  /** SHA-256 of the API key that created the session; every request must match. */
-  keyHash: string;
+  /** Keyed fingerprint of the API key that created the session. */
+  keyFingerprint: string;
   lastSeenMs: number;
 }
 
@@ -60,6 +62,8 @@ export interface StreamableHttpOptions {
   validateApiKey?: ApiKeyValidator;
   /** Clock, for tests. */
   now?: () => number;
+  /** Override the initialize limiter threshold (tests only). */
+  preAuthRateMaxRequests?: number;
 }
 
 const defaultValidateApiKey: ApiKeyValidator = async (ctx) => {
@@ -67,24 +71,21 @@ const defaultValidateApiKey: ApiKeyValidator = async (ctx) => {
   await ctx.client.usage.getBalance();
 };
 
-const API_KEY_HASH_SALT = 'verifyax-mcp-server:http-session-key-hash:v1';
-const API_KEY_HASH_ITERATIONS = 310_000;
-const API_KEY_HASH_BYTES = 32;
-const API_KEY_HASH_DIGEST = 'sha256';
+// API keys are high-entropy credentials, not human passwords. A per-process
+// HMAC prevents offline comparison without putting a password KDF on Node's
+// event loop for every unauthenticated key.
+const API_KEY_FINGERPRINT_SECRET = randomBytes(32);
 
-function hashApiKey(key: string): string {
-  return pbkdf2Sync(
-    key,
-    API_KEY_HASH_SALT,
-    API_KEY_HASH_ITERATIONS,
-    API_KEY_HASH_BYTES,
-    API_KEY_HASH_DIGEST
-  ).toString('hex');
+export function fingerprintApiKey(
+  key: string,
+  secret: Uint8Array = API_KEY_FINGERPRINT_SECRET
+): string {
+  return createHmac('sha256', secret).update(key, 'utf8').digest('hex');
 }
 
-function keyMatchesHash(presentedKey: string, keyHash: string): boolean {
-  const presented = Buffer.from(hashApiKey(presentedKey));
-  const expected = Buffer.from(keyHash);
+function keyMatchesFingerprint(presentedKey: string, keyFingerprint: string): boolean {
+  const presented = Buffer.from(fingerprintApiKey(presentedKey), 'hex');
+  const expected = Buffer.from(keyFingerprint, 'hex');
   return presented.length === expected.length && timingSafeEqual(presented, expected);
 }
 
@@ -192,10 +193,13 @@ export function registerStreamableHttpRoutes(
   const validateApiKey = options.validateApiKey ?? defaultValidateApiKey;
   const now = options.now ?? (() => Date.now());
   const rateState = new Map<string, { count: number; windowStartMs: number }>();
+  const preAuthRateState = new Map<string, { count: number; windowStartMs: number }>();
+  const preAuthRateMaxRequests = options.preAuthRateMaxRequests ?? PRE_AUTH_RATE_MAX_REQUESTS;
   // Reclaim rate-limit entries for keys that fall idle. Bounded to at most one
   // O(n) pass per window so a stream of distinct keys can't grow the map without
   // limit (an entry survives at most ~2 windows past its last request).
   let lastRatePruneMs = now();
+  let lastPreAuthRatePruneMs = now();
 
   /** Fixed-window per-key rate limit. Returns true when the request is allowed. */
   const allowRate = (keyHash: string): boolean => {
@@ -213,6 +217,23 @@ export function registerStreamableHttpRoutes(
     return state.count <= RATE_MAX_REQUESTS;
   };
 
+  /** Limit session initialization by direct peer before processing a key. */
+  const allowInitialize = (req: Request): boolean => {
+    const source = req.socket.remoteAddress ?? 'unknown';
+    const ts = now();
+    if (ts - lastPreAuthRatePruneMs >= RATE_WINDOW_MS) {
+      sweepRateState(preAuthRateState, ts, RATE_WINDOW_MS);
+      lastPreAuthRatePruneMs = ts;
+    }
+    const state = preAuthRateState.get(source);
+    if (!state || ts - state.windowStartMs >= RATE_WINDOW_MS) {
+      preAuthRateState.set(source, { count: 1, windowStartMs: ts });
+      return true;
+    }
+    state.count += 1;
+    return state.count <= preAuthRateMaxRequests;
+  };
+
   /** Authorize a request against an existing session (key must match). */
   const authorizeExisting = (req: Request, res: Response, session: McpSession): boolean => {
     const key = readApiKeyFromRequest(req);
@@ -220,11 +241,11 @@ export function registerStreamableHttpRoutes(
       jsonRpcError(res, 401, missingApiKeyMessage());
       return false;
     }
-    if (!keyMatchesHash(key, session.keyHash)) {
+    if (!keyMatchesFingerprint(key, session.keyFingerprint)) {
       jsonRpcError(res, 403, 'The API key does not match this session.');
       return false;
     }
-    if (!allowRate(session.keyHash)) {
+    if (!allowRate(session.keyFingerprint)) {
       jsonRpcError(res, 429, 'Rate limit exceeded. Slow down and retry shortly.');
       return false;
     }
@@ -247,13 +268,17 @@ export function registerStreamableHttpRoutes(
       }
 
       if (isInitializeRequest(req.body)) {
+        if (!allowInitialize(req)) {
+          jsonRpcError(res, 429, 'Too many session initialization attempts. Retry shortly.');
+          return;
+        }
         const apiKey = readApiKeyFromRequest(req);
         if (!apiKey) {
           jsonRpcError(res, 401, missingApiKeyMessage());
           return;
         }
-        const keyHash = hashApiKey(apiKey);
-        if (!allowRate(keyHash)) {
+        const keyFingerprint = fingerprintApiKey(apiKey);
+        if (!allowRate(keyFingerprint)) {
           jsonRpcError(res, 429, 'Rate limit exceeded. Slow down and retry shortly.');
           return;
         }
@@ -302,7 +327,7 @@ export function registerStreamableHttpRoutes(
           const transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => randomUUID(),
             onsessioninitialized: (sid) => {
-              sessions.set(sid, { transport, ctx, keyHash, lastSeenMs: now() });
+              sessions.set(sid, { transport, ctx, keyFingerprint, lastSeenMs: now() });
               releaseReservation();
             },
           });

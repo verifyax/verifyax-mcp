@@ -7,6 +7,26 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-09-07
+
+Security hotfix and release-pipeline hardening following the second engineering review.
+
+### Security
+
+- Replaced synchronous PBKDF2 API-key fingerprints in the HTTP transport with keyed HMAC-SHA-256
+  fingerprints and added a direct-peer session-initialization limiter.
+- Updated the MCP SDK and pinned patched transitive versions; the production dependency audit now
+  reports no known vulnerabilities.
+
+### Changed
+
+- CI now audits production dependencies, pins third-party actions to immutable commits, and fails
+  main/tag integration runs when the live key or agent fixture is missing.
+- Publishing now requires an immutable tag with successful CI, reruns the complete deterministic
+  gate, publishes npm, and only then creates the GitHub Release that triggers registry publishing.
+- The flagship integration test fails when its compatible tag or evaluation job is unavailable
+  instead of returning early.
+
 ## [0.3.3] - 2026-07-28
 
 Patch release: fix credit previews failing when `num_runs` is omitted.
@@ -189,7 +209,9 @@ First public release. `@verifyax/sdk` and `@verifyax/mcp-server` published to np
 - Documentation: top-level README, per-package READMEs, `docs/tool-descriptions.md`,
   `CONTRIBUTING.md`.
 
-[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.3...v0.3.4
+[0.3.3]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/verifyax/verifyax-mcp/compare/v0.2.1...v0.3.0

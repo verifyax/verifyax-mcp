@@ -1,7 +1,7 @@
 {
   "name": "@verifyax/mcp-server",
   "mcpName": "io.github.verifyax/mcp-server",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "MCP server exposing the VerifyAX agent-evaluation platform as conversational tools.",
   "license": "Apache-2.0",
   "author": "Conscium",
@@ -50,7 +50,7 @@
     "test:conformance": "tsc -b && vitest run --config vitest.conformance.config.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@verifyax/sdk": "workspace:*",
     "express": "^5.2.1",
     "zod": "^3.24.1"
