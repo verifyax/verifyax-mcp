@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it } from 'vitest';
 import { VerifyaxClient } from '../../src/index.js';
@@ -71,10 +72,7 @@ describe('SDK integration (live API)', () => {
           (t.allowed_scenario_types?.includes(scenarioType) ?? true) &&
           (t.benchmark_family === null || t.benchmark_family === undefined)
       );
-      if (!tag) {
-        // No compatible tag in this workspace — nothing further to assert.
-        return;
-      }
+      assert(tag, 'The integration workspace must contain a compatible non-benchmark tag');
 
       // 3. Generate a scenario and wait for the job.
       const generated = await client.scenarios.generate({
@@ -103,11 +101,10 @@ describe('SDK integration (live API)', () => {
       expect(run.status).toBe('COMPLETED');
 
       const evalJobUuid = sim.evaluation_job_uuid ?? run.evaluation_job_uuid;
-      if (evalJobUuid) {
-        await client.jobs.pollUntilTerminal(evalJobUuid, { intervalMs: 10_000 });
-        const evaluation = await client.simulations.getEvaluation(evalJobUuid);
-        expect(evaluation).toBeTypeOf('object');
-      }
+      assert(evalJobUuid, 'The flagship pipeline must create an evaluation job');
+      await client.jobs.pollUntilTerminal(evalJobUuid, { intervalMs: 10_000 });
+      const evaluation = await client.simulations.getEvaluation(evalJobUuid);
+      expect(evaluation).toBeTypeOf('object');
     }
   );
 });

@@ -1,7 +1,8 @@
 name: Publish
 
-# Manual, opt-in publishing (CLAUDE.md: publish manually until volume justifies
-# automation). Trigger from the Actions tab. Bump versions and tag the release first.
+# Manual, opt-in publishing from an immutable tag after that tag's CI passes.
+# A real run publishes npm first and then creates the GitHub Release, whose
+# release event triggers the MCP Registry workflow.
 #
 # Auth is npm Trusted Publishing (OIDC): both packages list this repo + workflow as a
 # trusted publisher on npmjs.com, so no NPM_TOKEN secret and no OTP are involved. The
@@ -11,13 +12,18 @@ name: Publish
 on:
   workflow_dispatch:
     inputs:
+      tag:
+        description: 'Immutable release tag (vX.Y.Z)'
+        type: string
+        required: true
       dry_run:
         description: 'Run pnpm publish in --dry-run mode (no upload)'
         type: boolean
         default: true
 
 permissions:
-  contents: read
+  actions: read
+  contents: write
   # Required for npm provenance (OIDC) on the real publish.
   id-token: write
 
@@ -25,25 +31,72 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Verify immutable tag and successful CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          case "$RELEASE_TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::tag must use the vX.Y.Z format"; exit 1 ;;
+          esac
+          [ "$(git describe --tags --exact-match HEAD)" = "$RELEASE_TAG" ] || {
+            echo "::error::Checked-out commit is not exactly tagged $RELEASE_TAG."
+            exit 1
+          }
+          RELEASE_SHA=$(git rev-parse HEAD)
+          SUCCESSFUL_RUNS=$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow ci.yml \
+            --commit "$RELEASE_SHA" \
+            --event push \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq 'length')
+          [ "$SUCCESSFUL_RUNS" -ge 1 ] || {
+            echo "::error::The release tag's CI workflow has not completed successfully."
+            exit 1
+          }
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Check version consistency
         run: pnpm check:versions
+        env:
+          EXPECT_VERSION: ${{ inputs.tag }}
+
+      - name: Check generated SDK artifacts
+        run: |
+          pnpm gen:types
+          pnpm gen:spec-meta
+          git diff --exit-code -- packages/sdk/src/types.gen.ts packages/sdk/openapi/verifyax.meta.json
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Audit production dependencies
+        run: pnpm audit:prod
 
       - name: Build
         run: pnpm build
 
-      # Gate the publish on the full deterministic suite, not just unit tests.
-      # (Live-API drift is caught continuously by the integration job on `main`.)
       - name: Unit tests
         run: pnpm test:coverage
 
@@ -57,3 +110,10 @@ jobs:
       - name: Publish
         if: ${{ !inputs.dry_run }}
         run: pnpm -r publish --access public --no-git-checks --provenance
+
+      - name: Create GitHub Release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG" --generate-notes

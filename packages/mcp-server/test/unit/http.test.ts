@@ -1,5 +1,6 @@
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { performance } from 'node:perf_hooks';
 import { AuthError } from '@verifyax/sdk';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { describe, expect, it } from 'vitest';
@@ -7,7 +8,9 @@ import { readApiKeyFromRequest } from '../../src/auth.js';
 import {
   type ApiKeyValidator,
   type McpSession,
+  type StreamableHttpOptions,
   assertHostBinding,
+  fingerprintApiKey,
   registerStreamableHttpRoutes,
   sweepRateState,
   resolveAllowedHosts,
@@ -35,7 +38,8 @@ interface StartedHttpServer {
 }
 
 async function startHttpServer(
-  validateApiKey: ApiKeyValidator = async () => {}
+  validateApiKey: ApiKeyValidator = async () => {},
+  options: Omit<StreamableHttpOptions, 'validateApiKey'> = {}
 ): Promise<StartedHttpServer> {
   const app = createMcpExpressApp({ host: '127.0.0.1' });
   const logger = createLogger({ level: 'silent' });
@@ -45,7 +49,7 @@ async function startHttpServer(
     app,
     logger,
     { VERIFYAX_MCP_LOG_LEVEL: 'silent' },
-    { validateApiKey }
+    { ...options, validateApiKey }
   );
   const server = createHttpServer(app);
   await new Promise<void>((resolve) => {
@@ -133,6 +137,53 @@ describe('Streamable HTTP session routing', () => {
       await stopHttpServer(started);
     }
   });
+
+  it('rate-limits initialization by peer before validating more keys', async () => {
+    let validations = 0;
+    const started = await startHttpServer(
+      async () => {
+        validations += 1;
+      },
+      { preAuthRateMaxRequests: 2 }
+    );
+    try {
+      const responses = [];
+      for (let index = 0; index < 3; index += 1) {
+        responses.push(
+          await fetch(`${started.url}/mcp`, {
+            method: 'POST',
+            headers: mcpHeaders({ authorization: `Bearer sk-ver-api-${String(index)}` }),
+            body: JSON.stringify(INITIALIZE_REQUEST),
+          })
+        );
+      }
+
+      expect(responses.map((response) => response.status)).toEqual([200, 200, 429]);
+      expect(validations).toBe(2);
+    } finally {
+      await stopHttpServer(started);
+    }
+  });
+});
+
+describe('API-key fingerprinting', () => {
+  it('uses a fast keyed fingerprint instead of a synchronous password KDF', () => {
+    const secret = Buffer.alloc(32, 1);
+    const otherSecret = Buffer.alloc(32, 2);
+
+    expect(fingerprintApiKey('sk-ver-api-test', secret)).toBe(
+      fingerprintApiKey('sk-ver-api-test', secret)
+    );
+    expect(fingerprintApiKey('sk-ver-api-test', secret)).not.toBe(
+      fingerprintApiKey('sk-ver-api-test', otherSecret)
+    );
+
+    const startedAt = performance.now();
+    for (let index = 0; index < 250; index += 1) {
+      fingerprintApiKey(`sk-ver-api-${String(index)}`, secret);
+    }
+    expect(performance.now() - startedAt).toBeLessThan(1_000);
+  });
 });
 
 describe('HTTP env resolution', () => {
@@ -174,7 +225,7 @@ describe('sweepIdleSessions (SEC-4)', () => {
       ({
         transport: { close: async () => void closed.push(id) },
         ctx: {} as McpSession['ctx'],
-        keyHash: 'h',
+        keyFingerprint: 'h',
         lastSeenMs,
       }) as unknown as McpSession;
 

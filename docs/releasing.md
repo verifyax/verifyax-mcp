@@ -8,9 +8,10 @@ by itself.
 
 ## Prerequisites
 
-- Maintainer access to the `@verifyax` npm org and the repo's GitHub Actions secrets.
-- `NPM_TOKEN` configured as a repository secret (automation token with publish access).
-- `VERIFYAX_TEST_KEY` configured so integration tests run on pushes to `main` and on release tags.
+- Maintainer access to the `@verifyax` npm org.
+- npm Trusted Publishing configured for both packages and `.github/workflows/publish.yml`.
+- `VERIFYAX_TEST_KEY` and `VERIFYAX_TEST_AGENT_URL` configured so the complete live pipeline runs
+  on pushes to `main` and on release tags.
 
 ## Overview
 
@@ -86,7 +87,8 @@ Merge the PR to `main`. The CI workflow (`.github/workflows/ci.yml`) runs on eve
 - Lint, format, build
 - Unit tests with coverage thresholds
 - MCP conformance test (spawns the built server)
-- Integration tests against the live API (when `VERIFYAX_TEST_KEY` is set)
+- Production dependency audit
+- Integration tests against the live API; missing key or agent fixture fails this protected gate
 
 Do not tag until this workflow is green.
 
@@ -106,20 +108,21 @@ name matches the package version (`EXPECT_VERSION` in the workflow).
 
 ## 4. Publish to npm
 
-Use the **Publish** workflow (`.github/workflows/publish.yml`) from the GitHub Actions tab. Run
-it against `main` at the tagged commit.
+Use the **Publish** workflow (`.github/workflows/publish.yml`) from the GitHub Actions tab. Enter
+the immutable `vX.Y.Z` tag. The workflow refuses to continue unless CI passed for that exact tagged
+commit, then reruns the complete deterministic CI suite before publishing.
 
 ### Dry run first
 
 1. Actions → **Publish** → **Run workflow**
-2. Branch: `main`
-3. `dry_run`: **true** (default)
+2. Enter `tag`: `vX.Y.Z`
+3. Leave `dry_run`: **true** (default)
 
 This builds, runs the full test gate, and runs `pnpm -r publish --dry-run` — no upload.
 
 ### Real publish
 
-1. Run the same workflow with `dry_run`: **false**
+1. Run the same tag through the workflow with `dry_run`: **false**
 
 This publishes both packages with provenance:
 
@@ -127,7 +130,8 @@ This publishes both packages with provenance:
 - `@verifyax/mcp-server@X.Y.Z`
 
 The MCP server's `workspace:*` dependency on the SDK is rewritten to the concrete version at
-publish time.
+publish time. After npm succeeds, the workflow creates the GitHub Release. That event triggers
+the MCP Registry workflow, keeping all three channels ordered from one immutable tag.
 
 ### Local publish (alternative)
 
@@ -147,10 +151,8 @@ possible — it is the documented gate.
 
 ## 5. GitHub Release
 
-Create a release from the `vX.Y.Z` tag:
-
-- **Title:** `vX.Y.Z`
-- **Body:** paste the `[X.Y.Z]` section from `CHANGELOG.md`
+The real Publish workflow creates the `vX.Y.Z` GitHub Release only after both npm packages
+publish successfully. Do not create it ahead of the npm publish.
 
 ## 6. MCP Registry
 
@@ -200,8 +202,8 @@ Copy for each release (replace `X.Y.Z`):
 [ ] pnpm lint && pnpm format:check && pnpm test:coverage && pnpm test:conformance
 [ ] Merge PR → main CI green
 [ ] git tag vX.Y.Z && git push origin vX.Y.Z → tag CI green
-[ ] Actions: Publish (dry_run=true, then dry_run=false)
-[ ] GitHub Release from tag (CHANGELOG body) → auto-triggers the MCP registry publish
+[ ] Actions: Publish the exact tag (dry_run=true, then dry_run=false)
+[ ] Confirm the workflow created the GitHub Release after npm
 [ ] Confirm "Publish to MCP Registry" Actions run is green (registry shows the new version)
 [ ] Smoke test: `npx -y -p @verifyax/mcp-server@X.Y.Z verifyax-mcp-server` and `npm view @verifyax/sdk@X.Y.Z version`
 ```
@@ -220,11 +222,10 @@ The git tag (`v0.3.1`) must match `package.json` (`0.3.1`). Amend the version bu
 
 ### Publish workflow fails on npm auth
 
-Confirm `NPM_TOKEN` is present in repo secrets and has publish rights to `@verifyax/*`. The
-workflow uses `--provenance`, which requires `id-token: write` (already set in the workflow).
+Confirm both npm packages trust `.github/workflows/publish.yml` in this repository. The workflow
+uses GitHub OIDC and `--provenance`; do not add a long-lived `NPM_TOKEN`.
 
 ### Integration tests fail on `main` after merge
 
-Fix forward on `main` before tagging. The Publish workflow does not run integration tests, but
-a red `main` usually means API drift — see `docs/verifyax-api.md` and the integration suite in
-`packages/sdk/test/integration/`.
+Fix forward on `main` before tagging. The Publish workflow requires a successful CI run for the
+exact tag, so integration drift or missing fixtures cannot be bypassed during release.
