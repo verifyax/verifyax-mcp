@@ -1,6 +1,7 @@
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { performance } from 'node:perf_hooks';
+import type { Request, Response } from 'express';
 import { AuthError } from '@verifyax/sdk';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { describe, expect, it } from 'vitest';
@@ -10,8 +11,10 @@ import {
   type McpSession,
   type StreamableHttpOptions,
   assertHostBinding,
+  configureHttpTrustProxy,
   fingerprintApiKey,
   registerStreamableHttpRoutes,
+  resolveInitializePeer,
   sweepRateState,
   resolveAllowedHosts,
   resolveHost,
@@ -39,9 +42,12 @@ interface StartedHttpServer {
 
 async function startHttpServer(
   validateApiKey: ApiKeyValidator = async () => {},
-  options: Omit<StreamableHttpOptions, 'validateApiKey'> = {}
+  options: Omit<StreamableHttpOptions, 'validateApiKey'> & { trustProxy?: boolean } = {}
 ): Promise<StartedHttpServer> {
   const app = createMcpExpressApp({ host: '127.0.0.1' });
+  if (options.trustProxy) {
+    configureHttpTrustProxy(app, '0.0.0.0');
+  }
   const logger = createLogger({ level: 'silent' });
   // Inject a no-op key validator by default so unit tests stay hermetic (the
   // real validator makes a network call).
@@ -164,6 +170,61 @@ describe('Streamable HTTP session routing', () => {
       await stopHttpServer(started);
     }
   });
+
+  it('rate-limits initialization per forwarded client behind a proxy', async () => {
+    let validations = 0;
+    const started = await startHttpServer(
+      async () => {
+        validations += 1;
+      },
+      { preAuthRateMaxRequests: 2, trustProxy: true }
+    );
+    try {
+      const responses = [];
+      for (const clientIp of ['203.0.113.10', '203.0.113.11']) {
+        for (let index = 0; index < 2; index += 1) {
+          responses.push(
+            await fetch(`${started.url}/mcp`, {
+              method: 'POST',
+              headers: mcpHeaders({
+                authorization: `Bearer sk-ver-api-${clientIp}-${String(index)}`,
+                'x-forwarded-for': clientIp,
+              }),
+              body: JSON.stringify(INITIALIZE_REQUEST),
+            })
+          );
+        }
+      }
+
+      expect(responses.map((response) => response.status)).toEqual([200, 200, 200, 200]);
+      expect(validations).toBe(4);
+    } finally {
+      await stopHttpServer(started);
+    }
+  });
+
+  it('shares the initialize budget across clients when proxy trust is off', async () => {
+    const started = await startHttpServer(async () => {}, { preAuthRateMaxRequests: 2 });
+    try {
+      const responses = [];
+      for (const clientIp of ['203.0.113.20', '203.0.113.21', '203.0.113.22']) {
+        responses.push(
+          await fetch(`${started.url}/mcp`, {
+            method: 'POST',
+            headers: mcpHeaders({
+              authorization: `Bearer sk-ver-api-${clientIp}`,
+              'x-forwarded-for': clientIp,
+            }),
+            body: JSON.stringify(INITIALIZE_REQUEST),
+          })
+        );
+      }
+
+      expect(responses.map((response) => response.status)).toEqual([200, 200, 429]);
+    } finally {
+      await stopHttpServer(started);
+    }
+  });
 });
 
 describe('API-key fingerprinting', () => {
@@ -183,6 +244,39 @@ describe('API-key fingerprinting', () => {
       fingerprintApiKey(`sk-ver-api-${String(index)}`, secret);
     }
     expect(performance.now() - startedAt).toBeLessThan(1_000);
+  });
+});
+
+describe('resolveInitializePeer', () => {
+  it('uses req.ip when trust proxy exposes the forwarded client', () => {
+    const app = createMcpExpressApp({ host: '127.0.0.1' });
+    configureHttpTrustProxy(app, '0.0.0.0');
+    const handler = (req: Request, res: Response) => {
+      expect(resolveInitializePeer(req)).toBe('203.0.113.50');
+      res.status(200).end();
+    };
+    app.get('/peer', handler);
+
+    return new Promise<void>((resolve, reject) => {
+      const server = createHttpServer(app);
+      server.listen(0, '127.0.0.1', () => {
+        const port = (server.address() as AddressInfo).port;
+        fetch(`http://127.0.0.1:${String(port)}/peer`, {
+          headers: { 'x-forwarded-for': '203.0.113.50' },
+        })
+          .then((response) => {
+            expect(response.status).toBe(200);
+            server.close((error?: Error) => {
+              if (error) {
+                reject(error);
+                return;
+              }
+              resolve();
+            });
+          })
+          .catch(reject);
+      });
+    });
   });
 });
 
@@ -214,6 +308,17 @@ describe('assertHostBinding (SEC-5)', () => {
 
   it('allows a public bind once an allowlist is set', () => {
     expect(() => assertHostBinding('0.0.0.0', ['mcp.verifyax.com'])).not.toThrow();
+  });
+});
+
+describe('configureHttpTrustProxy', () => {
+  it('enables one proxy hop for public binds only', () => {
+    const app = createMcpExpressApp({ host: '127.0.0.1' });
+    configureHttpTrustProxy(app, '127.0.0.1');
+    expect(app.get('trust proxy')).toBe(false);
+
+    configureHttpTrustProxy(app, '0.0.0.0');
+    expect(app.get('trust proxy')).toBe(1);
   });
 });
 
