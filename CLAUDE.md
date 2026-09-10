@@ -60,10 +60,10 @@ The MCP server exposes exactly these tools. Each tool description should be shor
 | `register_agent` | `POST /agents/tests/agent-card` + `POST /agents` | No |
 | `list_agents` | `GET /agents` | No |
 | `delete_agent` | `DELETE /agents/{uuid}` | No |
-| `generate_scenario` | `POST /scenarios/generate` + poll job | **Yes** |
+| `generate_scenario` | `POST /scenarios/generate` + poll job | **Tasks** (blocking fallback) |
 | `list_scenarios` | `GET /scenarios` | No |
 | `delete_scenario` | `DELETE /scenarios/{uuid}` | No |
-| `evaluate_agent` | `POST /engine/workspace-credit-preview` + `POST /engine/simulate/scenario` + poll run + poll eval + `GET /simulations/evaluations/{eval_job}` | **Yes** |
+| `evaluate_agent` | `POST /engine/workspace-credit-preview` + `POST /engine/simulate/scenario` + poll run + poll eval + `GET /simulations/evaluations/{eval_job}` | **Tasks** (blocking fallback) |
 | `list_recent_runs` | `GET /simulations` | No |
 | `get_run_details` | `GET /simulations/{uuid}` + transcript + evaluation if available | No |
 | `get_usage_summary` | `GET /usage/events` aggregated client-side | No |
@@ -145,7 +145,9 @@ These are read by Claude to decide when to call a tool. They matter as much as t
 - **One sentence, present tense, action verb first.** "Register an AI agent..." not "This tool registers..."
 - **Mention the key inputs in the description.** "Register an agent given its name, URL, and auth method." Helps Claude pick correctly when the user description is sparse.
 - **Mention what it returns.** "Returns the new agent's uuid and connectivity test result."
-- **For blocking tools, say so explicitly.** "Blocks until evaluation completes (typically 30s–5min)." Sets Claude's expectations and avoids it calling the tool repeatedly.
+- **For long-running tools, say so explicitly.** Note typical duration and that task-capable MCP
+  clients receive a pollable handle; others block until completion. Sets expectations and avoids
+  re-calling the tool.
 - **Never reference HTTP, REST, endpoints, or the underlying API.** The whole point is that Claude doesn't know or care about those.
 - **Iterate.** First-draft descriptions are usually wrong. After Phase 3, test each one with deliberately ambiguous user prompts and see if Claude picks the right tool. Adjust until it does.
 

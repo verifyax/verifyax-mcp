@@ -42,7 +42,9 @@ $env:VERIFYAX_API_KEY="sk-ver-api-..." ; pnpm --filter @verifyax/mcp-server insp
 ```
 
 Inspector opens a browser tab (default `http://localhost:6274`). Use the **Tools** pane to call
-`list_compatible_tags` or other non-blocking tools first.
+`list_compatible_tags` or other quick tools first. `generate_scenario` and `evaluate_agent` support
+MCP Tasks (`execution.taskSupport: optional`): task-capable Inspector builds return a task handle
+you can poll under **Tasks**; others block for the full run.
 
 To exercise the published package without a local build:
 

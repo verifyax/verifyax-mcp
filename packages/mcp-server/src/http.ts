@@ -402,7 +402,7 @@ export function registerStreamableHttpRoutes(
             }
           };
 
-          const server = createServer(ctx);
+          const { server } = createServer(ctx);
           await server.connect(transport);
           await transport.handleRequest(req, res, req.body);
         } finally {

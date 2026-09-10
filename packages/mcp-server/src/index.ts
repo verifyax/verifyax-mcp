@@ -10,7 +10,7 @@ import { createServer } from './server.js';
 
 export async function main(): Promise<void> {
   const ctx = createToolContext();
-  const server = createServer(ctx);
+  const { server } = createServer(ctx);
   await server.connect(new StdioServerTransport());
   ctx.logger.info('verifyax-mcp-server started', { transport: 'stdio' });
 }

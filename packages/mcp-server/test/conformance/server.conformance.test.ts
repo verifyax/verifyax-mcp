@@ -102,6 +102,8 @@ describe('MCP conformance (spawned server)', () => {
     }
 
     const byName = new Map(tools.map((t) => [t.name, t]));
+    expect(byName.get('generate_scenario')?.execution?.taskSupport).toBe('optional');
+    expect(byName.get('evaluate_agent')?.execution?.taskSupport).toBe('optional');
     // Read-only tools advertise readOnlyHint so hosts can surface them safely.
     expect(byName.get('list_compatible_tags')?.annotations?.readOnlyHint).toBe(true);
     expect(byName.get('get_run_details')?.annotations?.readOnlyHint).toBe(true);
@@ -128,6 +130,19 @@ describe('MCP conformance (spawned server)', () => {
     expect(names).toContain('empathy');
     expect(names).toContain('active_listening');
     expect(names).not.toContain('gaia_task'); // benchmark => info_exchange only
+  });
+
+  it('advertises MCP tasks capability at initialize', () => {
+    const capabilities = client.getServerCapabilities();
+    expect(capabilities?.tasks).toMatchObject({
+      list: {},
+      cancel: {},
+      requests: {
+        tools: {
+          call: {},
+        },
+      },
+    });
   });
 
   it('rejects an invalid scenario_type via schema validation', async () => {
