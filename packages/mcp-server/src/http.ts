@@ -18,7 +18,7 @@
 // inherent to a bring-your-own-key pass-through. Eliminating custody entirely is
 // the OAuth roadmap item, not this transport.
 
-import { pbkdf2Sync, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { AuthError } from '@verifyax/sdk';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
@@ -80,9 +80,7 @@ export function fingerprintApiKey(
   key: string,
   secret: Uint8Array = API_KEY_FINGERPRINT_SECRET
 ): string {
-  // Derive an in-memory fingerprint with a computationally expensive KDF to avoid
-  // fast-hash handling of credential material from request headers.
-  return pbkdf2Sync(key, secret, 210_000, 32, 'sha256').toString('hex');
+  return createHmac('sha256', secret).update(key).digest('hex');
 }
 
 function keyMatchesFingerprint(presentedKey: string, keyFingerprint: string): boolean {
