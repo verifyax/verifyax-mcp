@@ -540,10 +540,10 @@ describe('MCP tasks', () => {
           if (jobGets === 1) {
             await blockedJobGet;
           }
-          return new Response(
-            JSON.stringify({ uuid: 'job-race', current_status: 'COMPLETED' }),
-            { status: 200, headers: { 'content-type': 'application/json' } }
-          );
+          return new Response(JSON.stringify({ uuid: 'job-race', current_status: 'COMPLETED' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
         }
         if (method === 'POST' && url.includes('/scenarios/generate')) {
           return new Response(JSON.stringify({ uuid: 's-race', job_uuid: 'job-race' }), {
@@ -601,10 +601,10 @@ describe('MCP tasks', () => {
           });
         }
         if (method === 'GET' && url.includes('/jobs/eval-once')) {
-          return new Response(
-            JSON.stringify({ uuid: 'eval-once', current_status: 'COMPLETED' }),
-            { status: 200, headers: { 'content-type': 'application/json' } }
-          );
+          return new Response(JSON.stringify({ uuid: 'eval-once', current_status: 'COMPLETED' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
         }
         if (method === 'GET' && url.includes('/simulations/evaluations/eval-once')) {
           return new Response(JSON.stringify({ overall_score: 0.8 }), {
