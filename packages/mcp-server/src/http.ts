@@ -141,15 +141,67 @@ export function assertHostBinding(host: string, allowedHosts: string[] | undefin
 }
 
 /**
- * Trust one reverse-proxy hop so `req.ip` reflects the client on Cloud Run
- * (otherwise every request shares the proxy's socket address).
+ * True when the direct TCP peer is a loopback, link-local, or RFC1918 address.
+ * Used as Express `trust proxy` so X-Forwarded-For is honored only behind an
+ * internal reverse proxy (e.g. Cloud Run's load balancer), not when a public
+ * client connects directly and can forge the header.
+ */
+export function isTrustedProxyHop(peerAddress: string): boolean {
+  const normalized = peerAddress.startsWith('::ffff:') ? peerAddress.slice(7) : peerAddress;
+
+  if (normalized === '::1') {
+    return true;
+  }
+
+  if (normalized.includes(':')) {
+    const lower = normalized.toLowerCase();
+    if (lower.startsWith('fe80:')) {
+      return true;
+    }
+    const firstByte = Number.parseInt(lower.slice(0, 2), 16);
+    return firstByte >= 0xfc && firstByte <= 0xfd;
+  }
+
+  const parts = normalized.split('.').map((octet) => Number.parseInt(octet, 10));
+  if (
+    parts.length !== 4 ||
+    parts.some((octet) => !Number.isFinite(octet) || octet < 0 || octet > 255)
+  ) {
+    return false;
+  }
+
+  const first = parts[0];
+  const second = parts[1];
+  if (first === 127) {
+    return true;
+  }
+  if (first === 10) {
+    return true;
+  }
+  if (first === 172 && second !== undefined && second >= 16 && second <= 31) {
+    return true;
+  }
+  if (first === 192 && second === 168) {
+    return true;
+  }
+  if (first === 169 && second === 254) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Trust reverse-proxy hops from internal addresses so `req.ip` reflects the
+ * client on Cloud Run (otherwise every request shares the proxy's socket
+ * address). Public peers are not trusted, so a direct client cannot rotate
+ * X-Forwarded-For to bypass pre-auth rate limits.
  */
 export function configureHttpTrustProxy(
   app: ReturnType<typeof createMcpExpressApp>,
   host: string
 ): void {
   if (!isLoopbackHost(host)) {
-    app.set('trust proxy', 1);
+    app.set('trust proxy', isTrustedProxyHop);
   }
 }
 
