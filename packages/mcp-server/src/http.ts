@@ -80,6 +80,10 @@ export function fingerprintApiKey(
   key: string,
   secret: Uint8Array = API_KEY_FINGERPRINT_SECRET
 ): string {
+  // codeql[js/insufficient-password-hash]: keyed in-memory session fingerprint, not stored
+  // password verification. VerifyAX API keys are high-entropy; the per-process secret is never
+  // persisted or logged, so offline cracking requires the secret — stronger than a slow keyless
+  // KDF here. Sync PBKDF2/bcrypt/scrypt on this hot path would block the event loop.
   return createHmac('sha256', secret).update(key, 'utf8').digest('hex');
 }
 
@@ -121,15 +125,36 @@ export function resolveAllowedHosts(env: NodeJS.ProcessEnv = process.env): strin
  * it the MCP SDK leaves Host-header validation off on `0.0.0.0`, opening a
  * DNS-rebinding vector on a public endpoint.
  */
+export function isLoopbackHost(host: string): boolean {
+  return host === '127.0.0.1' || host === '::1' || host === 'localhost';
+}
+
 export function assertHostBinding(host: string, allowedHosts: string[] | undefined): void {
-  const loopback = host === '127.0.0.1' || host === '::1' || host === 'localhost';
-  if (!loopback && (!allowedHosts || allowedHosts.length === 0)) {
+  if (!isLoopbackHost(host) && (!allowedHosts || allowedHosts.length === 0)) {
     throw new Error(
       `Refusing to bind ${host} without VERIFYAX_MCP_ALLOWED_HOSTS. Set it to the public ` +
         'host(s) that serve /mcp (custom domain + the *.run.app host) so Host-header ' +
         'validation is enabled.'
     );
   }
+}
+
+/**
+ * Trust one reverse-proxy hop so `req.ip` reflects the client on Cloud Run
+ * (otherwise every request shares the proxy's socket address).
+ */
+export function configureHttpTrustProxy(
+  app: ReturnType<typeof createMcpExpressApp>,
+  host: string
+): void {
+  if (!isLoopbackHost(host)) {
+    app.set('trust proxy', 1);
+  }
+}
+
+/** Client address for pre-auth rate limits (proxy-aware when trust proxy is on). */
+export function resolveInitializePeer(req: Request): string {
+  return req.ip ?? req.socket.remoteAddress ?? 'unknown';
 }
 
 /** Close and drop sessions idle beyond the TTL. Returns the number evicted. */
@@ -217,9 +242,9 @@ export function registerStreamableHttpRoutes(
     return state.count <= RATE_MAX_REQUESTS;
   };
 
-  /** Limit session initialization by direct peer before processing a key. */
+  /** Limit session initialization by client peer before processing a key. */
   const allowInitialize = (req: Request): boolean => {
-    const source = req.socket.remoteAddress ?? 'unknown';
+    const source = resolveInitializePeer(req);
     const ts = now();
     if (ts - lastPreAuthRatePruneMs >= RATE_WINDOW_MS) {
       sweepRateState(preAuthRateState, ts, RATE_WINDOW_MS);
@@ -396,6 +421,7 @@ export async function main(env: NodeJS.ProcessEnv = process.env): Promise<void> 
   assertHostBinding(host, allowedHosts);
 
   const app = createMcpExpressApp({ host, allowedHosts });
+  configureHttpTrustProxy(app, host);
 
   app.get('/health', (_req: Request, res: Response) => {
     res.status(200).json({ status: 'ok' });
