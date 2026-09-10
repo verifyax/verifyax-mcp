@@ -5,8 +5,8 @@
 //
 // Hardening (see the engineering review, SEC-2..6 / OPS-1..4):
 //  - The key is re-read and re-authorized on EVERY request; a session id alone
-//    never grants access (a session is bound to the hash of the key that created
-//    it). This closes session hijacking and per-request-auth gaps.
+//    never grants access (a session is bound to a keyed fingerprint of the key
+//    that created it). This closes session hijacking and per-request-auth gaps.
 //  - The key is validated once at session creation (a cheap authed call), so a
 //    random string cannot mint a session.
 //  - Sessions carry an idle TTL and a hard cap, and are swept, so a dropped
@@ -18,12 +18,13 @@
 // inherent to a bring-your-own-key pass-through. Eliminating custody entirely is
 // the OAuth roadmap item, not this transport.
 
-import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { AuthError } from '@verifyax/sdk';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
+import { fingerprintApiKey } from './api-key-fingerprint.js';
 import { readApiKeyFromRequest } from './auth.js';
 import { createToolContextFromApiKey, reportFatal } from './bootstrap.js';
 import { assertTargetEnvironment } from './target-env.js';
@@ -71,17 +72,7 @@ const defaultValidateApiKey: ApiKeyValidator = async (ctx) => {
   await ctx.client.usage.getBalance();
 };
 
-// API keys are high-entropy credentials, not human passwords. A per-process
-// HMAC prevents offline comparison without putting a password KDF on Node's
-// event loop for every unauthenticated key.
-const API_KEY_FINGERPRINT_SECRET = randomBytes(32);
-
-export function fingerprintApiKey(
-  key: string,
-  secret: Uint8Array = API_KEY_FINGERPRINT_SECRET
-): string {
-  return createHmac('sha256', secret).update(key).digest('hex');
-}
+export { fingerprintApiKey };
 
 function keyMatchesFingerprint(presentedKey: string, keyFingerprint: string): boolean {
   const presented = Buffer.from(fingerprintApiKey(presentedKey), 'hex');
