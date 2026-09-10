@@ -220,10 +220,24 @@ disagrees, fix it, then `pnpm build` to regenerate `version.ts`.
 The git tag (`v0.3.1`) must match `package.json` (`0.3.1`). Amend the version bump commit on
 `main` or retag after fixing — do not publish a mismatched set.
 
-### Publish workflow fails on npm auth
+### Publish workflow fails on npm auth (E404 on PUT)
 
-Confirm both npm packages trust `.github/workflows/publish.yml` in this repository. The workflow
-uses GitHub OIDC and `--provenance`; do not add a long-lived `NPM_TOKEN`.
+npm returns `404 Not Found` (not `403`) when OIDC trusted publishing auth fails — the package
+exists, but the runner could not authenticate.
+
+1. **npm CLI version.** Trusted publishing requires **npm >= 11.5.1**. Node 22 ships npm 10, which
+   silently skips the OIDC exchange and fails with E404. The Publish workflow pins Node 24 for
+   this reason; local publishes need `npm install -g npm@latest` (or Node 24+) before
+   `pnpm -r publish`.
+2. **Trusted publisher config.** On npmjs.com → each package → Settings → Trusted publishing,
+   confirm `verifyax` / `verifyax-mcp` / `publish.yml` (filename only, case-sensitive). If the
+   connection was created after 2026-09-03, ensure **npm publish** is allowed (not only
+   `npm stage publish`).
+3. **Workflow file on the tag.** `workflow_dispatch` runs the workflow **from the tagged commit**.
+   If you fixed `publish.yml` on `main` after tagging, merge the fix and either retag or cut a
+   new patch release before re-running Publish.
+
+Do not add a long-lived `NPM_TOKEN` — the account requires 2FA for token writes (EOTP).
 
 ### Integration tests fail on `main` after merge
 

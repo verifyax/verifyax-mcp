@@ -8,7 +8,8 @@ name: Publish
 # trusted publisher on npmjs.com, so no NPM_TOKEN secret and no OTP are involved. The
 # token path died with EOTP once the account required 2FA for writes (see v0.3.2/v0.3.3
 # release attempts); do not reintroduce NODE_AUTH_TOKEN — with OIDC configured it is
-# unnecessary, and pnpm >= 10.13 handles trusted publishing natively.
+# unnecessary. pnpm publish delegates to the npm CLI, which must be >= 11.5.1 for OIDC
+# (Node 22 ships npm 10; without upgrading, PUT returns E404).
 on:
   workflow_dispatch:
     inputs:
@@ -39,7 +40,8 @@ jobs:
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
+          # npm Trusted Publishing requires npm CLI >= 11.5.1 (bundled with Node 24).
+          node-version: 24
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
 
