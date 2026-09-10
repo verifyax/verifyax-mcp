@@ -21,11 +21,12 @@ function readPackageVersion(): string {
 
 describe('@verifyax/mcp-server', () => {
   it('builds a server with tools registered (no I/O)', () => {
-    const server = createServer({
+    const { server, taskStore } = createServer({
       client: new VerifyaxClient({ apiKey: 'unused-in-this-test' }),
       logger: createLogger({ level: 'silent' }),
     });
     expect(server).toBeDefined();
+    expect(taskStore).toBeDefined();
     expect(SERVER_NAME).toBe('verifyax-mcp-server');
     expect(SERVER_VERSION).toBe(readPackageVersion());
     expect(SERVER_VERSION).toMatch(/^\d+\.\d+\.\d+$/);

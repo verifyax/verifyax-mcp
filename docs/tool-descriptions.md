@@ -43,12 +43,14 @@ with the user before calling. Also carries the `destructiveHint` annotation.
 ## generate_scenario
 
 > Generates a new test scenario of a given type (info_exchange or interview) with optional skill
-> tags and context, then blocks until generation finishes (typically 30s–2min). Set num_scenarios
-> greater than 1 for batch mode (requires tag_pool). Returns the new scenario’s uuid, or batch
-> uuids when batching, or a structured error with details if generation fails (e.g. incompatible tags).
+> tags and context. Typically takes 30s–2min; task-capable MCP clients receive a pollable task
+> handle immediately, while others block until generation finishes. Set num_scenarios greater than 1
+> for batch mode (requires tag_pool). Returns the new scenario’s uuid, or batch uuids when batching,
+> or a structured error with details if generation fails (e.g. incompatible tags).
 
-**Rationale.** "Blocks until … finishes (typically 30s–2min)" stops Claude from polling or
-re-calling. Mentioning incompatible-tag failure points Claude back to `list_compatible_tags`.
+**Rationale.** The duration note sets latency expectations for blocking hosts; the task note tells
+task-capable clients not to re-call. Mentioning incompatible-tag failure points Claude back to
+`list_compatible_tags`.
 
 ## list_scenarios
 
@@ -65,14 +67,16 @@ advance, so Claude can suggest deleting the runs first.
 
 ## evaluate_agent
 
-> Runs an agent against a scenario and evaluates the result end to end, blocking until the
-> evaluation completes (typically 30s–5min). Give it an agent uuid and a scenario uuid; it previews
-> cost, runs the simulation, waits for it, and returns the evaluation scores. Optional
-> timeout_minutes (1–240) overrides the scenario default for this run.
+> Runs an agent against a scenario and evaluates the result end to end. Typically takes 30s–30min;
+> task-capable MCP clients receive a pollable task handle immediately, while others block until the
+> evaluation completes. Give it an agent uuid and a scenario uuid; it previews cost, runs the
+> simulation, waits for it, and returns the evaluation scores. Optional timeout_minutes (1–240)
+> overrides the scenario default for this run.
 
 **Rationale.** This is the marquee tool. "end to end" + the explicit step list ("previews cost,
 runs … waits … returns scores") tells Claude one call does the whole pipeline — so it won't try to
-orchestrate simulate/evaluate separately. The blocking note manages latency expectations.
+orchestrate simulate/evaluate separately. The duration and task notes manage latency expectations
+for both blocking and polling clients.
 
 ## list_recent_runs
 

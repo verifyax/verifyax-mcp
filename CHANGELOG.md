@@ -7,6 +7,25 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-09-10
+
+MCP Tasks for long-running tools — clients that declare task support get a pollable handle instead
+of holding `tools/call` open for the full generation or evaluation.
+
+### Added
+
+- `@verifyax/mcp-server`: MCP Tasks (experimental SEP-1686 / SDK 1.30) for `generate_scenario` and
+  `evaluate_agent`. Task-capable clients receive a `CreateTaskResult` immediately and poll
+  `tasks/get` / `tasks/result`; others keep the existing blocking behaviour via
+  `execution.taskSupport: 'optional'`.
+- `@verifyax/mcp-server`: cooperative `tasks/cancel` maps to VerifyAX job/simulation cancel APIs.
+  Task state is held in memory for the server process or HTTP session lifetime.
+
+### Changed
+
+- `@verifyax/mcp-server`: tool descriptions for `generate_scenario` and `evaluate_agent` note both
+  task and blocking modes and the typical duration range (evaluate up to ~30 min).
+
 ## [0.3.4] - 2026-09-07
 
 Security hotfix and release-pipeline hardening following the second engineering review.
@@ -209,7 +228,8 @@ First public release. `@verifyax/sdk` and `@verifyax/mcp-server` published to np
 - Documentation: top-level README, per-package READMEs, `docs/tool-descriptions.md`,
   `CONTRIBUTING.md`.
 
-[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.5...HEAD
+[0.3.5]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.1...v0.3.2

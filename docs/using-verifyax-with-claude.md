@@ -12,8 +12,9 @@ Claude or your own code. They overlap on purpose — pick by how you work, not b
 ## How to choose
 
 - **You want to talk to Claude and have it just do it** (register, generate, evaluate, read scores)
-  → **`verifyax-mcp`**. Claude calls the 12 tools itself; blocking tools (generate, evaluate) wait
-  for completion and return results. No scripts, no manual polling, no copy-pasting UUIDs.
+  → **`verifyax-mcp`**. Claude calls the 12 tools itself. Long-running tools (`generate_scenario`,
+  `evaluate_agent`) return a pollable MCP task when the client supports Tasks; otherwise they block
+  until completion. No scripts, no manual UUID polling, no copy-pasting UUIDs.
 
 - **You're writing code, or want Claude to produce a script you can keep** → **`verifyax-api`
   skill**. It teaches Claude the endpoints, async semantics, and tag rules so it can author
