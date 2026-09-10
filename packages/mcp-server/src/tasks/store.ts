@@ -18,6 +18,8 @@ import type { TaskRefreshOutcome, VerifyaxTaskWork } from './types.js';
 export class VerifyaxTaskStore implements TaskStore {
   private readonly inner = new InMemoryTaskStore();
   private readonly work = new Map<string, VerifyaxTaskWork>();
+  /** Serializes refresh/cancel per task so concurrent polls cannot race. */
+  private readonly taskLocks = new Map<string, Promise<void>>();
 
   /** Attach VerifyAX work to a task created via {@link createTask}. */
   setWork(taskId: string, taskWork: VerifyaxTaskWork): void {
@@ -43,13 +45,16 @@ export class VerifyaxTaskStore implements TaskStore {
       return this.inner.getTask(taskId, sessionId);
     }
 
-    const existing = await this.inner.getTask(taskId, sessionId);
-    if (!existing || isTerminal(existing.status)) {
-      return existing;
-    }
+    await this.runExclusive(taskId, async () => {
+      const existing = await this.inner.getTask(taskId, sessionId);
+      if (!existing || isTerminal(existing.status)) {
+        return;
+      }
 
-    const outcome = await this.refreshWork(taskWork);
-    await this.applyOutcome(taskId, outcome, sessionId);
+      const outcome = await this.refreshWork(taskId, taskWork, sessionId);
+      await this.applyOutcomeIfActive(taskId, outcome, sessionId);
+    });
+
     return this.inner.getTask(taskId, sessionId);
   }
 
@@ -87,18 +92,57 @@ export class VerifyaxTaskStore implements TaskStore {
 
   cleanup(): void {
     this.work.clear();
+    this.taskLocks.clear();
     this.inner.cleanup();
   }
 
-  private async refreshWork(taskWork: VerifyaxTaskWork): Promise<TaskRefreshOutcome> {
+  /**
+   * Run `fn` exclusively for `taskId`. Concurrent callers for the same task
+   * are queued; failures do not block subsequent waiters.
+   */
+  private runExclusive<T>(taskId: string, fn: () => Promise<T>): Promise<T> {
+    const previous = this.taskLocks.get(taskId) ?? Promise.resolve();
+    const run = previous.then(fn);
+    this.taskLocks.set(
+      taskId,
+      run.then(
+        () => undefined,
+        () => undefined
+      )
+    );
+    return run;
+  }
+
+  private async refreshWork(
+    taskId: string,
+    taskWork: VerifyaxTaskWork,
+    sessionId?: string
+  ): Promise<TaskRefreshOutcome> {
+    const isTaskActive = async (): Promise<boolean> => {
+      const task = await this.inner.getTask(taskId, sessionId);
+      return task !== null && !isTerminal(task.status);
+    };
+
     switch (taskWork.kind) {
       case 'generate_scenario':
         return refreshGenerateScenarioWork(taskWork);
       case 'evaluate_agent':
-        return refreshEvaluateAgentWork(taskWork);
+        return refreshEvaluateAgentWork(taskWork, isTaskActive);
       default:
         return assertNeverTaskKind(taskWork);
     }
+  }
+
+  private async applyOutcomeIfActive(
+    taskId: string,
+    outcome: TaskRefreshOutcome,
+    sessionId?: string
+  ): Promise<void> {
+    const existing = await this.inner.getTask(taskId, sessionId);
+    if (!existing || isTerminal(existing.status)) {
+      return;
+    }
+    await this.applyOutcome(taskId, outcome, sessionId);
   }
 
   private async applyOutcome(
@@ -142,7 +186,11 @@ export class VerifyaxTaskStore implements TaskStore {
           await taskWork.ctx.client.jobs.cancel(taskWork.jobUuid);
           break;
         case 'evaluate_agent':
-          await taskWork.ctx.client.simulations.cancel(taskWork.simulationUuid);
+          if (taskWork.phase === 'eval' && taskWork.evalJobUuid !== undefined) {
+            await taskWork.ctx.client.jobs.cancel(taskWork.evalJobUuid);
+          } else {
+            await taskWork.ctx.client.simulations.cancel(taskWork.simulationUuid);
+          }
           break;
         default:
           assertNeverTaskKind(taskWork);

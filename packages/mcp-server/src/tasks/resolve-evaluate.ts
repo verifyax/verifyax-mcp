@@ -7,15 +7,19 @@ const TERMINAL_RUN_STATUSES = new Set(['COMPLETED', 'FAILED', 'CANCELLED']);
 const TERMINAL_JOB_STATUSES = new Set(['COMPLETED', 'FAILED', 'CANCELLED']);
 
 export async function refreshEvaluateAgentWork(
-  work: EvaluateAgentWork
+  work: EvaluateAgentWork,
+  isTaskActive: () => Promise<boolean>
 ): Promise<TaskRefreshOutcome> {
   if (work.phase === 'run') {
-    return refreshRunPhase(work);
+    return refreshRunPhase(work, isTaskActive);
   }
   return refreshEvalPhase(work);
 }
 
-async function refreshRunPhase(work: EvaluateAgentWork): Promise<TaskRefreshOutcome> {
+async function refreshRunPhase(
+  work: EvaluateAgentWork,
+  isTaskActive: () => Promise<boolean>
+): Promise<TaskRefreshOutcome> {
   const run = await work.ctx.client.simulations.get(work.simulationUuid);
   const status = run.status;
 
@@ -44,6 +48,12 @@ async function refreshRunPhase(work: EvaluateAgentWork): Promise<TaskRefreshOutc
   let evalJobUuid =
     work.evalJobUuid ?? run.evaluation_job_uuid ?? run.evaluation_jobs?.at(-1)?.uuid;
   if (!evalJobUuid) {
+    if (!(await isTaskActive())) {
+      return {
+        status: 'working',
+        statusMessage: 'Task cancelled',
+      };
+    }
     try {
       const triggered = await work.ctx.client.simulations.triggerEvaluation(work.simulationUuid);
       evalJobUuid = triggered.evaluation_job_uuid ?? triggered.job_uuid;
