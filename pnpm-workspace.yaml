@@ -1,2 +1,18 @@
 packages:
   - 'packages/*'
+
+# pnpm 10 reads overrides here (not package.json). Pin patched versions within
+# each brace-expansion major line so minimatch@3 (ESLint) stays on v1 CJS API.
+overrides:
+  '@hono/node-server': 1.19.15
+  fast-uri: 3.1.6
+  hono: 4.12.34
+  ip-address: 10.3.1
+  qs: 6.16.0
+  'brace-expansion@>=1.0.0 <1.1.18': 1.1.18
+  'brace-expansion@>=2.0.0 <2.1.4': 2.1.4
+  'brace-expansion@>=4.0.0 <5.0.9': 5.0.9
+  'js-yaml@>=4.0.0 <4.3.2': 4.3.2
+  'nanoid@<3.3.18': 3.3.18
+  'postcss@<=8.5.22': 8.5.23
+  'hono@<4.13.5': 4.13.5

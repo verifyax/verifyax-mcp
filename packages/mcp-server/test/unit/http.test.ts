@@ -13,6 +13,7 @@ import {
   assertHostBinding,
   configureHttpTrustProxy,
   fingerprintApiKey,
+  isTrustedProxyHop,
   registerStreamableHttpRoutes,
   resolveInitializePeer,
   sweepRateState,
@@ -311,14 +312,33 @@ describe('assertHostBinding (SEC-5)', () => {
   });
 });
 
+describe('isTrustedProxyHop', () => {
+  it('trusts loopback, link-local, and private peers only', () => {
+    expect(isTrustedProxyHop('127.0.0.1')).toBe(true);
+    expect(isTrustedProxyHop('::ffff:127.0.0.1')).toBe(true);
+    expect(isTrustedProxyHop('10.8.0.5')).toBe(true);
+    expect(isTrustedProxyHop('172.16.0.1')).toBe(true);
+    expect(isTrustedProxyHop('192.168.1.1')).toBe(true);
+    expect(isTrustedProxyHop('169.254.1.1')).toBe(true);
+    expect(isTrustedProxyHop('::1')).toBe(true);
+    expect(isTrustedProxyHop('fe80::1')).toBe(true);
+    expect(isTrustedProxyHop('fd12::1')).toBe(true);
+
+    expect(isTrustedProxyHop('203.0.113.1')).toBe(false);
+    expect(isTrustedProxyHop('8.8.8.8')).toBe(false);
+    expect(isTrustedProxyHop('2001:db8::1')).toBe(false);
+    expect(isTrustedProxyHop('not-an-ip')).toBe(false);
+  });
+});
+
 describe('configureHttpTrustProxy', () => {
-  it('enables one proxy hop for public binds only', () => {
+  it('enables internal-proxy trust for public binds only', () => {
     const app = createMcpExpressApp({ host: '127.0.0.1' });
     configureHttpTrustProxy(app, '127.0.0.1');
     expect(app.get('trust proxy')).toBe(false);
 
     configureHttpTrustProxy(app, '0.0.0.0');
-    expect(app.get('trust proxy')).toBe(1);
+    expect(app.get('trust proxy')).toBe(isTrustedProxyHop);
   });
 });
 
