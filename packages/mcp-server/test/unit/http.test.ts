@@ -230,19 +230,19 @@ describe('Streamable HTTP session routing', () => {
 
 describe('API-key fingerprinting', () => {
   it('uses a fast keyed fingerprint instead of a synchronous password KDF', () => {
-    const secret = Buffer.alloc(32, 1);
-    const otherSecret = Buffer.alloc(32, 2);
+    const processKey = Buffer.alloc(32, 1);
+    const otherProcessKey = Buffer.alloc(32, 2);
 
-    expect(fingerprintApiKey('sk-ver-api-test', secret)).toBe(
-      fingerprintApiKey('sk-ver-api-test', secret)
+    expect(fingerprintApiKey('sk-ver-api-test', processKey)).toBe(
+      fingerprintApiKey('sk-ver-api-test', processKey)
     );
-    expect(fingerprintApiKey('sk-ver-api-test', secret)).not.toBe(
-      fingerprintApiKey('sk-ver-api-test', otherSecret)
+    expect(fingerprintApiKey('sk-ver-api-test', processKey)).not.toBe(
+      fingerprintApiKey('sk-ver-api-test', otherProcessKey)
     );
 
     const startedAt = performance.now();
     for (let index = 0; index < 250; index += 1) {
-      fingerprintApiKey(`sk-ver-api-${String(index)}`, secret);
+      fingerprintApiKey(`sk-ver-api-${String(index)}`, processKey);
     }
     expect(performance.now() - startedAt).toBeLessThan(1_000);
   });
