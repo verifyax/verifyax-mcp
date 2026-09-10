@@ -486,4 +486,175 @@ describe('MCP tasks', () => {
     await store.updateTaskStatus(task.taskId, 'cancelled', 'Client cancelled');
     expect(cancel).toHaveBeenCalledWith('run-2');
   });
+
+  it('cancels an evaluation job cooperatively when in eval phase', async () => {
+    const store = new VerifyaxTaskStore();
+    const simCancel = vi.fn(async () => undefined);
+    const jobCancel = vi.fn(async () => undefined);
+    const ctx = sequentialStubContext([
+      () => ({ body: { newRunEstimatedCredits: 5 } }),
+      () => ({ body: { simulation_uuid: 'run-3' } }),
+    ]);
+    ctx.client.simulations.cancel = simCancel;
+    ctx.client.jobs.cancel = jobCancel;
+
+    const started = await startEvaluateAgent(ctx, {
+      agent_uuid: 'agent-1',
+      scenario_uuid: 'scenario-1',
+    });
+    const task = await store.createTask({ ttl: 3_600_000, pollInterval: 100 }, 4, {
+      method: 'tools/call',
+      params: { name: 'evaluate_agent' },
+    } as Request);
+    store.setWork(task.taskId, {
+      kind: 'evaluate_agent',
+      ctx,
+      simulationUuid: started.simulationUuid,
+      creditsEstimate: started.creditsEstimate,
+      phase: 'eval',
+      evalJobUuid: 'eval-job-1',
+    });
+
+    await store.updateTaskStatus(task.taskId, 'cancelled', 'Client cancelled');
+    expect(jobCancel).toHaveBeenCalledWith('eval-job-1');
+    expect(simCancel).not.toHaveBeenCalled();
+  });
+
+  it('does not overwrite a cancelled task when an in-flight refresh completes', async () => {
+    const store = new VerifyaxTaskStore();
+    let releaseJobGet!: () => void;
+    const blockedJobGet = new Promise<void>((resolve) => {
+      releaseJobGet = resolve;
+    });
+    let jobGets = 0;
+
+    const client = new VerifyaxClient({
+      apiKey: 'test',
+      baseUrl: 'https://api.test/api/v1',
+      webBaseUrl: 'https://api.test/web/api/v1',
+      maxRetries: 0,
+      fetch: async (url, init) => {
+        const method = (init?.method ?? 'GET').toUpperCase();
+        if (method === 'GET' && url.includes('/jobs/job-race')) {
+          jobGets += 1;
+          if (jobGets === 1) {
+            await blockedJobGet;
+          }
+          return new Response(
+            JSON.stringify({ uuid: 'job-race', current_status: 'COMPLETED' }),
+            { status: 200, headers: { 'content-type': 'application/json' } }
+          );
+        }
+        if (method === 'POST' && url.includes('/scenarios/generate')) {
+          return new Response(JSON.stringify({ uuid: 's-race', job_uuid: 'job-race' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response(JSON.stringify({ message: 'unexpected' }), { status: 599 });
+      },
+    });
+    const ctx: ToolContext = { client, logger: createLogger({ level: 'silent' }) };
+
+    const { taskId } = await createGenerateTask(store, ctx);
+    const refresh = store.getTask(taskId);
+    await vi.waitFor(() => {
+      expect(jobGets).toBe(1);
+    });
+
+    await store.updateTaskStatus(taskId, 'cancelled', 'Client cancelled');
+    releaseJobGet();
+    await refresh;
+
+    const task = await store.getTask(taskId);
+    expect(task?.status).toBe('cancelled');
+    expect(task?.statusMessage).toBe('Client cancelled');
+  });
+
+  it('serializes concurrent getTask refreshes so triggerEvaluation runs once', async () => {
+    const store = new VerifyaxTaskStore();
+    const triggerEvaluation = vi.fn(async () => ({
+      evaluation_job_uuid: 'eval-once',
+      job_uuid: 'eval-once',
+    }));
+    let releaseRunGet!: () => void;
+    const blockedRunGet = new Promise<void>((resolve) => {
+      releaseRunGet = resolve;
+    });
+    let runGets = 0;
+
+    const client = new VerifyaxClient({
+      apiKey: 'test',
+      baseUrl: 'https://api.test/api/v1',
+      webBaseUrl: 'https://api.test/web/api/v1',
+      maxRetries: 0,
+      fetch: async (url, init) => {
+        const method = (init?.method ?? 'GET').toUpperCase();
+        if (method === 'GET' && url.includes('/simulations/run-race')) {
+          runGets += 1;
+          if (runGets === 1) {
+            await blockedRunGet;
+          }
+          return new Response(JSON.stringify({ uuid: 'run-race', status: 'COMPLETED' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (method === 'GET' && url.includes('/jobs/eval-once')) {
+          return new Response(
+            JSON.stringify({ uuid: 'eval-once', current_status: 'COMPLETED' }),
+            { status: 200, headers: { 'content-type': 'application/json' } }
+          );
+        }
+        if (method === 'GET' && url.includes('/simulations/evaluations/eval-once')) {
+          return new Response(JSON.stringify({ overall_score: 0.8 }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (method === 'POST' && url.includes('/engine/workspace-credit-preview')) {
+          return new Response(JSON.stringify({ newRunEstimatedCredits: 1 }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (method === 'POST' && url.includes('/engine/simulate/scenario')) {
+          return new Response(JSON.stringify({ simulation_uuid: 'run-race' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response(JSON.stringify({ message: 'unexpected' }), { status: 599 });
+      },
+    });
+    client.simulations.triggerEvaluation = triggerEvaluation;
+    const ctx: ToolContext = { client, logger: createLogger({ level: 'silent' }) };
+
+    const started = await startEvaluateAgent(ctx, {
+      agent_uuid: 'agent-1',
+      scenario_uuid: 'scenario-1',
+    });
+    const task = await store.createTask({ ttl: 3_600_000, pollInterval: 100 }, 12, {
+      method: 'tools/call',
+      params: { name: 'evaluate_agent' },
+    } as Request);
+    store.setWork(task.taskId, {
+      kind: 'evaluate_agent',
+      ctx,
+      simulationUuid: started.simulationUuid,
+      creditsEstimate: started.creditsEstimate,
+      phase: 'run',
+    });
+
+    const first = store.getTask(task.taskId);
+    await vi.waitFor(() => {
+      expect(runGets).toBe(1);
+    });
+    const second = store.getTask(task.taskId);
+    releaseRunGet();
+    await Promise.all([first, second]);
+
+    expect(triggerEvaluation).toHaveBeenCalledTimes(1);
+    expect(triggerEvaluation).toHaveBeenCalledWith('run-race');
+  });
 });
