@@ -1,0 +1,35 @@
+# Dependabot version updates. Security fixes come from the repo's
+# "Dependabot security updates" setting and do not need an entry here.
+#
+# This is a pnpm workspace with a single root lockfile, so one npm entry at /
+# covers the root plus packages/mcp-server and packages/sdk.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # Runtime dependencies ship to users in @verifyax/mcp-server and
+      # @verifyax/sdk, so keep them reviewable separately from tooling.
+      production:
+        dependency-type: production
+        patterns: ["*"]
+      development:
+        dependency-type: development
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /deploy/gcp
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
