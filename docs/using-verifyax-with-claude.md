@@ -1,5 +1,11 @@
 # Using VerifyAX with Claude
 
+> [!NOTE]
+> **This page is the canonical guide to using VerifyAX from Claude.** Other surfaces — the
+> `verifyax-mcp` and `verifyax-plugins-claude` READMEs, and any page on conscium.com — should link
+> here rather than restate the setup. Install commands, pinned versions and client support change
+> with the code, so they are maintained in the repository that changes them and reviewed with it.
+
 There are three ways to drive the [VerifyAX](https://verifyax.com) agent-evaluation platform from
 Claude or your own code. They overlap on purpose — pick by how you work, not by capability.
 
@@ -23,6 +29,18 @@ Claude or your own code. They overlap on purpose — pick by how you work, not b
 - **You're building software on top of VerifyAX** → **`@verifyax/sdk`**. Resource-oriented client
   (`client.agents.create(...)`, `client.simulations.simulate(...)`) with a typed error hierarchy and
   in-SDK polling. The MCP server is built on it.
+
+## Which Claude surface?
+
+- **Claude Code** — all three work: both plugins and the SDK.
+- **Claude Desktop** — `verifyax-mcp` works via [`mcp-remote`](https://www.npmjs.com/package/mcp-remote),
+  which holds your key in local config.
+- **Claude.ai (web)** — the MCP server is **not** available as a custom connector: it authenticates
+  with an API key on every request, while Claude.ai custom connectors use OAuth, which the server
+  does not implement yet. Use the `verifyax-api` skill instead — download the `.skill` bundle from
+  the [plugin releases](https://github.com/verifyax/verifyax-plugins-claude/releases) and upload it
+  under **Settings → Capabilities → Skills**.
+- **Cowork** — `verifyax-api` only. Plugins that launch a local MCP server do not load there.
 
 ## Notes
 
