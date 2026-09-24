@@ -81,18 +81,30 @@ the skill is for developers writing code; the MCP server is for conversational w
 The VerifyAX MCP Server works with MCP-compatible clients that support **Streamable HTTP** or
 **stdio**:
 
-| Client                                | Setup reference                                                                                       |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| OpenAI ChatGPT                        | [Connectors / MCP guide](https://platform.openai.com/docs/guides/tools-connectors-mcp)                |
-| Claude (Claude.ai, Desktop, and Code) | [Claude MCP docs](https://code.claude.com/docs/en/mcp)                                                |
-| Cursor                                | [Cursor MCP docs](https://cursor.com/docs/mcp)                                                        |
-| Visual Studio Code (GitHub Copilot)   | [VS Code MCP docs](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)                       |
-| GitHub Copilot CLI                    | [About Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli)             |
-| Google Gemini CLI                     | [Gemini CLI MCP docs](https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md) |
-| Amazon Quick Suite                    | [MCP integration guide](https://docs.aws.amazon.com/quicksuite/latest/userguide/mcp-integration.html) |
+| Client                              | Setup reference                                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| OpenAI ChatGPT                      | [Connectors / MCP guide](https://platform.openai.com/docs/guides/tools-connectors-mcp)                |
+| Claude Code and Claude Desktop      | [Claude MCP docs](https://code.claude.com/docs/en/mcp)                                                |
+| Cursor                              | [Cursor MCP docs](https://cursor.com/docs/mcp)                                                        |
+| Visual Studio Code (GitHub Copilot) | [VS Code MCP docs](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)                       |
+| GitHub Copilot CLI                  | [About Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli)             |
+| Google Gemini CLI                   | [Gemini CLI MCP docs](https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md) |
+| Amazon Quick Suite                  | [MCP integration guide](https://docs.aws.amazon.com/quicksuite/latest/userguide/mcp-integration.html) |
 
 Any client that can connect via [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) can also
 use the hosted endpoint at `https://mcp.verifyax.com/mcp`.
+
+> [!IMPORTANT]
+> **Claude.ai custom connectors are not supported yet.** This server authenticates with a VerifyAX
+> API key sent as `Authorization: Bearer` (or `X-VerifyAX-API-Key`) on every request. Claude.ai's
+> custom connector flow authenticates over OAuth and offers no field for a static key, and this
+> server publishes no OAuth metadata — there is no `WWW-Authenticate` challenge and no
+> `/.well-known/oauth-protected-resource` or `/.well-known/oauth-authorization-server` document, so
+> a Claude.ai connector has nothing to negotiate against. OAuth is on the roadmap; see the note in
+> `packages/mcp-server/src/http.ts`.
+>
+> Claude **Code** and Claude **Desktop** are unaffected — both hold the key in local config, Code
+> natively and Desktop via [`mcp-remote`](#remote-http-recommended).
 
 > [!TIP]
 > For step-by-step Claude setup and how this compares to the VerifyAX skill and SDK, see
