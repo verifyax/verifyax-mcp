@@ -55,7 +55,7 @@ With the VerifyAX MCP Server, you can:
 - **Generate scenarios** from skill tags and wait for completion in one tool call.
 - **Run evaluations** and read scores, transcripts, and credit usage without manual polling.
 
-It complements (does not replace) the [`verifyax-api` skill](https://github.com/verifyax/verifyax-plugins):
+It complements (does not replace) the [`verifyax-api` skill](https://github.com/verifyax/verifyax-plugins-claude):
 the skill is for developers writing code; the MCP server is for conversational workflows.
 
 ## Contents
@@ -301,7 +301,7 @@ When connected to verifyax:
 ### Use the skill for code workflows
 
 For scripts, CI, or custom multi-step logic, use the
-[`verifyax-api` skill](https://github.com/verifyax/verifyax-plugins) or
+[`verifyax-api` skill](https://github.com/verifyax/verifyax-plugins-claude) or
 [`@verifyax/sdk`](packages/sdk) instead of MCP tools.
 
 ---
