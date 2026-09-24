@@ -14,10 +14,10 @@ updates:
       # @verifyax/sdk, so keep them reviewable separately from tooling.
       production:
         dependency-type: production
-        patterns: ["*"]
+        patterns: ['*']
       development:
         dependency-type: development
-        patterns: ["*"]
+        patterns: ['*']
 
   - package-ecosystem: docker
     directory: /
