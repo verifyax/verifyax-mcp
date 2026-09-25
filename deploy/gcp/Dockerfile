@@ -2,9 +2,12 @@
 
 # Pinned to a specific patch tag for reproducibility (prefer a digest pin,
 # e.g. node:22.19.0-slim@sha256:..., once you've resolved one for your registry).
-FROM node:22.19.0-slim AS build
+FROM node:24.21.0-slim AS build
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
+# Install pnpm directly rather than via corepack: corepack is being unbundled
+# from Node (absent in 26-slim), so this keeps the image buildable across base
+# versions. The pin is unchanged.
+RUN npm i -g pnpm@10.33.0
 # A Docker build has no TTY, so pnpm refuses to purge node_modules without this.
 ENV CI=true
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json tsconfig.json ./
@@ -22,7 +25,7 @@ RUN pnpm build
 # the workspace packages' node_modules, leaving @verifyax/sdk unresolvable.
 RUN pnpm deploy --legacy --filter @verifyax/mcp-server --prod /deploy
 
-FROM node:22.19.0-slim
+FROM node:24.21.0-slim
 WORKDIR /app
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
