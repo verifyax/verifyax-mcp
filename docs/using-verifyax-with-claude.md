@@ -35,12 +35,16 @@ Claude or your own code. They overlap on purpose — pick by how you work, not b
 - **Claude Code** — all three work: both plugins and the SDK.
 - **Claude Desktop** — `verifyax-mcp` works via [`mcp-remote`](https://www.npmjs.com/package/mcp-remote),
   which holds your key in local config.
-- **Claude.ai (web)** — the MCP server is **not** available as a custom connector: it authenticates
-  with an API key on every request, while Claude.ai custom connectors use OAuth, which the server
-  does not implement yet. Use the `verifyax-api` skill instead — download the `.skill` bundle from
-  the [plugin releases](https://github.com/verifyax/verifyax-plugins-claude/releases) and upload it
-  under **Settings → Capabilities → Skills**.
-- **Cowork** — `verifyax-api` only. Plugins that launch a local MCP server do not load there.
+- **Claude.ai (web)** — use the **hosted endpoint as a custom connector**, not the plugin. The
+  plugin launches a local MCP server, which chat cannot run; the hosted endpoint has no such
+  constraint. In **Settings → Connectors → Add custom connector**, point at
+  `https://mcp.verifyax.com/mcp`, choose **No sign-in**, and add a request header `Authorization`
+  with the value `Bearer sk-ver-api-...`. All 12 tools appear, with per-tool approval controls.
+  Needs server 0.3.5 or later. The `verifyax-api` skill is also available here: download the bundle
+  from the [plugin releases](https://github.com/verifyax/verifyax-plugins-claude/releases) and
+  upload it under **Customize → Skills**.
+- **Cowork** — `verifyax-api` only for plugins, since plugins that launch a local MCP server do not
+  load there. The hosted connector route above has not been tested in Cowork.
 
 ## Notes
 
