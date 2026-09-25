@@ -48,6 +48,6 @@
     "access": "public"
   },
   "devDependencies": {
-    "msw": "^2.7.0"
+    "msw": "^2.15.0"
   }
 }
