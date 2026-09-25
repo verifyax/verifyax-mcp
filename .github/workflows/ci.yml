@@ -14,9 +14,10 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     strategy:
-      # Exercise the minimum supported Node (engines: >=20) as well as current.
+      # Minimum supported Node (engines: >=20), the previous LTS, and the LTS the
+      # runtime images ship on — so the version we deploy is a version we test.
       matrix:
-        node-version: [20, 22]
+        node-version: [20, 22, 24]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -63,3 +64,41 @@ jobs:
 
       - name: Conformance test (spawns the built MCP server)
         run: pnpm test:conformance
+
+  docker:
+    name: Build runtime images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Nothing else in CI builds these, and three separate changes broke them
+      # without a single red check: the node 26 bumps (corepack is absent from
+      # 26-slim) and the prod-tree rework. A base image or dependency change
+      # that cannot produce a runnable image should not merge green.
+      - name: Build both Dockerfiles
+        run: |
+          docker build -t cvx-mcp:ci -f Dockerfile .
+          docker build -t cvx-mcp-gcp:ci -f deploy/gcp/Dockerfile .
+
+      - name: The image must actually run
+        run: |
+          # The workspace dependency is the fragile part: @verifyax/sdk has to be
+          # materialised into the pruned tree, not left as a dangling symlink.
+          # Test the built entrypoint directly -- the package is ESM-only with
+          # subpath exports, so require.resolve() on the bare specifier throws
+          # ERR_PACKAGE_PATH_NOT_EXPORTED even when it is correctly installed.
+          docker run --rm --entrypoint sh cvx-mcp-gcp:ci             -c 'test -s /app/packages/mcp-server/node_modules/@verifyax/sdk/dist/index.js'             || { echo "@verifyax/sdk is not materialised in the runtime tree"; exit 1; }
+          # devDependencies must not reach the runtime image.
+          if docker run --rm --entrypoint sh cvx-mcp-gcp:ci                -c 'test -d /app/packages/mcp-server/node_modules/vitest'; then
+            echo "devDependencies leaked into the runtime image"; exit 1
+          fi
+          # HTTP server starts and serves /health.
+          cid=$(docker run -d -p 8080:8080 -e VERIFYAX_API_KEY=dummy                   -e VERIFYAX_MCP_ALLOWED_HOSTS=localhost cvx-mcp-gcp:ci)
+          for i in $(seq 1 20); do
+            if curl -fsS http://localhost:8080/health >/dev/null 2>&1; then ok=1; break; fi
+            sleep 1
+          done
+          docker logs "$cid" | tail -5
+          docker rm -f "$cid" >/dev/null
+          [ "${ok:-}" = "1" ] || { echo "/health never became ready"; exit 1; }
+          echo "runtime image OK"
