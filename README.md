@@ -84,7 +84,7 @@ The VerifyAX MCP Server works with MCP-compatible clients that support **Streama
 | Client                              | Setup reference                                                                                       |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | OpenAI ChatGPT                      | [Connectors / MCP guide](https://platform.openai.com/docs/guides/tools-connectors-mcp)                |
-| Claude Code and Claude Desktop      | [Claude MCP docs](https://code.claude.com/docs/en/mcp)                                                |
+| Claude (Claude.ai, Code, Desktop)   | [Claude MCP docs](https://code.claude.com/docs/en/mcp)                                                |
 | Cursor                              | [Cursor MCP docs](https://cursor.com/docs/mcp)                                                        |
 | Visual Studio Code (GitHub Copilot) | [VS Code MCP docs](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)                       |
 | GitHub Copilot CLI                  | [About Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli)             |
@@ -95,25 +95,24 @@ Any client that can connect via [`mcp-remote`](https://www.npmjs.com/package/mcp
 use the hosted endpoint at `https://mcp.verifyax.com/mcp`.
 
 > [!IMPORTANT]
-> **Claude.ai custom connectors are not supported yet** — verified by trying it, not inferred.
-> This server authenticates with a VerifyAX API key sent as `Authorization: Bearer` (or
-> `X-VerifyAX-API-Key`) on every request, and the endpoint itself is healthy: both header forms
-> return a valid `initialize` handshake, `Origin: https://claude.ai` is not blocked, and `GET /mcp`
-> correctly reports a missing session id.
+> **Claude.ai custom connectors: use _No sign-in_ and an `Authorization` header.** This server
+> authenticates with a VerifyAX API key, not OAuth, so in **Settings → Connectors → Add custom
+> connector**:
 >
-> The blocker is that Claude.ai's **Add custom connector** dialog will not carry the key. It does
-> offer a _No sign-in_ mode "for servers that use an API key instead of OAuth", and a **Request
-> headers** section — but that field **rejects both `X-VerifyAX-API-Key` and `Authorization`**, so
-> there is no way to present the credential. Its other path is OAuth, and this server publishes no
-> OAuth metadata: no `WWW-Authenticate` challenge, and no
-> `/.well-known/oauth-protected-resource` or `/.well-known/oauth-authorization-server` document.
-> The connector therefore fails with _"Couldn't connect to the server."_
+> 1. URL: `https://mcp.verifyax.com/mcp`
+> 2. Authentication: **No sign-in** — described in the dialog as "for servers that use an API key
+>    instead of OAuth". Leave _Sign in now_ unselected; this server publishes no OAuth metadata, so
+>    an OAuth attempt fails.
+> 3. Under **Request headers**, add `Authorization` with the value `Bearer sk-ver-api-...`.
 >
-> **Implementing OAuth is what unblocks this** — the roadmap item already noted in
-> `packages/mcp-server/src/http.ts`.
+> All 12 tools then appear, and Claude.ai lets you set approval per tool (it groups them as 7
+> read-only and 5 write/delete — worth setting the write/delete group to require approval, since
+> `generate_scenario` and `evaluate_agent` spend credits).
 >
-> Claude **Code** and Claude **Desktop** are unaffected — both hold the key in local config, Code
-> natively and Desktop via [`mcp-remote`](#remote-http-recommended).
+> Requires server **0.3.5 or later**: earlier builds matched the `Bearer` scheme case-sensitively
+> and rejected clients that normalise it, which surfaced only as "Couldn't connect to the server."
+> The `X-VerifyAX-API-Key` header works with the server but Claude.ai's header field rejects that
+> name, so use `Authorization`.
 
 > [!TIP]
 > For step-by-step Claude setup and how this compares to the VerifyAX skill and SDK, see
