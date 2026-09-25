@@ -95,12 +95,21 @@ Any client that can connect via [`mcp-remote`](https://www.npmjs.com/package/mcp
 use the hosted endpoint at `https://mcp.verifyax.com/mcp`.
 
 > [!IMPORTANT]
-> **Claude.ai custom connectors are not supported yet.** This server authenticates with a VerifyAX
-> API key sent as `Authorization: Bearer` (or `X-VerifyAX-API-Key`) on every request. Claude.ai's
-> custom connector flow authenticates over OAuth and offers no field for a static key, and this
-> server publishes no OAuth metadata — there is no `WWW-Authenticate` challenge and no
-> `/.well-known/oauth-protected-resource` or `/.well-known/oauth-authorization-server` document, so
-> a Claude.ai connector has nothing to negotiate against. OAuth is on the roadmap; see the note in
+> **Claude.ai custom connectors are not supported yet** — verified by trying it, not inferred.
+> This server authenticates with a VerifyAX API key sent as `Authorization: Bearer` (or
+> `X-VerifyAX-API-Key`) on every request, and the endpoint itself is healthy: both header forms
+> return a valid `initialize` handshake, `Origin: https://claude.ai` is not blocked, and `GET /mcp`
+> correctly reports a missing session id.
+>
+> The blocker is that Claude.ai's **Add custom connector** dialog will not carry the key. It does
+> offer a _No sign-in_ mode "for servers that use an API key instead of OAuth", and a **Request
+> headers** section — but that field **rejects both `X-VerifyAX-API-Key` and `Authorization`**, so
+> there is no way to present the credential. Its other path is OAuth, and this server publishes no
+> OAuth metadata: no `WWW-Authenticate` challenge, and no
+> `/.well-known/oauth-protected-resource` or `/.well-known/oauth-authorization-server` document.
+> The connector therefore fails with _"Couldn't connect to the server."_
+>
+> **Implementing OAuth is what unblocks this** — the roadmap item already noted in
 > `packages/mcp-server/src/http.ts`.
 >
 > Claude **Code** and Claude **Desktop** are unaffected — both hold the key in local config, Code
