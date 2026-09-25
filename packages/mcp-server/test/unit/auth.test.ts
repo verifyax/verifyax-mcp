@@ -64,9 +64,13 @@ describe('readApiKeyFromRequest', () => {
     ).toBe('sk-ver-api-xyz');
   });
 
+  // Deliberately not a `Basic <base64>` header here. Any realistic-looking
+  // base64 credential trips GitHub's "HTTP basic authentication header" secret
+  // scanner, and a standing false positive trains people to ignore real alerts.
+  // `Token` exercises the same path: a scheme that is not Bearer must be ignored.
   it.each([
     ['no headers', {}],
-    ['a non-Bearer scheme', { authorization: 'Basic c2s6c2s=' }],
+    ['a non-Bearer scheme', { authorization: 'Token not-a-bearer-token' }],
     ['a scheme with no token', { authorization: 'Bearer' }],
     ['an empty X-VerifyAX-API-Key', { 'x-verifyax-api-key': '   ' }],
   ])('returns undefined for %s', (_label, headers) => {
