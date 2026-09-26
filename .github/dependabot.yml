@@ -12,12 +12,20 @@ updates:
     groups:
       # Runtime dependencies ship to users in @verifyax/mcp-server and
       # @verifyax/sdk, so keep them reviewable separately from tooling.
+      #
+      # Group only minor and patch updates. Majors arrive as individual PRs,
+      # because grouping them means one breaking change blocks every harmless
+      # bump beside it and there is no way to split the group to find out which:
+      # #49 and #65 both bundled a TypeScript major that breaks the SDK type
+      # codegen together with seven updates that were fine.
       production:
         dependency-type: production
         patterns: ['*']
+        update-types: ['minor', 'patch']
       development:
         dependency-type: development
         patterns: ['*']
+        update-types: ['minor', 'patch']
 
   - package-ecosystem: docker
     directory: /
