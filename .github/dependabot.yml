@@ -23,11 +23,29 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # Node majors are a deliberate choice, not a bump. Only even majors reach
+      # LTS, and not until the October after release, so "newest" is routinely
+      # the wrong answer for a runtime image -- Dependabot offered 26 (Current)
+      # twice, and it broke the build both times because corepack is unbundled
+      # there. Patch and minor updates on the LTS line still flow, which is what
+      # carries security fixes.
+      - dependency-name: 'node'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: docker
     directory: /deploy/gcp
     schedule:
       interval: weekly
+    ignore:
+      # Node majors are a deliberate choice, not a bump. Only even majors reach
+      # LTS, and not until the October after release, so "newest" is routinely
+      # the wrong answer for a runtime image -- Dependabot offered 26 (Current)
+      # twice, and it broke the build both times because corepack is unbundled
+      # there. Patch and minor updates on the LTS line still flow, which is what
+      # carries security fixes.
+      - dependency-name: 'node'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /
