@@ -2,7 +2,7 @@
 
 # Pinned to a specific patch tag for reproducibility (prefer a digest pin,
 # e.g. node:22.19.0-slim@sha256:..., once you've resolved one for your registry).
-FROM node:24.21.0-slim AS build
+FROM node:26.10.0-slim AS build
 WORKDIR /app
 # Install pnpm directly rather than via corepack: corepack is being unbundled
 # from Node (absent in 26-slim), so this keeps the image buildable across base
@@ -25,7 +25,7 @@ RUN pnpm build
 # the workspace packages' node_modules, leaving @verifyax/sdk unresolvable.
 RUN pnpm deploy --legacy --filter @verifyax/mcp-server --prod /deploy
 
-FROM node:24.21.0-slim
+FROM node:26.10.0-slim
 WORKDIR /app
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
