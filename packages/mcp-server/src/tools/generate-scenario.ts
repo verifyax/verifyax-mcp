@@ -39,7 +39,9 @@ const inputObject = z.object({
   tags: z
     .array(z.string())
     .optional()
-    .describe('Skill tag names (use recommend_scenario_tags, search_scenario_tags, or list_compatible_tags).'),
+    .describe(
+      'Skill tag names (use recommend_scenario_tags, search_scenario_tags, or list_compatible_tags).'
+    ),
   context_prompt: z.string().optional(),
   num_scenarios: z
     .number()

@@ -33,12 +33,12 @@ The **VerifyAX platform gateway** always receives **`sk-ver-api-…`** on REST c
 
 ## 2. Current state
 
-| Component | Auth today | Notes |
-| --- | --- | --- |
-| **Hosted MCP** (`packages/mcp-server/src/http.ts`) | `Bearer sk-ver-api-…` or `X-VerifyAX-API-Key` on every request | OAuth on public MCP is roadmap; see [§5](#5-direct-mcp-clients-oauth-proxy-pattern) |
-| **Platform gateway** | `sk-ver-api-…` → tenant UUIDs | `verification/.../ApiKeyStrategy.ts` |
-| **API keys** | Plaintext shown **once** at create; DB stores hash | Cannot recover secret by `(org, user, workspace)` |
-| **Marketplace agent** | Hop 1: Auth0 JWT on `/a2a/verifyax_agent`; hop 2: API key to MCP | `gcp-marketplace-agent-connector` |
+| Component                                          | Auth today                                                       | Notes                                                                               |
+| -------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **Hosted MCP** (`packages/mcp-server/src/http.ts`) | `Bearer sk-ver-api-…` or `X-VerifyAX-API-Key` on every request   | OAuth on public MCP is roadmap; see [§5](#5-direct-mcp-clients-oauth-proxy-pattern) |
+| **Platform gateway**                               | `sk-ver-api-…` → tenant UUIDs                                    | `verification/.../ApiKeyStrategy.ts`                                                |
+| **API keys**                                       | Plaintext shown **once** at create; DB stores hash               | Cannot recover secret by `(org, user, workspace)`                                   |
+| **Marketplace agent**                              | Hop 1: Auth0 JWT on `/a2a/verifyax_agent`; hop 2: API key to MCP | `gcp-marketplace-agent-connector`                                                   |
 
 ---
 
@@ -154,21 +154,21 @@ sequenceDiagram
 
 ### 3.3 Two hops (Marketplace)
 
-| Hop | Caller → callee | Credential | Purpose |
-| --- | --- | --- | --- |
+| Hop   | Caller → callee                            | Credential                                                                              | Purpose                                                                                                                                                         |
+| ----- | ------------------------------------------ | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **1** | Gemini Enterprise → `verifyax_agent` (A2A) | Auth0 **access token** (JWT), scope **`agent:verifyax`**, audience **`AUTH0_AUDIENCE`** | Marketplace / GE requirement; [`oauth_middleware.py`](https://github.com/verifyax/gcp-marketplace-agent-connector/blob/main/verifyax_agent/oauth_middleware.py) |
-| **2** | `verifyax_agent` → `mcp.verifyax.com` | **`sk-ver-api-…`** (server-side only) | VerifyAX identity, credits, workspace isolation; gateway unchanged |
+| **2** | `verifyax_agent` → `mcp.verifyax.com`      | **`sk-ver-api-…`** (server-side only)                                                   | VerifyAX identity, credits, workspace isolation; gateway unchanged                                                                                              |
 
 **Important:** Hop 1 proves the employee may use the **listed agent**. Hop 2 proves **which VerifyAX workspace** pays for MCP tools. The Auth0 JWT does **not** include `workspace_uuid` or billing context by default.
 
 ### 3.4 Reusing the same Auth0 OAuth for MCP (Marketplace answer)
 
-| Question | Answer |
-| --- | --- |
-| Must `mcp.verifyax.com` expose OAuth for Marketplace listing? | **No.** GE talks A2A to your agent only. |
-| Can GE forward the **same** access token to MCP? | **No** — GE does not call MCP; even if it did, hosted MCP and the gateway expect **`sk-ver-api-…`**, not Auth0 JWTs. |
+| Question                                                                      | Answer                                                                                                                                                                                                                      |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Must `mcp.verifyax.com` expose OAuth for Marketplace listing?                 | **No.** GE talks A2A to your agent only.                                                                                                                                                                                    |
+| Can GE forward the **same** access token to MCP?                              | **No** — GE does not call MCP; even if it did, hosted MCP and the gateway expect **`sk-ver-api-…`**, not Auth0 JWTs.                                                                                                        |
 | Can we use the **same Auth0 tenant / same user login** for VerifyAX identity? | **Yes** — one browser consent for hop 1. Map **`sub`** (and optional `email`) from `request.state.token_info` to a VerifyAX API key **inside the agent**, then keep using `verifyax_mcp_headers` / session state for hop 2. |
-| Should the agent send the Auth0 JWT to MCP instead of an API key? | **Not recommended** without MCP changes **and** a mapping layer; JWT still does not replace gateway API keys. |
+| Should the agent send the Auth0 JWT to MCP instead of an API key?             | **Not recommended** without MCP changes **and** a mapping layer; JWT still does not replace gateway API keys.                                                                                                               |
 
 **Recommended Marketplace pattern (single login UX):**
 
@@ -183,24 +183,24 @@ sequenceDiagram
 
 ### 3.5 Auth0 objects (Marketplace agent — already in connector)
 
-| Object | Role |
-| --- | --- |
-| Auth0 **API** (`AUTH0_AUDIENCE`) + permission **`agent:verifyax`** | JWT for A2A |
-| **Default Audience** on tenant | GE often omits `audience` query param |
-| **Marketplace handler** M2M app | Creates per-order Auth0 clients + client grants |
-| **DCR** (`agent.json` extension → handler `/dcr`) | GE obtains `client_id` / `client_secret` |
-| Agent Card **`oauth2`** URLs | `authorizationUrl` / `tokenUrl` on card |
+| Object                                                             | Role                                            |
+| ------------------------------------------------------------------ | ----------------------------------------------- |
+| Auth0 **API** (`AUTH0_AUDIENCE`) + permission **`agent:verifyax`** | JWT for A2A                                     |
+| **Default Audience** on tenant                                     | GE often omits `audience` query param           |
+| **Marketplace handler** M2M app                                    | Creates per-order Auth0 clients + client grants |
+| **DCR** (`agent.json` extension → handler `/dcr`)                  | GE obtains `client_id` / `client_secret`        |
+| Agent Card **`oauth2`** URLs                                       | `authorizationUrl` / `tokenUrl` on card         |
 
 See `gcp-marketplace-agent-connector/docs/AUTH0_SETUP.md` and `verifyax_agent/marketplace/README.md`.
 
 ### 3.6 What to build next (Marketplace + VerifyAX identity)
 
-| Priority | Work | Where |
-| --- | --- | --- |
-| P0 | Keep hop 1 Auth0 + DCR as today | `gcp-marketplace-agent-connector` |
-| P1 | Pass JWT claims from A2A into ADK session; resolve API key without paste | Agent executor / `verifyax_credentials.py` |
-| P1 | Entitlement → API key or linking store | Marketplace handler + Firestore |
-| P2 | Public MCP OAuth ([§5](#5-direct-mcp-clients-oauth-proxy-pattern)) | `verifyax-mcp` — for Claude/Cursor, **not** blocking Marketplace |
+| Priority | Work                                                                     | Where                                                            |
+| -------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| P0       | Keep hop 1 Auth0 + DCR as today                                          | `gcp-marketplace-agent-connector`                                |
+| P1       | Pass JWT claims from A2A into ADK session; resolve API key without paste | Agent executor / `verifyax_credentials.py`                       |
+| P1       | Entitlement → API key or linking store                                   | Marketplace handler + Firestore                                  |
+| P2       | Public MCP OAuth ([§5](#5-direct-mcp-clients-oauth-proxy-pattern))       | `verifyax-mcp` — for Claude/Cursor, **not** blocking Marketplace |
 
 ---
 
@@ -225,9 +225,9 @@ flowchart LR
   M2 --> GW
 ```
 
-| Path | User logins | OAuth surface | MCP auth |
-| --- | --- | --- | --- |
-| **Marketplace A2A** | One (GE → Auth0 for agent) | Agent Card on Cloud Run | Server-side `sk-ver-api-…` |
+| Path                | User logins                        | OAuth surface                           | MCP auth                            |
+| ------------------- | ---------------------------------- | --------------------------------------- | ----------------------------------- |
+| **Marketplace A2A** | One (GE → Auth0 for agent)         | Agent Card on Cloud Run                 | Server-side `sk-ver-api-…`          |
 | **Direct MCP HTTP** | One (client → auth server for MCP) | `/.well-known/oauth-protected-resource` | Bearer OAuth token → map to API key |
 
 ---
@@ -273,12 +273,12 @@ flowchart TB
 
 ### Roles (direct MCP)
 
-| Role | Responsibility |
-| --- | --- |
-| **MCP client** | Discovery, PKCE, browser login, `Authorization: Bearer <oauth_access_token>` |
+| Role                     | Responsibility                                                                     |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| **MCP client**           | Discovery, PKCE, browser login, `Authorization: Bearer <oauth_access_token>`       |
 | **Authorization server** | Login, workspace picker, code exchange; **mint or map** `sk-ver-api-…` server-side |
-| **MCP resource server** | RFC 9728 metadata, verify token, map to API key, run tools |
-| **Platform backend** | Unchanged API key auth |
+| **MCP resource server**  | RFC 9728 metadata, verify token, map to API key, run tools                         |
+| **Platform backend**     | Unchanged API key auth                                                             |
 
 ---
 
@@ -309,12 +309,12 @@ Standard OAuth token response; client calls MCP with access token; MCP resolves 
 
 The gateway cannot accept OAuth tokens. Auth server or **Marketplace agent** must obtain **`sk-ver-api-…`**.
 
-| Strategy | When | How |
-| --- | --- | --- |
-| **Mint on authorize** | First link per `(user, workspace, client)` | `POST .../api-keys/...` as user; store secret in token store or agent mapping |
-| **Reuse mapping** | Repeat logins | `(auth0_sub, workspace_uuid, client_id) → ciphertext` |
-| **Entitlement / paste** | Marketplace or interim | Provision or user-supplied key once |
-| **Lookup by tuple** | ❌ | Plaintext key not in DB |
+| Strategy                | When                                       | How                                                                           |
+| ----------------------- | ------------------------------------------ | ----------------------------------------------------------------------------- |
+| **Mint on authorize**   | First link per `(user, workspace, client)` | `POST .../api-keys/...` as user; store secret in token store or agent mapping |
+| **Reuse mapping**       | Repeat logins                              | `(auth0_sub, workspace_uuid, client_id) → ciphertext`                         |
+| **Entitlement / paste** | Marketplace or interim                     | Provision or user-supplied key once                                           |
+| **Lookup by tuple**     | ❌                                         | Plaintext key not in DB                                                       |
 
 Validate before MCP session: `usage.getBalance()` or `POST /api/v1/api-keys/validate`.
 
@@ -341,10 +341,10 @@ Stateless verify; weaker revocation.
 
 ### 9.1 HTTP surface
 
-| Path | Purpose |
-| --- | --- |
-| `/.well-known/oauth-protected-resource` | RFC 9728 |
-| `/mcp` | OAuth **or** legacy API key (dual mode during migration) |
+| Path                                    | Purpose                                                  |
+| --------------------------------------- | -------------------------------------------------------- |
+| `/.well-known/oauth-protected-resource` | RFC 9728                                                 |
+| `/mcp`                                  | OAuth **or** legacy API key (dual mode during migration) |
 
 Auth server (e.g. `auth.verifyax.com`): RFC 8414, `/authorize`, `/token`, optional `/revoke`.
 
@@ -354,10 +354,10 @@ OAuth sessions: fingerprint **token id**; map to API key per request; re-check e
 
 ### 9.3 Configuration (illustrative)
 
-| Variable | Description |
-| --- | --- |
-| `VERIFYAX_MCP_OAUTH_ENABLED` | Public MCP OAuth |
-| `VERIFYAX_MCP_TOKEN_STORE_URL` | Redis for opaque tokens |
+| Variable                           | Description                                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------------------ |
+| `VERIFYAX_MCP_OAUTH_ENABLED`       | Public MCP OAuth                                                                     |
+| `VERIFYAX_MCP_TOKEN_STORE_URL`     | Redis for opaque tokens                                                              |
 | `VERIFYAX_MCP_LEGACY_API_KEY_AUTH` | Allow direct `sk-ver-api-…` (default true; **required for Marketplace agent hop 2**) |
 
 ---
@@ -383,11 +383,11 @@ Marketplace **agent** OAuth stays on Auth0 as today; MCP auth can share the **te
 
 ## 12. Phased implementation
 
-| Phase | Deliverable | Blocks Marketplace? |
-| --- | --- | --- |
-| **0** | This doc | No |
-| **M1** | JWT → API key mapping in listed agent | Improves UX (no paste) |
-| **M2** | Entitlement-provisioned keys in handler | Enterprise rollout |
+| Phase   | Deliverable                                                        | Blocks Marketplace?                        |
+| ------- | ------------------------------------------------------------------ | ------------------------------------------ |
+| **0**   | This doc                                                           | No                                         |
+| **M1**  | JWT → API key mapping in listed agent                              | Improves UX (no paste)                     |
+| **M2**  | Entitlement-provisioned keys in handler                            | Enterprise rollout                         |
 | **1–6** | Public MCP OAuth ([§5](#5-direct-mcp-clients-oauth-proxy-pattern)) | **No** — parallel track for direct clients |
 
 ---
@@ -401,12 +401,12 @@ Marketplace **agent** OAuth stays on Auth0 as today; MCP auth can share the **te
 
 ## 14. Open decisions
 
-| # | Question | Options |
-| --- | --- | --- |
-| 1 | Marketplace key source first | Entitlement vs account link vs paste |
-| 2 | Same Auth0 API for agent + MCP | Single audience vs `mcp:verifyax` second API |
-| 3 | Sunset direct API key on public HTTP | Security vs agent hop 2 compatibility |
-| 4 | ADK `McpToolset` native MCP OAuth | Wait vs agent-side key injection only |
+| #   | Question                             | Options                                      |
+| --- | ------------------------------------ | -------------------------------------------- |
+| 1   | Marketplace key source first         | Entitlement vs account link vs paste         |
+| 2   | Same Auth0 API for agent + MCP       | Single audience vs `mcp:verifyax` second API |
+| 3   | Sunset direct API key on public HTTP | Security vs agent hop 2 compatibility        |
+| 4   | ADK `McpToolset` native MCP OAuth    | Wait vs agent-side key injection only        |
 
 ---
 

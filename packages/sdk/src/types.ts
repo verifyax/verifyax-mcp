@@ -32,7 +32,13 @@ export type ScenarioType = 'info_exchange' | 'interview';
 export type AuthMethod = 'no-auth' | 'bearer' | 'cs' | 'http-basic';
 export type IncludeFullContext = 'always' | 'never' | 'first_only';
 export type DirectLineRegion =
-  'global' | 'europe' | 'india' | 'unitedstates' | 'asia' | 'australia' | 'northamerica';
+  | 'global'
+  | 'europe'
+  | 'india'
+  | 'unitedstates'
+  | 'asia'
+  | 'australia'
+  | 'northamerica';
 
 /**
  * Common pagination params accepted by list endpoints. The index signature

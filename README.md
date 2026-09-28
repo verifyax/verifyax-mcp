@@ -124,12 +124,12 @@ use the hosted endpoint at `https://mcp.verifyax.com/mcp`.
 
 Fourteen tools mapped to user intents. Blocking tools poll internally and return only when work
 completes (typically 30s–5min).
-| Area           | Tools                                                                               |           Blocking            |
+| Area | Tools | Blocking |
 | -------------- | ----------------------------------------------------------------------------------- | :---------------------------: |
-| **Agents**     | `register_agent` · `list_agents` · `delete_agent`                                   |               —               |
-| **Scenarios**  | `list_compatible_tags` · `recommend_scenario_tags` · `search_scenario_tags` · `generate_scenario` · `list_scenarios` · `delete_scenario` | **yes** (`generate_scenario`) |
-| **Evaluation** | `evaluate_agent` · `list_recent_runs` · `get_run_details`                           |  **yes** (`evaluate_agent`)   |
-| **Usage**      | `get_usage_summary` · `preview_run_cost`                                            |               —               |
+| **Agents** | `register_agent` · `list_agents` · `delete_agent` | — |
+| **Scenarios** | `list_compatible_tags` · `recommend_scenario_tags` · `search_scenario_tags` · `generate_scenario` · `list_scenarios` · `delete_scenario` | **yes** (`generate_scenario`) |
+| **Evaluation** | `evaluate_agent` · `list_recent_runs` · `get_run_details` | **yes** (`evaluate_agent`) |
+| **Usage** | `get_usage_summary` · `preview_run_cost` | — |
 
 > [!NOTE]
 > For tool descriptions (what Claude reads to pick a tool) and rationale, see
