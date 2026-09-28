@@ -203,12 +203,14 @@ These scripts use `scripts/run-with-env-file.mjs`, which refuses to start when a
 
 ## Tools
 
-The full v1 catalogue of 12 tools:
+The full v1.1 catalogue of 14 tools:
 
-| Tool                   | Description                                                                      | Long-running |
-| ---------------------- | -------------------------------------------------------------------------------- | ------------ |
-| `list_compatible_tags` | Lists skill tags usable for a given scenario type (`info_exchange`/`interview`). | no           |
-| `register_agent`       | Registers an agent (A2A or API); verifies the A2A card before creating.          | no           |
+| Tool                       | Description                                                                      | Long-running |
+| -------------------------- | -------------------------------------------------------------------------------- | ------------ |
+| `list_compatible_tags`     | Full filtered skill-tag catalogue for a scenario type.                           | no           |
+| `recommend_scenario_tags`  | Workbench-style ranked tag suggestions (context and/or agent).                 | no           |
+| `search_scenario_tags`     | Embedding similarity tag search by query (no LLM).                               | no           |
+| `register_agent`           | Registers an agent (A2A or API); verifies the A2A card before creating.          | no           |
 | `list_agents`          | Lists registered agents, optionally filtered by type.                            | no           |
 | `delete_agent`         | Permanently deletes an agent by uuid.                                            | no           |
 | `generate_scenario`    | Generates a scenario; returns an MCP task or blocks until finished.              | **tasks**    |

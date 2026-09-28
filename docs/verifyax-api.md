@@ -422,28 +422,56 @@ Returns a **bare JSON array** — global catalogue merged with your organization
 | `allowed_scenario_types` | Which `scenario_type` values may use this tag: `info_exchange`, `interview`, both, or `[]` (not selectable) |
 | `custom` | `true` when the tag comes from your org overlay |
 
+### Let the API pick the tags
+
+Two endpoints rank tags for you. Both derive the tenant from the API key and restrict results to the `scenario_type` you pass.
+
+```
+POST /v1/scenarios/tag-recommendation
+{
+  "scenario_type": "info_exchange | interview",
+  "context_prompt": "string",
+  "agent_uuid": "uuid"
+}
+// At least one of context_prompt / agent_uuid. 200: bare array of tag objects (max ~20), same shape as GET /api/v1/tags.
+// 400 missing context, 404 agent not in workspace, 503/504 recommender down — fall back to tag-search or GET /api/v1/tags.
+```
+
+```
+POST /v1/scenarios/tag-search
+{
+  "scenario_type": "info_exchange | interview",
+  "query": "de-escalate angry customer",
+  "limit": 20
+}
+// query >= 2 chars. 200: { "success": true, "data": { "skill_tags": ["name", ...] } } — names only, ranked.
+// Per-user tag-search rate limit on the gateway in addition to the workspace public API limit.
+```
+
+Recommendation uses the Workbench pipeline (embeddings + LLM); search is embedding similarity only (no LLM).
+
 **Tag selection checklist (do this before `POST /v1/scenarios/generate`):**
 
-1. `GET /api/v1/tags` → read the array.
+1. Get candidates — `POST /v1/scenarios/tag-recommendation` or `/tag-search` for a shortlist, or `GET /api/v1/tags` for the whole array.
 2. Filter tags where `allowed_scenario_types` includes your chosen `scenario_type`. When the field is omitted, treat as both types allowed.
 3. Skip tags with `allowed_scenario_types: []`.
-4. Pass each tag's **`name`** (exact string) in `tags` or `tag_pool`.
+4. Pass each tag's **`name`** (exact string) in `tags` or `tag_pool`, at most **5** for `info_exchange` and **1** for `interview`.
 
-**Compatibility rules enforced asynchronously** (worker, not on POST — see below):
+**Compatibility rules, all enforced on the generate request:**
 
 - Benchmark tags (`benchmark_family` set, except `qna`) → **`info_exchange` only**.
 - QnA tags (`benchmark_family: "qna"`) → **`interview` only**, and must be the **sole** tag.
-- Unknown tag names → job fails.
+- Unknown tag names → rejected.
 
-`POST /v1/scenarios/generate` validates tag **counts** synchronously but **not** tag existence or scenario-type compatibility. A bad tag choice returns **201 Created** then a **FAILED** `scenario_creation` job. Always poll `GET /v1/jobs/{job_uuid}` and read `error_details`. Worker messages may mention `--list-tags` — that is a **CLI-only** flag; ignore it and re-check the tag catalogue endpoint instead.
+`POST /v1/scenarios/generate` validates tag **counts, existence, and scenario-type compatibility synchronously**: an over-cap list is **422** and an unknown or incompatible tag is **400**, both before any `scenario_creation` job is queued. A job created from an accepted request can still fail for other reasons — poll `GET /v1/jobs/{job_uuid}` and read `error_details`. Worker messages may mention `--list-tags` — that is a **CLI-only** flag; ignore it and re-check the tag catalogue endpoint instead.
 
 ## Step-by-Step: Full Workflow
 
 1. **Register agent** — `POST /v1/agents` → store `agent_uuid`
 2. **Verify connectivity** — `POST /v1/agents/tests/agent-card` or `a2a-connection` / `mcp-connection` before committing
-3. **Discover tags** — `GET /api/v1/tags` → filter by `allowed_scenario_types` for your `scenario_type`
+3. **Discover tags** — `POST /v1/scenarios/tag-recommendation` (or `/tag-search`) for a ranked shortlist, or `GET /api/v1/tags` → filter by `allowed_scenario_types` for your `scenario_type`
 4. **Generate scenario** — `POST /v1/scenarios/generate` (or `generate-from-qna` for fixed Q&A) → store `uuid` + `job_uuid`
-5. **Wait for scenario** — poll `GET /v1/jobs/{job_uuid}` until `COMPLETED` (if `FAILED`, fix tags and retry)
+5. **Wait for scenario** — poll `GET /v1/jobs/{job_uuid}` until `COMPLETED` (a bad tag list is already 400/422 on step 4; a `FAILED` job here is some other cause)
 6. **Estimate cost** — `POST /v1/engine/workspace-credit-preview`
 7. **Trigger run** — `POST /v1/engine/simulate/scenario` with `evaluate_on_complete: true` → store `simulation_uuid`
 8. **Poll run** — `GET /v1/simulations/{simulation_uuid}` every 15s until `COMPLETED`
@@ -467,11 +495,15 @@ Returns a **bare JSON array** — global catalogue merged with your organization
 | 500  | Internal server error |
 | 502  | Upstream/billing failure — gateway couldn't get a valid response |
 
+### Tag errors on generate (rejected on the request, not a failed job)
+
+| Code | Likely cause | Fix |
+|------|--------------|-----|
+| 422 | Over tag cap for `scenario_type` | 5 for `info_exchange`, 1 for `interview` |
+| 400 | Unknown `name` or type disallows tag | Re-fetch tags or call `/tag-search`; use exact `name` values |
+| 400 | Benchmark tag with wrong `scenario_type` | Use `info_exchange`, or pick non-benchmark tags |
+| 400 | QnA tag with `info_exchange` | Switch to `interview` or remove QnA tag |
+
 ### Async scenario_creation failures (201 then FAILED job)
 
-| `error_details` pattern | Likely cause | Fix |
-|-------------------------|--------------|-----|
-| `tags do not exist in the skill tags registry` | Unknown `name` | Re-fetch `GET /api/v1/tags`; use exact `name` values |
-| `does not support … benchmark tags` | Benchmark tag with wrong `scenario_type` | Use `info_exchange`, or pick non-benchmark tags |
-| `QnA tags are only supported for 'interview'` | QnA tag with `info_exchange` | Switch to `interview` or remove QnA tag |
-| mentions `--list-tags` | Worker leaked CLI wording | Ignore CLI; use tag catalogue endpoint |
+A job can still fail after an accepted request — generation itself, not tag selection. Poll `GET /v1/jobs/{job_uuid}` and read `error_details`. Worker messages may mention `--list-tags`; ignore CLI wording and use the tag catalogue or tag-search endpoints.

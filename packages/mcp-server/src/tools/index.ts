@@ -12,16 +12,20 @@ import { registerListCompatibleTags } from './list-compatible-tags.js';
 import { registerListRecentRuns } from './list-recent-runs.js';
 import { registerListScenarios } from './list-scenarios.js';
 import { registerPreviewRunCost } from './preview-run-cost.js';
+import { registerRecommendScenarioTags } from './recommend-scenario-tags.js';
 import { registerRegisterAgent } from './register-agent.js';
+import { registerSearchScenarioTags } from './search-scenario-tags.js';
 
 // Explicit registry — each tool exports its own register function and is wired
-// here by hand (no barrel auto-discovery). This is the full v1 catalogue of 12 tools.
+// here by hand (no barrel auto-discovery). This is the full v1.1 catalogue of 14 tools.
 export function registerTools(
   server: McpServer,
   ctx: ToolContext,
   taskStore: VerifyaxTaskStore
 ): void {
   registerListCompatibleTags(server, ctx);
+  registerRecommendScenarioTags(server, ctx);
+  registerSearchScenarioTags(server, ctx);
   registerRegisterAgent(server, ctx);
   registerListAgents(server, ctx);
   registerDeleteAgent(server, ctx);

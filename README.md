@@ -105,7 +105,7 @@ use the hosted endpoint at `https://mcp.verifyax.com/mcp`.
 >    an OAuth attempt fails.
 > 3. Under **Request headers**, add `Authorization` with the value `Bearer sk-ver-api-...`.
 >
-> All 12 tools then appear, and Claude.ai lets you set approval per tool (it groups them as 7
+> All 14 tools then appear, and Claude.ai lets you set approval per tool (it groups them as 9
 > read-only and 5 write/delete — worth setting the write/delete group to require approval, since
 > `generate_scenario` and `evaluate_agent` spend credits).
 >
@@ -122,13 +122,12 @@ use the hosted endpoint at `https://mcp.verifyax.com/mcp`.
 
 ## Supported tools
 
-Twelve tools mapped to user intents. Blocking tools poll internally and return only when work
+Fourteen tools mapped to user intents. Blocking tools poll internally and return only when work
 completes (typically 30s–5min).
-
 | Area           | Tools                                                                               |           Blocking            |
 | -------------- | ----------------------------------------------------------------------------------- | :---------------------------: |
 | **Agents**     | `register_agent` · `list_agents` · `delete_agent`                                   |               —               |
-| **Scenarios**  | `list_compatible_tags` · `generate_scenario` · `list_scenarios` · `delete_scenario` | **yes** (`generate_scenario`) |
+| **Scenarios**  | `list_compatible_tags` · `recommend_scenario_tags` · `search_scenario_tags` · `generate_scenario` · `list_scenarios` · `delete_scenario` | **yes** (`generate_scenario`) |
 | **Evaluation** | `evaluate_agent` · `list_recent_runs` · `get_run_details`                           |  **yes** (`evaluate_agent`)   |
 | **Usage**      | `get_usage_summary` · `preview_run_cost`                                            |               —               |
 
@@ -312,7 +311,7 @@ project root (see the [AGENTS.md convention](https://agents.md/) for the format)
 
 When connected to verifyax:
 
-- **MUST** call `list_compatible_tags` before `generate_scenario`
+- **MUST** call `recommend_scenario_tags`, `search_scenario_tags`, or `list_compatible_tags` before `generate_scenario`
 - **MUST NOT** combine QnA tags with other tags (QnA must be the sole tag)
 - **MUST** use `preview_run_cost` when the user asks about credits before `evaluate_agent`
 - Blocking tools (`generate_scenario`, `evaluate_agent`) take 30s–5min — do not retry manually
@@ -384,7 +383,7 @@ This repository is a pnpm monorepo with two packages:
 | Package                                       | Description                                       |
 | --------------------------------------------- | ------------------------------------------------- |
 | [`@verifyax/sdk`](packages/sdk)               | Typed TypeScript client for the VerifyAX REST API |
-| [`@verifyax/mcp-server`](packages/mcp-server) | MCP server (12 tools) built on the SDK            |
+| [`@verifyax/mcp-server`](packages/mcp-server) | MCP server (14 tools) built on the SDK            |
 
 Requires Node ≥ 20 and [pnpm](https://pnpm.io) 10.
 

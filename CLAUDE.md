@@ -9,7 +9,7 @@ A Model Context Protocol (MCP) server that exposes the VerifyAX agent-evaluation
 Two packages in one monorepo:
 
 - **`@verifyax/sdk`** — typed TypeScript client for the VerifyAX REST API. Reusable by any consumer, not MCP-specific.
-- **`@verifyax/mcp-server`** — MCP server exposing ~12 tools mapped to user intents. Depends on the SDK.
+- **`@verifyax/mcp-server`** — MCP server exposing 14 tools mapped to user intents. Depends on the SDK.
 
 The MCP server complements (does not replace) the existing `verifyax-api` skill at `https://github.com/verifyax/verifyax-plugins-claude`. The skill is for developers writing code; the MCP server is for conversational workflows.
 
@@ -21,7 +21,7 @@ The MCP server complements (does not replace) the existing `verifyax-api` skill 
 - **API key auth.** User pastes their VerifyAX key into MCP client config as `VERIFYAX_API_KEY`. OAuth is v2.
 - **Blocking-by-default tools.** Async polling lives inside the server, invisible to Claude and the user. No `start_job` / `get_status` pairs in v1.
 - **Structured errors over exceptions.** Tools return `{ success: false, reason, suggested_fix }` instead of throwing where possible.
-- **Twelve tools.** Resist the urge to wrap every endpoint. See the catalogue below.
+- **Fourteen tools.** Resist the urge to wrap every endpoint. See the catalogue below.
 
 ## Architecture decisions (already made — do not re-litigate)
 
@@ -45,7 +45,7 @@ Critical things the API does that are easy to miss:
 
 - All resource IDs come back in the `uuid` field of responses, not in prefixed fields like `scenario_uuid`. Path params use the prefixed names, but you supply the `uuid` value.
 - Tag catalogue is fetched from the authed `/api/v1/tags` route with your workspace API key and returns a **bare JSON array** (global catalogue merged with the org's custom overlay; org tags have `custom: true`). (Earlier reconciliation moved this off the old no-auth `/web/api/v1` `{ success, data }` envelope — the code in `tags.ts` is authoritative.)
-- Tags have an `allowed_scenario_types` field. Scenario generation **does not** validate this at request time — it returns 201 then the job fails. Filter tags client-side.
+- Tags have an `allowed_scenario_types` field. `POST /v1/scenarios/generate` validates tag counts, existence, and compatibility **synchronously** (400/422 before a job is queued). Interview allows at most one tag; info_exchange allows at most five.
 - Benchmark tags (`benchmark_family` set, except `"qna"`) are `info_exchange`-only. QnA tags are `interview`-only and must be the sole tag.
 - Status enums are UPPERCASE: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`, `CANCELLED`. Simulation runs additionally use `CREATED`, `IN_PROGRESS`.
 - Never send `organization_uuid`, `workspace_uuid`, or `user_uuid` on requests — the gateway injects them from the API key.
@@ -57,6 +57,8 @@ The MCP server exposes exactly these tools. Each tool description should be shor
 | Tool | Maps to | Blocking? |
 |---|---|---|
 | `list_compatible_tags` | `GET /api/v1/tags` + client-side filter | No |
+| `recommend_scenario_tags` | `POST /scenarios/tag-recommendation` | No |
+| `search_scenario_tags` | `POST /scenarios/tag-search` | No |
 | `register_agent` | `POST /agents/tests/agent-card` + `POST /agents` | No |
 | `list_agents` | `GET /agents` | No |
 | `delete_agent` | `DELETE /agents/{uuid}` | No |
