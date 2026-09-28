@@ -1,5 +1,5 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { translateError } from '../error-translation.js';
+import { translateError, type ToolError } from '../error-translation.js';
 import type { ToolContext } from './context.js';
 
 /**
@@ -22,7 +22,8 @@ export function toolResult(payload: unknown, isError = false): CallToolResult {
 export async function runTool(
   ctx: ToolContext,
   toolName: string,
-  body: () => Promise<Record<string, unknown>>
+  body: () => Promise<Record<string, unknown>>,
+  translate: (error: unknown) => ToolError = translateError
 ): Promise<CallToolResult> {
   try {
     const data = await body();
@@ -31,6 +32,6 @@ export async function runTool(
     ctx.logger.error(`${toolName} failed`, {
       error: error instanceof Error ? error.message : String(error),
     });
-    return toolResult(translateError(error), true);
+    return toolResult(translate(error), true);
   }
 }

@@ -11,10 +11,12 @@ const NAME = 'generate_scenario';
 
 const DESCRIPTION =
   'Generates a new test scenario of a given type (info_exchange or interview) with optional skill ' +
-  'tags and context. Typically takes 30s–2min; task-capable MCP clients receive a pollable task ' +
+  'tags and context. Invalid tag names or incompatible tags fail immediately with 400/422 before a ' +
+  'job is queued; use recommend_scenario_tags, search_scenario_tags, or list_compatible_tags to pick ' +
+  'valid tag names. Typically takes 30s–2min; task-capable MCP clients receive a pollable task ' +
   'handle immediately, while others block until generation finishes. Set num_scenarios greater than ' +
   '1 for batch mode (requires tag_pool). Returns the new scenario’s uuid, or batch uuids when ' +
-  'batching, or a structured error with details if generation fails (e.g. incompatible tags).';
+  'batching, or a structured error if generation fails for other reasons after the job starts.';
 
 // Generation can take a couple of minutes; allow generous headroom.
 const BASE_GENERATION_POLL_MS = 300_000;
@@ -37,7 +39,7 @@ const inputObject = z.object({
   tags: z
     .array(z.string())
     .optional()
-    .describe('Skill tag names (use list_compatible_tags to pick valid ones).'),
+    .describe('Skill tag names (use recommend_scenario_tags, search_scenario_tags, or list_compatible_tags).'),
   context_prompt: z.string().optional(),
   num_scenarios: z
     .number()

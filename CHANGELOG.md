@@ -7,6 +7,21 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-09-28
+
+MCP catalogue v1.1 — Workbench-style tag discovery tools and SDK methods, plus docs aligned with
+synchronous tag validation on scenario generate.
+
+### Added
+
+- `@verifyax/sdk`: `ScenariosResource.recommendTags()` and `searchTags()` for gateway tag discovery.
+- `@verifyax/mcp-server`: `recommend_scenario_tags` and `search_scenario_tags` (read-only catalogue v1.1).
+
+### Changed
+
+- OpenAPI mirror synced from `https://console.verifyax.com/openapi.yaml` (tag-recommendation, tag-search, synchronous generate tag validation).
+- `@verifyax/mcp-server`: tool descriptions and `docs/verifyax-api.md` aligned with synchronous tag validation on `POST /v1/scenarios/generate` (400/422 before enqueue; interview tag cap 1).
+
 ## [0.3.5] - 2026-09-10
 
 MCP Tasks for long-running tools — clients that declare task support get a pollable handle instead
@@ -228,7 +243,8 @@ First public release. `@verifyax/sdk` and `@verifyax/mcp-server` published to np
 - Documentation: top-level README, per-package READMEs, `docs/tool-descriptions.md`,
   `CONTRIBUTING.md`.
 
-[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.5...HEAD
+[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.6...HEAD
+[0.3.6]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.2...v0.3.3

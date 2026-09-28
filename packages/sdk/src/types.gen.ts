@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/devices/enroll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enroll a signing device
+         * @description Registers a client device's public signing key so the device can sign artifact uploads. The installer authenticates with its workspace API key and presents a one-time `enrollmentCode` minted from a logged-in Workbench session. The gateway verifies the code, cross-checks that it belongs to the API key's organization, derives the RFC 7638 JWK thumbprint (`jkt`) and signature algorithm, then registers the device. Only OKP (Ed25519, `EdDSA`) and EC (P-256, `ES256`) public keys are accepted.
+         */
+        post: operations["enrollDevice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/billing/balance": {
         parameters: {
             query?: never;
@@ -123,6 +143,46 @@ export interface paths {
          * @description Creates a fixed-question **interview** scenario from inline Q&A pairs (for example `l3_qna_benchmark.json` output). Enqueues `scenario_creation` and returns the scenario row plus `job_uuid`. Tenant UUIDs are injected by the gateway from the API key.
          */
         post: operations["generateScenarioFromQna"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/scenarios/tag-recommendation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recommend scenario skill tags
+         * @description Suggests skill tags using the same pipeline as the Workbench Scenario Generator: verifyax embeddings + LLM recommendation, then gateway merge with lexical tag ranking (cap 20). Provide `context_prompt` and/or `agent_uuid` (at least one). The gateway injects tenant UUIDs from the API key. Response is a **bare JSON array** of skill tag objects — the same shape as `GET /v1/tags`, in recommendation order (not `{ success, data }`).
+         */
+        post: operations["recommendScenarioTags"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/scenarios/tag-search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search skill tags by embedding similarity
+         * @description Returns skill tags from the global catalogue ranked by cosine similarity to a natural-language query (no LLM). The gateway injects tenant UUIDs from the API key. A dedicated per-user tag search rate limit applies in addition to the workspace public API limit.
+         */
+        post: operations["searchScenarioTags"];
         delete?: never;
         options?: never;
         head?: never;
@@ -498,6 +558,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/agents/tests/api-agent-test-copilot-studio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Copilot Studio agent (all auth modes)
+         * @description Probes a Copilot Studio agent using the nested `directline` registration shape. Supports `auth_mode` `secret`, `microsoft` (Entra OBO), and `manual` (custom OAuth). Microsoft and manual modes require `user_token` (end-user Entra access token).
+         */
+        post: operations["testCopilotStudioAgent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/agents/tests/mcp-connection": {
         parameters: {
             query?: never;
@@ -509,7 +589,7 @@ export interface paths {
         put?: never;
         /**
          * Test MCP server connection
-         * @description Discovers tools on a remote MCP server and optionally probes the catalogue MCP adapter when `agent_url` and registry context are present. Tenant UUIDs are injected from the API key. Use before or after registering an agent with `agent_type: MCP`.
+         * @description Discovers tools on a remote MCP server and, when `agent_url` is set, fetches the catalogue MCP adapter agent card. Does not send A2A probe messages or run mini scenarios. Tenant UUIDs are injected from the API key. Use before or after registering an agent with `agent_type: MCP`.
          */
         post: operations["testMcpConnection"];
         delete?: never;
@@ -572,6 +652,146 @@ export interface paths {
          * @description Queues evaluation for a simulation run in `COMPLETED` status. Skip this if you set `evaluate_on_complete` on the trigger call.
          */
         post: operations["triggerEvaluation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/engine/verify/nfr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start NFR verification
+         * @description Dispatch an async non-functional verification run against a registered agent URL. Poll orchestration status via `GET /v1/jobs/{job_uuid}`; fetch report JSON via `GET /v1/engine/verify/nfr/{simulation_uuid}`. The gateway injects `organization_uuid`, `workspace_uuid`, and `user_uuid` from the API key.
+         */
+        post: operations["startNfrVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/engine/verify/nfr/domain/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start NFR domain ownership verification
+         * @description Issue or rotate a DNS-TXT ownership challenge for the host derived from a registered agent's `agent_url`. Publish the returned TXT record, then poll verification via `POST /v1/engine/verify/nfr/domain/check`. The gateway injects `organization_uuid`, `workspace_uuid`, and `user_uuid` from the API key.
+         */
+        post: operations["startNfrDomainVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/engine/verify/nfr/domain/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check NFR domain ownership verification
+         * @description Resolve the DNS-TXT challenge for the host derived from a registered agent's `agent_url` and mark it verified when the record is present. The gateway injects `organization_uuid`, `workspace_uuid`, and `user_uuid` from the API key.
+         */
+        post: operations["checkNfrDomainVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/engine/verify/nfr/pipeline-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get NFR pipeline health
+         * @description Returns NFR pipeline health for the run page: infra liveness (workers, evaluator), queue depth, dispatch state, and this workspace's in-flight runs. `workspace_uuid` is injected from the API key on proxied requests.
+         */
+        get: operations["getNfrPipelineStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/engine/verify/nfr/{simulation_uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get NFR verification report
+         * @description Returns NFR report JSON for a completed or in-progress verification run. `workspace_uuid` is injected from the API key on proxied requests.
+         */
+        get: operations["getNfrVerificationResult"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/engine/verify/nfr/{simulation_uuid}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get live NFR run activity
+         * @description Returns heartbeat, worker phase, and recent event summaries for an in-flight NFR verification run. Use while polling `GET /v1/jobs/{job_uuid}` during execution. `workspace_uuid` is injected from the API key on proxied requests.
+         */
+        get: operations["getNfrRunActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/engine/verify/nfr/{simulation_uuid}/artifacts/{filename}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download NFR run artifact
+         * @description Downloads a persisted NFR artifact for a verification run (for example `verifyax_report.json`, `verifyax_partial.json`, or `verifyax_events.jsonl`). `workspace_uuid` is injected from the API key on proxied requests.
+         */
+        get: operations["downloadNfrArtifact"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -943,11 +1163,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/gold-standards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Favorites
+         * @description Lists the workspace's pinned baselines, newest first. Filter by agent to find the Favorite a run should be compared against.
+         */
+        get: operations["listGoldStandards"];
+        put?: never;
+        /**
+         * Pin a run group as a Favorite
+         * @description Pins a completed run group as the baseline for its agent. The run group must be evaluated; its scenarios and agent are read from its members.
+         */
+        post: operations["createGoldStandard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/gold-standards/{gold_uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Move a Favorite to a newer run
+         * @description Repoints an existing Favorite at a newer run group, or renames it. `pinned_at` is not updatable: it is the window deciding which later runs belong to the baseline, so replacing the pin must not discard the runs collected since the Favorite was saved.
+         */
+        patch: operations["updateGoldStandard"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description Generic JSON error envelope from the gateway or upstream when `message` is used. */
+        /** @description Gateway-generated JSON error. Always includes `message`. Some gateway routes also include `error` or `success`. verifyax-api rejections use ApiErrorResponse instead. */
         ErrorMessage: {
             /** @description Human-readable error summary suitable for display or logs. */
             message?: string;
@@ -1047,6 +1311,36 @@ export interface components {
              */
             createdAt?: string;
         };
+        /** @description Body for `POST /v1/devices/enroll`. Organization, workspace, and user context are derived from the API key and the enrollment code, not the body. */
+        DeviceEnrollRequest: {
+            /** @description Device public key as a JWK, supplied as either a JSON object or a JSON string. Must be an OKP Ed25519 key or an EC P-256 key; anything else is rejected. Only the canonical key form and its thumbprint are stored. */
+            publicKey: Record<string, never> | string;
+            /** @description One-time enrollment code minted from a logged-in Workbench session. */
+            enrollmentCode: string;
+            /** @description Optional human-readable device label. */
+            label?: string;
+        };
+        /** @description Envelope returned after a device signing key is enrolled. */
+        DeviceEnrollResponse: {
+            /** @description True when the device was registered. */
+            success?: boolean;
+            device?: {
+                /** @description Device identifier. */
+                id?: string;
+                /** @description RFC 7638 JWK SHA-256 thumbprint (base64url); the stable device fingerprint. */
+                jkt?: string;
+                /**
+                 * @description Signature algorithm derived from the key type.
+                 * @enum {string}
+                 */
+                alg?: "EdDSA" | "ES256";
+                /**
+                 * Format: date-time
+                 * @description ISO 8601 timestamp when the enrollment expires.
+                 */
+                expiresAt?: string;
+            };
+        };
         /** @description Body for `POST /v1/scenarios` (synchronous shell). `scenario_type` is optional (`info_exchange` or `interview`); omit for empty shells before `PATCH .../artifacts`. `corpus_uuid` and other legacy L1 game fields return **400**. Response `job_uuid` is null. Developer-only. */
         ScenarioCreateRequest: {
             /** @description Display name (unique per workspace after normalisation upstream). */
@@ -1080,27 +1374,84 @@ export interface components {
             /** @default false */
             is_hallucination_trap: boolean;
         };
+        /** @description Body for `POST /v1/scenarios/tag-recommendation`. At least one of `context_prompt` or `agent_uuid` is required. Tenant UUIDs are injected by the gateway from the API key. */
+        TagRecommendationPublicRequest: {
+            /**
+             * @description Scenario dialogue kind used to filter eligible skill tags.
+             * @enum {string}
+             */
+            scenario_type: "info_exchange" | "interview";
+            /** @description Optional scenario context (same meaning as scenario `context_prompt`). */
+            context_prompt?: string | null;
+            /**
+             * Format: uuid
+             * @description Optional workspace agent UUID; A2A agents may trigger a live agent-card fetch.
+             */
+            agent_uuid?: string | null;
+        };
+        TagRecommendationAnnotation: {
+            /** @description History-based reasons this tag was prioritized. */
+            reasons: ("underutilized" | "problematic")[];
+            /** @description Prior simulations for this agent that included the tag. */
+            use_count: number;
+            /** @description Mean of recent evaluation grades (1–5) when available. */
+            avg_grade?: number | null;
+        };
+        TagRecommendationData: {
+            /** @description Skill tags allowed for the selected scenario_type. */
+            skill_tags: string[];
+            /** @description Suggested scenario type (may match or refine the request). */
+            recommended_scenario_type: string;
+            scenario_type_reasoning: string;
+            skill_tags_reasoning: string;
+            /** @description Optional per-tag history annotations for recommended tags. */
+            tag_annotations?: {
+                [key: string]: components["schemas"]["TagRecommendationAnnotation"];
+            } | null;
+            warnings?: string[] | null;
+        };
+        TagRecommendationPublicResponse: {
+            success: boolean;
+            data: components["schemas"]["TagRecommendationData"];
+        };
+        /** @description Body for `POST /v1/scenarios/tag-search`. Tenant UUIDs are injected by the gateway from the API key. */
+        TagSearchPublicRequest: {
+            /** @enum {string} */
+            scenario_type: "info_exchange" | "interview";
+            /** @description Natural-language search text (trimmed; minimum 2 characters). */
+            query: string;
+            /** @description Max tags to return (default 50). */
+            limit?: number | null;
+        };
+        TagSearchData: {
+            /** @description Skill tags ranked by embedding similarity to the query. */
+            skill_tags: string[];
+        };
+        TagSearchPublicResponse: {
+            success: boolean;
+            data: components["schemas"]["TagSearchData"];
+        };
         JobCancelResponse: {
             /** @description Human-readable cancellation acknowledgement. */
             message?: string;
         };
         /**
-         * @description Body for POST /v1/scenarios/generate (maps to verifyax-api SimulationScenarioCreate). The gateway injects organization_uuid, workspace_uuid, and user_uuid from the API key. Tag list size is capped at 5 for info_exchange and 2 for interview.
-         *     **Discover tags:** `GET /v1/tags` (see Skill Tags). Pass each tag's `name` in `tags` / `tag_pool`. Filter by `allowed_scenario_types` for your `scenario_type` before calling generate — unknown or incompatible tags are rejected asynchronously by the `scenario_creation` worker (**201** then **FAILED** job, not **400** on POST).
+         * @description Body for POST /v1/scenarios/generate (maps to verifyax-api SimulationScenarioCreate). The gateway injects organization_uuid, workspace_uuid, and user_uuid from the API key. Tag list size is capped at 5 for info_exchange and 1 for interview.
+         *     **Discover tags:** `GET /v1/tags` (see Skill Tags). Pass each tag's `name` in `tags` / `tag_pool`. Filter by `allowed_scenario_types` for your `scenario_type` before calling generate — missing, unknown, or incompatible tags are rejected synchronously with **400** before a `scenario_creation` job is queued.
          *     **Single vs batch:** Single mode sends name, scenario_type, tags, and optional context_prompt. Batch mode (num_scenarios > 1) adds tag_pool and optional include_tags, total_tags, and max_tags_per_npc. Internal engine, model, and DAG knobs are not part of the public contract; the gateway strips them before forwarding.
          */
         SimulationScenarioCreateRequest: {
             /** @description Scenario name (workspace-unique after normalisation). */
             name: string;
             /**
-             * @description Multi-agent `info_exchange` (default) or 1-to-1 `interview`. Controls tag caps and NPC layout.
+             * @description Multi-agent `info_exchange` (default) or 1-on-1 `interview`. Controls tag caps and NPC layout.
              * @default info_exchange
              * @enum {string}
              */
             scenario_type: "info_exchange" | "interview";
             /** @description Optional context to guide generation (info_exchange and interview). */
             context_prompt?: string;
-            /** @description Explicit skill tag `name` values from GET /v1/tags. At most 5 (info_exchange) or 2 (interview). Each tag's `allowed_scenario_types` must include your `scenario_type`. Invalid tags fail on the async job, not synchronously. */
+            /** @description Explicit skill tag `name` values from GET /v1/tags. At most 5 (info_exchange) or 1 (interview). Each tag's `allowed_scenario_types` must include your `scenario_type`. Required for single-scenario generation; batch requests use `tag_pool`. */
             tags?: string[];
             /**
              * @description Batch size. 1 = single scenario. Greater than 1 requires tag_pool and returns uuid, batch_uuid, and batch_scenario_uuids on the response.
@@ -1111,10 +1462,27 @@ export interface components {
             tag_pool?: string[];
             /** @description Batch only; tags required in every scenario. Must be a subset of tag_pool. total_tags must be at least the number of distinct include_tags. */
             include_tags?: string[];
-            /** @description Batch only; tags drawn per scenario from tag_pool (default len(tag_pool)). Capped at 5 info_exchange / 2 interview. */
+            /** @description Batch only; tags drawn per scenario from tag_pool (default len(tag_pool)). Capped at 5 info_exchange / 1 interview. */
             total_tags?: number;
-            /** @description Batch only; caps tags per NPC. NPC count = ceil(total_tags / max_tags_per_npc). Ignored for interview (single NPC). Worker default 1 when omitted. */
+            /** @description Batch only; tags per NPC. Must be 1 - every NPC holds exactly one skill tag, so NPC count = total_tags. Ignored for interview (single NPC). Default 1 when omitted. */
             max_tags_per_npc?: number;
+            /** @description Advanced; interview scenarios with num_scenarios=1 and explicit tags only. Author-supplied NPC objective steps used verbatim and in order instead of the generated objective queue, giving deterministic control over the NPC's beat ordering. Gated by a server-side feature flag; rejected when the flag is disabled. */
+            objective_steps?: {
+                /** @description Step objective narrative. */
+                description: string;
+                /** @description NPC personality for this step; defaults to the generated NPC personality when omitted. */
+                personality?: string;
+                /** @description Additional context for this step. Should instruct the NPC when to emit the completion marker; the step advances on the marker or on max_rounds_per_objective. */
+                context: string;
+                /** @description Max rounds for this step before force-advancing. */
+                max_rounds_per_objective?: number;
+                /** @description Tags for this step. */
+                tags?: string[];
+            }[];
+        } | {
+            num_scenarios?: unknown;
+        } | {
+            num_scenarios: unknown;
         };
         /** @description Partial update for scenario display metadata. Only `name` and `description` are writable via PATCH; skill tags live in `scenario.json` and row `tags` / `valid_versions` are set by generation or copy, not this endpoint. */
         ScenarioUpdateRequest: {
@@ -1123,19 +1491,40 @@ export interface components {
             /** @description New scenario description text. */
             description?: string;
         };
-        /** @description Direct Line 3.0 configuration for Microsoft Copilot Studio agents. Nested under `agent_parameters.directline` on `POST /v1/agents` when `agent_type` is `DIRECTLINE`. Set `agent_url` to the regional Direct Line host derived from `region`. */
+        /** @description Copilot Studio configuration nested under `agent_parameters.directline` when `agent_type` is `DIRECTLINE`. Set `auth_mode` to match the agent's Security settings: `secret` (Direct Line / no authentication), `microsoft` (Entra SSO), or `manual` (custom OAuth). */
         DirectlineAgentParameters: {
-            /** @description Direct Line secret from Copilot Studio → Channels → Direct Line. Stored on the agent row and used at simulation runtime — never send in the flat test endpoint body after registration. */
-            secret: string;
             /**
-             * @description Direct Line deployment region. Maps to `agent_url`: `global` → `https://directline.botframework.com`; other regions → `https://{region}.directline.botframework.com` (for example `europe` → `https://europe.directline.botframework.com`).
+             * @description Copilot Studio authentication mode.
+             * @default secret
+             * @enum {string}
+             */
+            auth_mode: "secret" | "microsoft" | "manual";
+            /** @description Direct Line secret (required when auth_mode is `secret`). */
+            secret?: string;
+            /**
+             * @description Direct Line deployment region (secret mode).
              * @default global
              * @enum {string}
              */
             region: "global" | "europe" | "india" | "unitedstates" | "asia" | "australia" | "northamerica";
+            /** @description Power Platform environment ID (microsoft/manual modes). */
+            environment_id?: string;
+            /** @description Copilot Studio agent schema name (microsoft/manual modes). */
+            agent_identifier?: string;
+            /** @description Entra tenant ID (microsoft mode, OBO). */
+            tenant_id?: string;
+            /** @description Entra application client ID (microsoft mode, OBO). */
+            client_id?: string;
+            /** @description Entra application client secret (microsoft mode, OBO). */
+            client_secret?: string;
+            /**
+             * @description When true (default for microsoft), exchange the user token on-behalf-of. Set false for manual OAuth when the user token is already Copilot-scoped.
+             * @default true
+             */
+            use_obo: boolean;
             /**
              * Format: uri
-             * @description Optional override when the regional host differs from the default mapping.
+             * @description Optional Direct Line endpoint override (secret mode).
              */
             base_url?: string | null;
         };
@@ -1179,6 +1568,112 @@ export interface components {
             agent_type?: "A2A" | "API" | "DIRECTLINE" | "EXTENSION" | "MCP";
             /** @description Merged or replaced connector settings (upstream merge rules apply). For Direct Line, update `directline.secret` or `directline.region` here. */
             agent_parameters?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description A pinned baseline run group for one agent. */
+        GoldStandardResponse: {
+            /**
+             * Format: uuid
+             * @description Favorite UUID.
+             */
+            uuid?: string;
+            /** Format: uuid */
+            organization_uuid?: string;
+            /** Format: uuid */
+            workspace_uuid?: string;
+            /**
+             * Format: uuid
+             * @description Agent the baseline belongs to, read from the pinned run.
+             */
+            agent_uuid?: string;
+            /**
+             * Format: uuid
+             * @description The run group being used as the baseline.
+             */
+            run_group_uuid?: string;
+            /** @description Display name. */
+            label?: string | null;
+            /** Format: uuid */
+            pinned_by_user_uuid?: string;
+            /**
+             * Format: date-time
+             * @description When the Favorite was first saved. Not changed by a repin.
+             */
+            pinned_at?: string;
+            /** @description Scenarios covered by the pinned run. */
+            scenario_uuids?: string[];
+            /** Format: uuid */
+            scenario_batch_uuid?: string | null;
+            timeout_minutes?: number | null;
+            /** @description Scenarios whose definition changed since the Favorite was pinned. */
+            stale_scenario_uuids?: string[];
+            /** @description Populated on a single read, and on list only when include_band is set. */
+            capability_band?: components["schemas"]["CapabilityBandResponse"] | null;
+        };
+        GoldStandardsListResponse: {
+            items?: components["schemas"]["GoldStandardResponse"][];
+            total?: number;
+        };
+        /** @description Tenancy and the pinning user are taken from the API key. */
+        GoldStandardCreateRequest: {
+            /**
+             * Format: uuid
+             * @description Run group to pin, or a simulation uuid when solo is true.
+             */
+            run_group_uuid: string;
+            label?: string | null;
+            /**
+             * @description Pin only the named simulation rather than expanding the batch it leads.
+             * @default false
+             */
+            solo: boolean;
+        };
+        /** @description Every field is optional; omitted fields are left as they are. */
+        GoldStandardUpdateRequest: {
+            /**
+             * Format: uuid
+             * @description New baseline run group, or a simulation uuid when solo is true.
+             */
+            run_group_uuid?: string;
+            label?: string | null;
+            /** @default false */
+            solo: boolean;
+        };
+        /** @description Capability band for a Favorite. band is null while the baseline is Pending. */
+        CapabilityBandResponse: {
+            /** @description Band 1-5, null until confidence is met. */
+            band?: number | null;
+            /** @description Robust, Advanced, Functional, Basic, Limited, or Pending. */
+            band_name?: string;
+            observation_count?: number;
+            sigma?: number | null;
+            /** @description Mean of the aggregate per-tag means. */
+            performance?: number | null;
+            /** @description Weakest aggregate per-tag mean. */
+            consistency_across_skills?: number | null;
+            /** @description Per-tag mean across the baseline's observations. */
+            tag_aggregates?: {
+                [key: string]: number;
+            };
+            /** @description Whether the confidence gate passed. */
+            is_confident?: boolean;
+            /** @description Tag set this baseline matches on. */
+            evaluation_tags?: string[];
+        };
+        /** @description Error envelope returned by verifyax-api for a rejected request. Gateway-generated errors such as 401 use ErrorMessage instead and carry only `message`. */
+        ApiErrorResponse: {
+            /** @description Machine-readable code, such as bad_request, not_found, conflict or validation_error. */
+            error: string;
+            /** @description Human-readable summary. */
+            message: string;
+            /**
+             * Format: uuid
+             * @description Identifier for this request, useful when reporting the failure.
+             */
+            request_id: string;
+            /** @description Present on validation_error, carrying an `errors` array of per-field failures. */
+            details?: {
                 [key: string]: unknown;
             };
         };
@@ -1709,6 +2204,137 @@ export interface components {
              */
             run_group_uuid?: string | null;
         };
+        /** @description Start an async NFR verification run. The gateway injects `organization_uuid`, `workspace_uuid`, and `user_uuid` on proxied POST bodies, so clients may omit tenant fields. */
+        StartNfrVerificationRequest: {
+            /**
+             * Format: uuid
+             * @description Registered agent whose `agent_url` is the load-test target.
+             */
+            agent_uuid: string;
+            /** @description NFR preset, probes, overlays, and load profile passed to the engine worker. */
+            nfr_config?: {
+                [key: string]: unknown;
+            };
+            /** @description Ad-hoc target auth when not stored on the agent record. */
+            auth_override?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * @description Caller asserts authorization to load-test the target. Required for non-smoke presets and load-bearing segment runs.
+             * @default false
+             */
+            ownership_attested: boolean;
+        };
+        /** @description Acknowledgement from the NFR start endpoint — async work continues under `job_uuid`. */
+        StartNfrVerificationResponse: {
+            /**
+             * Format: uuid
+             * @description Orchestration job to poll via `GET /v1/jobs/{job_uuid}`.
+             */
+            job_uuid?: string;
+            /**
+             * Format: uuid
+             * @description NFR verification run id.
+             */
+            simulation_uuid?: string;
+            /**
+             * @description Engine acknowledgement status (e.g. `dispatched`).
+             * @example dispatched
+             */
+            status?: string;
+            /** @description Human-readable detail from the engine. */
+            message?: string;
+        };
+        /** @description Start or check DNS-TXT domain ownership for an agent load-test target. The gateway injects `organization_uuid`, `workspace_uuid`, and `user_uuid` on proxied POST bodies, so clients may omit tenant fields. */
+        NfrDomainVerifyRequest: {
+            /**
+             * Format: uuid
+             * @description Injected by the gateway on proxied requests.
+             */
+            organization_uuid?: string;
+            /**
+             * Format: uuid
+             * @description Injected by the gateway on proxied requests.
+             */
+            workspace_uuid?: string;
+            /**
+             * Format: uuid
+             * @description Injected by the gateway on proxied requests.
+             */
+            user_uuid?: string;
+            /**
+             * Format: uuid
+             * @description Agent whose `agent_url` host is being verified.
+             */
+            agent_uuid: string;
+        };
+        /** @description DNS-TXT challenge details and verification status for an agent host. */
+        NfrDomainVerifyResponse: {
+            /** @description Host derived from the agent URL (without scheme or path). */
+            hostname?: string;
+            /** @description DNS TXT record name to publish (typically `_vax-verify.<hostname>`). */
+            txt_record_name?: string;
+            /** @description Challenge token value to publish in the TXT record. */
+            txt_record_value?: string;
+            /**
+             * @description `pending` until the TXT record resolves, then `verified`.
+             * @example pending
+             */
+            status?: string;
+            /** Format: date-time */
+            verified_at?: string | null;
+            /** @description Operator-facing steps to publish the TXT record and re-check. */
+            instructions?: string;
+        };
+        /** @description NFR report payload returned when artifacts are available. */
+        NfrVerificationResultResponse: {
+            /** Format: uuid */
+            simulation_uuid?: string;
+            /** @description Simulation row status (e.g. `COMPLETED`, `IN_PROGRESS`, `FAILED`). */
+            status?: string;
+            simulation_outcome?: string | null;
+            simulation_reason?: string | null;
+            /** @description Primary `verifyax_report.json` payload when present. */
+            report?: {
+                [key: string]: unknown;
+            } | null;
+            partial_report?: {
+                [key: string]: unknown;
+            } | null;
+            smoke_report?: {
+                [key: string]: unknown;
+            } | null;
+            capacity_report?: {
+                [key: string]: unknown;
+            } | null;
+            artifact_paths?: {
+                [key: string]: string;
+            } | null;
+        };
+        /** @description Live activity snapshot for an in-flight NFR verification run. */
+        NfrRunActivityResponse: {
+            /** Format: uuid */
+            simulation_uuid?: string;
+            /** @description Simulation row status (e.g. `IN_PROGRESS`, `COMPLETED`). */
+            status?: string;
+            queue_position?: number | null;
+            /** Format: uuid */
+            job_uuid?: string | null;
+            celery_task_id?: string | null;
+            celery_state?: string | null;
+            /** @description Current engine phase when the worker is active. */
+            phase?: string | null;
+            heartbeat_mtime?: number | null;
+            phase_age_s?: number | null;
+            heartbeat_alive?: boolean;
+            heartbeat_last_seen?: number | null;
+            /** Format: date-time */
+            heartbeat_last_seen_iso?: string | null;
+            recent_events?: {
+                [key: string]: unknown;
+            }[];
+            simulation_outcome?: string | null;
+        };
         /** @description Workspace credit preview. The gateway injects `organization_uuid`, `workspace_uuid`, and `user_uuid` on proxied POST bodies, so clients may omit tenant fields entirely. Upstream validation: `scenario_run` requires `scenario_uuid` and `num_runs`; `scenario_generation` requires `num_scenarios`. */
         CreditPreviewRequest: {
             /**
@@ -1904,6 +2530,16 @@ export interface components {
              */
             timeout: number;
         };
+        /** @description Body for `POST /v1/agents/tests/api-agent-test-copilot-studio`. Uses the nested `directline` registration object (including `auth_mode`). */
+        TestCopilotStudioAgentRequest: {
+            directline: components["schemas"]["DirectlineAgentParameters"];
+            /** @description End-user Entra token (required for microsoft/manual modes). */
+            user_token?: string | null;
+            /** @default Hello */
+            message: string;
+            /** @default 60 */
+            timeout: number;
+        };
         McpToolInfo: {
             name: string;
             /** @default  */
@@ -1932,7 +2568,7 @@ export interface components {
             transport?: "streamable-http" | "sse" | "auto" | null;
             /**
              * Format: uri
-             * @description Catalogue MCP adapter A2A URL for card/message probes after discovery.
+             * @description Catalogue MCP adapter A2A URL for an agent-card probe after discovery.
              */
             agent_url?: string | null;
             /**
@@ -1944,7 +2580,7 @@ export interface components {
             agent_parameters?: {
                 [key: string]: unknown;
             } | null;
-            /** @description Optional probe message for the adapter A2A message test. */
+            /** @description Ignored. MCP connection tests do not send A2A probe messages. */
             message?: string | null;
         };
         TestMcpConnectionResponse: {
@@ -1977,7 +2613,7 @@ export interface components {
             success: boolean;
             message: string;
             /** @enum {string} */
-            outcome: "testing" | "unreachable" | "profile_not_found" | "wont_reply" | "save_and_retest" | "connected" | "connected_interview_only" | "connected_info_exchange_only" | "practice_run_failed" | "server_error" | "unexpected_error";
+            outcome: "testing" | "unreachable" | "profile_not_found" | "wont_reply" | "save_and_retest" | "connected" | "connected_interview_only" | "connected_info_exchange_only" | "practice_run_failed" | "server_error" | "unexpected_error" | "lifecycle_blocked";
             connection: components["schemas"]["ConnectionTestStepStatus"];
             agent_card: components["schemas"]["ConnectionTestStepStatus"];
             agent_communication: components["schemas"]["ConnectionTestStepStatus"];
@@ -2330,6 +2966,8 @@ export interface components {
         JobUuid: string;
         /** @description UUID of a registered workspace agent. */
         AgentUuid: string;
+        /** @description UUID of a Favorite, as returned by `GET /v1/gold-standards`. */
+        GoldUuid: string;
         /** @description Identifier of a **verification run**. Use the `simulation_uuid` returned when starting a run or listed under `GET /v1/simulations`. */
         SimulationUuid: string;
     };
@@ -2416,6 +3054,60 @@ export interface operations {
             500: components["responses"]["GatewayError"];
         };
     };
+    enrollDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceEnrollRequest"];
+            };
+        };
+        responses: {
+            /** @description Device enrolled */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceEnrollResponse"];
+                };
+            };
+            /** @description Missing body fields, invalid or expired enrollment code, or unsupported public key */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorMessage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Enrollment code belongs to a different organization */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorMessage"];
+                };
+            };
+            /** @description The public key belongs to a revoked device, which is never reactivated. Enroll again with a newly generated key; the one-time code is restored and stays usable. Re-sending a key that is still active is not a conflict — it returns the existing enrollment. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorMessage"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["GatewayError"];
+        };
+    };
     getBillingBalance: {
         parameters: {
             query?: never;
@@ -2484,7 +3176,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -2539,7 +3231,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -2558,7 +3250,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             429: components["responses"]["TooManyRequests"];
@@ -2582,8 +3274,7 @@ export interface operations {
                  *       "name": "Product Return Flow",
                  *       "scenario_type": "interview",
                  *       "tags": [
-                 *         "anger_deescalation",
-                 *         "empathy"
+                 *         "anger_deescalation"
                  *       ],
                  *       "context_prompt": "Customer wants to return a damaged item bought 2 weeks ago"
                  *     }
@@ -2619,7 +3310,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Name already exists in workspace */
@@ -2628,7 +3319,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Request body failed Pydantic validation (tag caps, batch rules, etc.) */
@@ -2637,7 +3328,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             429: components["responses"]["TooManyRequests"];
@@ -2648,7 +3339,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
         };
@@ -2698,11 +3389,192 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["GatewayError"];
+        };
+    };
+    recommendScenarioTags: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional trace identifier forwarded to upstream. */
+                "X-Request-ID"?: components["parameters"]["XRequestId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "scenario_type": "interview",
+                 *       "context_prompt": "Customer wants to return a damaged item bought 2 weeks ago",
+                 *       "agent_uuid": "00000000-0000-0000-0000-000000000002"
+                 *     }
+                 */
+                "application/json": components["schemas"]["TagRecommendationPublicRequest"];
+            };
+        };
+        responses: {
+            /** @description Recommended skill tags (Workbench Suggested column parity) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example [
+                     *       {
+                     *         "name": "human_npc",
+                     *         "category": "structure",
+                     *         "description": "Multi-agent human NPC scenario structure.",
+                     *         "benchmark_family": null,
+                     *         "allowed_scenario_types": [
+                     *           "info_exchange",
+                     *           "interview"
+                     *         ],
+                     *         "custom": false
+                     *       },
+                     *       {
+                     *         "name": "skepticism_handling",
+                     *         "category": "social",
+                     *         "description": "Handle skeptical interlocutors.",
+                     *         "benchmark_family": null,
+                     *         "allowed_scenario_types": [
+                     *           "info_exchange",
+                     *           "interview"
+                     *         ],
+                     *         "custom": false
+                     *       }
+                     *     ]
+                     */
+                    "application/json": components["schemas"]["SkillTag"][];
+                };
+            };
+            /** @description Missing context/agent, invalid scenario_type, or other client error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Agent not found or not in workspace */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request body failed validation */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["GatewayError"];
+            /** @description Recommender dependency unavailable (for example Redis or embeddings) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Recommender exceeded server timeout */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    searchScenarioTags: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional trace identifier forwarded to upstream. */
+                "X-Request-ID"?: components["parameters"]["XRequestId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "scenario_type": "info_exchange",
+                 *       "query": "de-escalate angry customer",
+                 *       "limit": 20
+                 *     }
+                 */
+                "application/json": components["schemas"]["TagSearchPublicRequest"];
+            };
+        };
+        responses: {
+            /** @description Ranked skill tag names */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagSearchPublicResponse"];
+                };
+            };
+            /** @description Query too short or invalid scenario_type */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Request body failed validation */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["GatewayError"];
+            /** @description Search dependency unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Search exceeded server timeout */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     getScenario: {
@@ -2736,7 +3608,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Scenario not found */
@@ -2745,7 +3617,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             429: components["responses"]["TooManyRequests"];
@@ -2781,7 +3653,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Scenario not found */
@@ -2790,7 +3662,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Scenario still has non-deleted simulation runs */
@@ -2799,7 +3671,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             429: components["responses"]["TooManyRequests"];
@@ -2847,7 +3719,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Scenario not found */
@@ -2856,7 +3728,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             429: components["responses"]["TooManyRequests"];
@@ -2900,7 +3772,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -2910,7 +3782,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Scenario not found */
@@ -2919,7 +3791,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Name conflict in workspace */
@@ -2928,7 +3800,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             429: components["responses"]["TooManyRequests"];
@@ -2969,7 +3841,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Scenario not found, or source scenario.json missing in storage */
@@ -2978,7 +3850,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Name conflict in workspace */
@@ -2987,7 +3859,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             429: components["responses"]["TooManyRequests"];
@@ -3025,7 +3897,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Scenario not found */
@@ -3034,7 +3906,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             429: components["responses"]["TooManyRequests"];
@@ -3074,7 +3946,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description definition_bucket_path unset or JSON file missing in storage */
@@ -3083,7 +3955,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             429: components["responses"]["TooManyRequests"];
@@ -3147,7 +4019,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             429: components["responses"]["TooManyRequests"];
@@ -3304,7 +4176,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             429: components["responses"]["TooManyRequests"];
@@ -3594,7 +4466,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -3661,6 +4533,28 @@ export interface operations {
             500: components["responses"]["GatewayError"];
         };
     };
+    testCopilotStudioAgent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional trace identifier forwarded to upstream. */
+                "X-Request-ID"?: components["parameters"]["XRequestId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestCopilotStudioAgentRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ProxySuccess"];
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["GatewayError"];
+        };
+    };
     testMcpConnection: {
         parameters: {
             query?: never;
@@ -3685,7 +4579,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description MCP discovery and optional adapter probe result */
+            /** @description MCP discovery and optional adapter agent-card result */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3700,7 +4594,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -3859,6 +4753,338 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["GatewayError"];
+        };
+    };
+    startNfrVerification: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional trace identifier forwarded to upstream. */
+                "X-Request-ID"?: components["parameters"]["XRequestId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "agent_uuid": "00000000-0000-0000-0000-000000000002",
+                 *       "ownership_attested": true,
+                 *       "nfr_config": {
+                 *         "preset": "smoke",
+                 *         "load": {
+                 *           "users": 1,
+                 *           "spawn_rate": 1,
+                 *           "run_time_sec": 60
+                 *         }
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["StartNfrVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description NFR verification dispatched */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "job_uuid": "11111111-1111-1111-1111-111111111111",
+                     *       "simulation_uuid": "22222222-2222-2222-2222-222222222222",
+                     *       "status": "dispatched",
+                     *       "message": "NFR verification task dispatched successfully"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["StartNfrVerificationResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["GatewayError"];
+        };
+    };
+    startNfrDomainVerification: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional trace identifier forwarded to upstream. */
+                "X-Request-ID"?: components["parameters"]["XRequestId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "agent_uuid": "00000000-0000-0000-0000-000000000002"
+                 *     }
+                 */
+                "application/json": components["schemas"]["NfrDomainVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description DNS-TXT challenge issued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NfrDomainVerifyResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Agent not found or agent_url host could not be resolved */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorMessage"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["GatewayError"];
+        };
+    };
+    checkNfrDomainVerification: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional trace identifier forwarded to upstream. */
+                "X-Request-ID"?: components["parameters"]["XRequestId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "agent_uuid": "00000000-0000-0000-0000-000000000002"
+                 *     }
+                 */
+                "application/json": components["schemas"]["NfrDomainVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Challenge status (pending or verified) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NfrDomainVerifyResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description No challenge issued yet or agent not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorMessage"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["GatewayError"];
+        };
+    };
+    getNfrPipelineStatus: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional trace identifier forwarded to upstream. */
+                "X-Request-ID"?: components["parameters"]["XRequestId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description NFR pipeline status snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        health?: string;
+                        health_reason?: string | null;
+                        workers_alive?: boolean;
+                        evaluator_alive?: boolean;
+                        queue_depth?: number;
+                        dispatch_paused?: boolean;
+                        active_runs?: Record<string, never>[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["GatewayError"];
+        };
+    };
+    getNfrVerificationResult: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional trace identifier forwarded to upstream. */
+                "X-Request-ID"?: components["parameters"]["XRequestId"];
+            };
+            path: {
+                simulation_uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description NFR report payload */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NfrVerificationResultResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Simulation or report artifacts not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorMessage"];
+                };
+            };
+            /** @description NFR verification is still in progress */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorMessage"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["GatewayError"];
+        };
+    };
+    getNfrRunActivity: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional trace identifier forwarded to upstream. */
+                "X-Request-ID"?: components["parameters"]["XRequestId"];
+            };
+            path: {
+                simulation_uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Live run activity snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NfrRunActivityResponse"];
+                };
+            };
+            /** @description Simulation is not an NFR verification run */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorMessage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Simulation does not belong to the authenticated workspace */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorMessage"];
+                };
+            };
+            /** @description Simulation not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorMessage"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["GatewayError"];
+        };
+    };
+    downloadNfrArtifact: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional trace identifier forwarded to upstream. */
+                "X-Request-ID"?: components["parameters"]["XRequestId"];
+            };
+            path: {
+                simulation_uuid: string;
+                /** @description NFR artifact basename (no path segments). */
+                filename: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Artifact file contents */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Invalid or unsupported artifact filename */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorMessage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Simulation does not belong to the authenticated workspace */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorMessage"];
+                };
+            };
+            /** @description Simulation or artifact not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorMessage"];
+                };
+            };
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["GatewayError"];
         };
@@ -4537,7 +5763,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Validation error (payload, tag name, or QnA content) */
@@ -4546,7 +5772,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorMessage"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             429: components["responses"]["TooManyRequests"];
@@ -4613,6 +5839,182 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["GatewayError"];
+        };
+    };
+    listGoldStandards: {
+        parameters: {
+            query?: {
+                /** @description Restrict verification runs or lists to this registered workspace agent UUID. */
+                agent_uuid?: components["parameters"]["AgentUuidQueryOptional"];
+                /** @description Compute each Favorite's capability band. Off by default because it reads one stored evaluation per matching run. */
+                include_band?: boolean;
+                /**
+                 * @description Maximum number of records to return (pagination page size).
+                 * @example 20
+                 */
+                limit?: components["parameters"]["Limit"];
+                /**
+                 * @description Number of records to skip from the beginning of the sorted result set.
+                 * @example 0
+                 */
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: {
+                /** @description Optional trace identifier forwarded to upstream. */
+                "X-Request-ID"?: components["parameters"]["XRequestId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Favorites */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoldStandardsListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description limit or offset outside the allowed range */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["GatewayError"];
+        };
+    };
+    createGoldStandard: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional trace identifier forwarded to upstream. */
+                "X-Request-ID"?: components["parameters"]["XRequestId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoldStandardCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Favorite */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoldStandardResponse"];
+                };
+            };
+            /** @description Run group not found, or not usable as a baseline */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description This run is already pinned as a Favorite */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request body failed validation */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["GatewayError"];
+        };
+    };
+    updateGoldStandard: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional trace identifier forwarded to upstream. */
+                "X-Request-ID"?: components["parameters"]["XRequestId"];
+            };
+            path: {
+                /** @description UUID of a Favorite, as returned by `GET /v1/gold-standards`. */
+                gold_uuid: components["parameters"]["GoldUuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoldStandardUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Favorite */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoldStandardResponse"];
+                };
+            };
+            /** @description New run group not found, or it changes the Favorite between a single run and a batch */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Favorite not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description The target run is already pinned as a Favorite */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request body failed validation */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["GatewayError"];
         };

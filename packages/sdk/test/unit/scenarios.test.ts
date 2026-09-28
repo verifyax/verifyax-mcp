@@ -95,4 +95,61 @@ describe('scenarios', () => {
 
     expect(job.current_status).toBe('COMPLETED');
   });
+
+  it('recommends tags and returns a bare tag array', async () => {
+    let received: unknown;
+    server.use(
+      http.post(`${API_BASE}/scenarios/tag-recommendation`, async ({ request }) => {
+        received = await request.json();
+        return HttpResponse.json([
+          { name: 'empathy', category: 'social', allowed_scenario_types: ['interview'] },
+        ]);
+      })
+    );
+
+    const tags = await makeClient().scenarios.recommendTags({
+      scenario_type: 'interview',
+      context_prompt: 'returns desk',
+    });
+
+    expect(received).toMatchObject({
+      scenario_type: 'interview',
+      context_prompt: 'returns desk',
+    });
+    expect(tags).toHaveLength(1);
+    expect(tags[0]?.name).toBe('empathy');
+  });
+
+  it('surfaces 400 on tag recommendation', async () => {
+    server.use(
+      http.post(`${API_BASE}/scenarios/tag-recommendation`, () =>
+        HttpResponse.json({ message: 'context_prompt or agent_uuid required' }, { status: 400 })
+      )
+    );
+
+    await expect(
+      makeClient().scenarios.recommendTags({ scenario_type: 'interview' })
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('searches tags and unwraps the gateway envelope', async () => {
+    server.use(
+      http.post(`${API_BASE}/scenarios/tag-search`, async ({ request }) => {
+        const body = await request.json();
+        expect(body).toMatchObject({ scenario_type: 'info_exchange', query: 'de-escalate' });
+        return HttpResponse.json({
+          success: true,
+          data: { skill_tags: ['anger_deescalation', 'empathy'] },
+        });
+      })
+    );
+
+    const names = await makeClient().scenarios.searchTags({
+      scenario_type: 'info_exchange',
+      query: 'de-escalate',
+      limit: 10,
+    });
+
+    expect(names).toEqual(['anger_deescalation', 'empathy']);
+  });
 });

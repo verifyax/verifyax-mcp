@@ -261,7 +261,7 @@ Someone unfamiliar with the project can find the docs, install the MCP server, c
 Track requests and ideas here, in priority order:
 
 1. **Remote hosting.** Operate the MCP server as a hosted service users can add by URL. Requires deployment infra, multi-tenant token storage, observability.
-2. **OAuth authentication.** Replace API-key paste with browser-based authorization. Requires implementing an OAuth server on VerifyAX.
+2. **OAuth authentication.** Replace API-key paste with browser-based authorization. Architecture: [`docs/oauth-architecture.md`](./oauth-architecture.md) (auth proxy + unchanged gateway API keys).
 3. **Python SDK.** For customers who don't want a Node dependency.
 4. **Tools for power users.** Raw job-status access, scenario artifact editing, usage drill-down.
 5. **Streaming tool outputs.** For long-running evals, stream progress to Claude as the work progresses.

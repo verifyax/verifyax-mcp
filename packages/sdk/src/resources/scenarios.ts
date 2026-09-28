@@ -6,6 +6,10 @@ import type {
   Job,
   ListScenariosParams,
   Scenario,
+  Tag,
+  TagRecommendationPublicRequest,
+  TagSearchPublicRequest,
+  TagSearchPublicResponse,
   UpdateScenarioRequest,
 } from '../types.js';
 
@@ -18,12 +22,34 @@ export class ScenariosResource {
 
   /**
    * Start scenario generation (async). Returns the new scenario `uuid` and the
-   * `job_uuid` to poll. Tag-count is validated here; tag existence and
-   * scenario-type compatibility are validated later by the worker, so the job
-   * can still end FAILED — poll it before running simulations.
+   * `job_uuid` to poll. Tag count (422), existence, and scenario-type compatibility
+   * (400) are validated synchronously before a job is queued. Interview allows at
+   * most one tag; info_exchange allows at most five. Poll the job for other
+   * `scenario_creation` failures after a 201 response.
    */
   async generate(body: GenerateScenarioRequest): Promise<GenerateScenarioResponse> {
     return this.client.request<GenerateScenarioResponse>('POST', '/scenarios/generate', { body });
+  }
+
+  /**
+   * Recommend skill tags (Workbench pipeline: embeddings + LLM, cap ~20). Returns a
+   * bare array of tag objects in recommendation order. At least one of
+   * `context_prompt` or `agent_uuid` is required.
+   */
+  async recommendTags(body: TagRecommendationPublicRequest): Promise<Tag[]> {
+    return this.client.request<Tag[]>('POST', '/scenarios/tag-recommendation', { body });
+  }
+
+  /**
+   * Search skill tags by embedding similarity (no LLM). Returns ranked tag names only.
+   */
+  async searchTags(body: TagSearchPublicRequest): Promise<string[]> {
+    const envelope = await this.client.request<TagSearchPublicResponse>(
+      'POST',
+      '/scenarios/tag-search',
+      { body }
+    );
+    return envelope.data.skill_tags;
   }
 
   /** Generate an interview scenario from an inline Q&A set (async; poll the job). */

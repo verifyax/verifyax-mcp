@@ -51,6 +51,12 @@ tags:
       `scenario_type` before calling generate.
   - name: Client Tags
     description: Register organization-specific QnA skill tags for interview scenarios.
+  - name: Gold Standards
+    description: >
+      Favorites: a pinned run group that later runs are compared against. `PATCH` moves a Favorite
+      to a newer run without resetting `pinned_at`, so the capability baseline survives a repin.
+  - name: Devices
+    description: Enroll client device signing keys so installers can sign artifact uploads.
 security:
   - BearerApiKeyAuth: []
 paths:
@@ -127,6 +133,59 @@ paths:
         "500":
           $ref: "#/components/responses/GatewayError"
 
+  /v1/devices/enroll:
+    post:
+      tags: [Devices]
+      summary: Enroll a signing device
+      description: >
+        Registers a client device's public signing key so the device can sign artifact uploads.
+        The installer authenticates with its workspace API key and presents a one-time
+        `enrollmentCode` minted from a logged-in Workbench session. The gateway verifies the code,
+        cross-checks that it belongs to the API key's organization, derives the RFC 7638 JWK
+        thumbprint (`jkt`) and signature algorithm, then registers the device. Only OKP (Ed25519,
+        `EdDSA`) and EC (P-256, `ES256`) public keys are accepted.
+      operationId: enrollDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceEnrollRequest"
+      responses:
+        "201":
+          description: Device enrolled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceEnrollResponse"
+        "400":
+          description: Missing body fields, invalid or expired enrollment code, or unsupported public key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Enrollment code belongs to a different organization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "409":
+          description: >
+            The public key belongs to a revoked device, which is never reactivated. Enroll again
+            with a newly generated key; the one-time code is restored and stays usable. Re-sending
+            a key that is still active is not a conflict — it returns the existing enrollment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
   /v1/billing/balance:
     get:
       tags: [Billing]
@@ -177,7 +236,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "429":
@@ -231,7 +290,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -245,7 +304,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -274,7 +333,7 @@ paths:
             example:
               name: Product Return Flow
               scenario_type: interview
-              tags: [anger_deescalation, empathy]
+              tags: [anger_deescalation]
               context_prompt: Customer wants to return a damaged item bought 2 weeks ago
       responses:
         "201":
@@ -298,19 +357,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "409":
           description: Name already exists in workspace
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "422":
           description: Request body failed Pydantic validation (tag caps, batch rules, etc.)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -320,7 +379,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
 
   /v1/scenarios/generate-from-qna:
     post:
@@ -360,9 +419,150 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "429":
           $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/scenarios/tag-recommendation:
+    post:
+      tags: [Scenarios]
+      summary: Recommend scenario skill tags
+      description: >
+        Suggests skill tags using the same pipeline as the Workbench Scenario Generator: verifyax
+        embeddings + LLM recommendation, then gateway merge with lexical tag ranking (cap 20).
+        Provide `context_prompt` and/or `agent_uuid` (at least one). The gateway injects tenant
+        UUIDs from the API key. Response is a **bare JSON array** of skill tag objects — the same
+        shape as `GET /v1/tags`, in recommendation order (not `{ success, data }`).
+      operationId: recommendScenarioTags
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagRecommendationPublicRequest"
+            example:
+              scenario_type: interview
+              context_prompt: Customer wants to return a damaged item bought 2 weeks ago
+              agent_uuid: 00000000-0000-0000-0000-000000000002
+      responses:
+        "200":
+          description: Recommended skill tags (Workbench Suggested column parity)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SkillTag"
+              example:
+                - name: human_npc
+                  category: structure
+                  description: Multi-agent human NPC scenario structure.
+                  benchmark_family: null
+                  allowed_scenario_types: [info_exchange, interview]
+                  custom: false
+                - name: skepticism_handling
+                  category: social
+                  description: Handle skeptical interlocutors.
+                  benchmark_family: null
+                  allowed_scenario_types: [info_exchange, interview]
+                  custom: false
+        "400":
+          description: Missing context/agent, invalid scenario_type, or other client error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Agent not found or not in workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "422":
+          description: Request body failed validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          description: Recommender dependency unavailable (for example Redis or embeddings)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "504":
+          description: Recommender exceeded server timeout
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/scenarios/tag-search:
+    post:
+      tags: [Scenarios]
+      summary: Search skill tags by embedding similarity
+      description: >
+        Returns skill tags from the global catalogue ranked by cosine similarity to a natural-language
+        query (no LLM). The gateway injects tenant UUIDs from the API key. A dedicated per-user tag
+        search rate limit applies in addition to the workspace public API limit.
+      operationId: searchScenarioTags
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagSearchPublicRequest"
+            example:
+              scenario_type: info_exchange
+              query: de-escalate angry customer
+              limit: 20
+      responses:
+        "200":
+          description: Ranked skill tag names
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagSearchPublicResponse"
+        "400":
+          description: Query too short or invalid scenario_type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: Request body failed validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          description: Search dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "504":
+          description: Search exceeded server timeout
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
         "500":
           $ref: "#/components/responses/GatewayError"
 
@@ -391,13 +591,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "404":
           description: Scenario not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -433,13 +633,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "404":
           description: Scenario not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -464,19 +664,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "404":
           description: Scenario not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "409":
           description: Scenario still has non-deleted simulation runs
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -511,7 +711,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -519,19 +719,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "404":
           description: Scenario not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "409":
           description: Name conflict in workspace
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -564,19 +764,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "404":
           description: Scenario not found, or source scenario.json missing in storage
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "409":
           description: Name conflict in workspace
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -607,13 +807,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "404":
           description: Scenario not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -645,13 +845,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "404":
           description: definition_bucket_path unset or JSON file missing in storage
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -703,7 +903,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -830,7 +1030,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -1106,7 +1306,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "429":
@@ -1177,14 +1377,42 @@ paths:
         "500":
           $ref: "#/components/responses/GatewayError"
 
+  /v1/agents/tests/api-agent-test-copilot-studio:
+    post:
+      tags: [Agents]
+      summary: Test Copilot Studio agent (all auth modes)
+      description: >
+        Probes a Copilot Studio agent using the nested `directline` registration shape.
+        Supports `auth_mode` `secret`, `microsoft` (Entra OBO), and `manual` (custom OAuth).
+        Microsoft and manual modes require `user_token` (end-user Entra access token).
+      operationId: testCopilotStudioAgent
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestCopilotStudioAgentRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/ProxySuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
   /v1/agents/tests/mcp-connection:
     post:
       tags: [Agents]
       summary: Test MCP server connection
       description: >
-        Discovers tools on a remote MCP server and optionally probes the catalogue MCP adapter
-        when `agent_url` and registry context are present. Tenant UUIDs are injected from the
-        API key. Use before or after registering an agent with `agent_type: MCP`.
+        Discovers tools on a remote MCP server and, when `agent_url` is set, fetches the
+        catalogue MCP adapter agent card. Does not send A2A probe messages or run mini
+        scenarios. Tenant UUIDs are injected from the API key. Use before or after
+        registering an agent with `agent_type: MCP`.
       operationId: testMcpConnection
       parameters:
         - $ref: "#/components/parameters/XRequestId"
@@ -1201,7 +1429,7 @@ paths:
               agent_url: https://mcp-adapter.example.run.app
       responses:
         "200":
-          description: MCP discovery and optional adapter probe result
+          description: MCP discovery and optional adapter agent-card result
           content:
             application/json:
               schema:
@@ -1211,7 +1439,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "429":
@@ -1371,6 +1599,324 @@ paths:
                 $ref: "#/components/schemas/TriggerEvaluationResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/engine/verify/nfr:
+    post:
+      tags: [Engine]
+      summary: Start NFR verification
+      description: >
+        Dispatch an async non-functional verification run against a registered agent URL.
+        Poll orchestration status via `GET /v1/jobs/{job_uuid}`; fetch report JSON via
+        `GET /v1/engine/verify/nfr/{simulation_uuid}`. The gateway injects
+        `organization_uuid`, `workspace_uuid`, and `user_uuid` from the API key.
+      operationId: startNfrVerification
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartNfrVerificationRequest"
+            example:
+              agent_uuid: 00000000-0000-0000-0000-000000000002
+              ownership_attested: true
+              nfr_config:
+                preset: smoke
+                load:
+                  users: 1
+                  spawn_rate: 1
+                  run_time_sec: 60
+      responses:
+        "200":
+          description: NFR verification dispatched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartNfrVerificationResponse"
+              example:
+                job_uuid: 11111111-1111-1111-1111-111111111111
+                simulation_uuid: 22222222-2222-2222-2222-222222222222
+                status: dispatched
+                message: NFR verification task dispatched successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/engine/verify/nfr/domain/start:
+    post:
+      tags: [Engine]
+      summary: Start NFR domain ownership verification
+      description: >
+        Issue or rotate a DNS-TXT ownership challenge for the host derived from a
+        registered agent's `agent_url`. Publish the returned TXT record, then poll
+        verification via `POST /v1/engine/verify/nfr/domain/check`. The gateway
+        injects `organization_uuid`, `workspace_uuid`, and `user_uuid` from the
+        API key.
+      operationId: startNfrDomainVerification
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NfrDomainVerifyRequest"
+            example:
+              agent_uuid: 00000000-0000-0000-0000-000000000002
+      responses:
+        "200":
+          description: DNS-TXT challenge issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NfrDomainVerifyResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Agent not found or agent_url host could not be resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/engine/verify/nfr/domain/check:
+    post:
+      tags: [Engine]
+      summary: Check NFR domain ownership verification
+      description: >
+        Resolve the DNS-TXT challenge for the host derived from a registered agent's
+        `agent_url` and mark it verified when the record is present. The gateway
+        injects `organization_uuid`, `workspace_uuid`, and `user_uuid` from the
+        API key.
+      operationId: checkNfrDomainVerification
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NfrDomainVerifyRequest"
+            example:
+              agent_uuid: 00000000-0000-0000-0000-000000000002
+      responses:
+        "200":
+          description: Challenge status (pending or verified)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NfrDomainVerifyResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No challenge issued yet or agent not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/engine/verify/nfr/pipeline-status:
+    get:
+      tags: [Engine]
+      summary: Get NFR pipeline health
+      description: >
+        Returns NFR pipeline health for the run page: infra liveness (workers,
+        evaluator), queue depth, dispatch state, and this workspace's in-flight
+        runs. `workspace_uuid` is injected from the API key on proxied requests.
+      operationId: getNfrPipelineStatus
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      responses:
+        "200":
+          description: NFR pipeline status snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  health:
+                    type: string
+                  health_reason:
+                    type: string
+                    nullable: true
+                  workers_alive:
+                    type: boolean
+                  evaluator_alive:
+                    type: boolean
+                  queue_depth:
+                    type: integer
+                  dispatch_paused:
+                    type: boolean
+                  active_runs:
+                    type: array
+                    items:
+                      type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/engine/verify/nfr/{simulation_uuid}:
+    get:
+      tags: [Engine]
+      summary: Get NFR verification report
+      description: >
+        Returns NFR report JSON for a completed or in-progress verification run.
+        `workspace_uuid` is injected from the API key on proxied requests.
+      operationId: getNfrVerificationResult
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - name: simulation_uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: NFR report payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NfrVerificationResultResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Simulation or report artifacts not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "409":
+          description: NFR verification is still in progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/engine/verify/nfr/{simulation_uuid}/activity:
+    get:
+      tags: [Engine]
+      summary: Get live NFR run activity
+      description: >
+        Returns heartbeat, worker phase, and recent event summaries for an in-flight
+        NFR verification run. Use while polling `GET /v1/jobs/{job_uuid}` during
+        execution. `workspace_uuid` is injected from the API key on proxied requests.
+      operationId: getNfrRunActivity
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - name: simulation_uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Live run activity snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NfrRunActivityResponse"
+        "400":
+          description: Simulation is not an NFR verification run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Simulation does not belong to the authenticated workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "404":
+          description: Simulation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/engine/verify/nfr/{simulation_uuid}/artifacts/{filename}:
+    get:
+      tags: [Engine]
+      summary: Download NFR run artifact
+      description: >
+        Downloads a persisted NFR artifact for a verification run (for example
+        `verifyax_report.json`, `verifyax_partial.json`, or `verifyax_events.jsonl`).
+        `workspace_uuid` is injected from the API key on proxied requests.
+      operationId: downloadNfrArtifact
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - name: simulation_uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: filename
+          in: path
+          required: true
+          description: NFR artifact basename (no path segments).
+          schema:
+            type: string
+            example: verifyax_report.json
+      responses:
+        "200":
+          description: Artifact file contents
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Invalid or unsupported artifact filename
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Simulation does not belong to the authenticated workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "404":
+          description: Simulation or artifact not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -1926,13 +2472,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "422":
           description: Validation error (payload, tag name, or QnA content)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorMessage"
+                $ref: "#/components/schemas/ApiErrorResponse"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -1984,6 +2530,154 @@ paths:
                     type: string
                   statusCode:
                     type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/gold-standards:
+    get:
+      tags: [Gold Standards]
+      summary: List Favorites
+      description: Lists the workspace's pinned baselines, newest first. Filter by agent to find the Favorite a run should be compared against.
+      operationId: listGoldStandards
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/AgentUuidQueryOptional"
+        - name: include_band
+          in: query
+          description: Compute each Favorite's capability band. Off by default because it reads one stored evaluation per matching run.
+          schema:
+            type: boolean
+            default: false
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Favorites
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoldStandardsListResponse"
+        "422":
+          description: limit or offset outside the allowed range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+    post:
+      tags: [Gold Standards]
+      summary: Pin a run group as a Favorite
+      description: Pins a completed run group as the baseline for its agent. The run group must be evaluated; its scenarios and agent are read from its members.
+      operationId: createGoldStandard
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoldStandardCreateRequest"
+            examples:
+              batch:
+                summary: Pin a whole run group
+                value:
+                  run_group_uuid: 2c74f6f2-db58-4b2c-9ac0-a9c3d4b86e50
+                  label: Nightly baseline
+      responses:
+        "201":
+          description: Favorite
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoldStandardResponse"
+        "400":
+          description: Run group not found, or not usable as a baseline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "409":
+          description: This run is already pinned as a Favorite
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "422":
+          description: Request body failed validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/GatewayError"
+
+  /v1/gold-standards/{gold_uuid}:
+    patch:
+      tags: [Gold Standards]
+      summary: Move a Favorite to a newer run
+      description: >
+        Repoints an existing Favorite at a newer run group, or renames it. `pinned_at` is not
+        updatable: it is the window deciding which later runs belong to the baseline, so replacing
+        the pin must not discard the runs collected since the Favorite was saved.
+      operationId: updateGoldStandard
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/GoldUuid"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoldStandardUpdateRequest"
+            examples:
+              repin:
+                summary: Point the Favorite at last night's run
+                value:
+                  run_group_uuid: b4b58c09-fce5-48f4-9707-5eeccae786d3
+      responses:
+        "200":
+          description: Favorite
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoldStandardResponse"
+        "400":
+          description: New run group not found, or it changes the Favorite between a single run and a batch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "404":
+          description: Favorite not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "409":
+          description: The target run is already pinned as a Favorite
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "422":
+          description: Request body failed validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "429":
@@ -2294,6 +2988,14 @@ components:
       schema:
         type: string
         format: uuid
+    GoldUuid:
+      name: gold_uuid
+      in: path
+      required: true
+      description: UUID of a Favorite, as returned by `GET /v1/gold-standards`.
+      schema:
+        type: string
+        format: uuid
     SimulationUuid:
       name: simulation_uuid
       in: path
@@ -2352,7 +3054,9 @@ components:
   schemas:
     ErrorMessage:
       type: object
-      description: Generic JSON error envelope from the gateway or upstream when `message` is used.
+      description: >
+        Gateway-generated JSON error. Always includes `message`. Some gateway routes also
+        include `error` or `success`. verifyax-api rejections use ApiErrorResponse instead.
       properties:
         message:
           type: string
@@ -2475,6 +3179,49 @@ components:
           format: date-time
           description: Creation timestamp.
 
+    DeviceEnrollRequest:
+      type: object
+      description: Body for `POST /v1/devices/enroll`. Organization, workspace, and user context are derived from the API key and the enrollment code, not the body.
+      required: [publicKey, enrollmentCode]
+      properties:
+        publicKey:
+          description: >
+            Device public key as a JWK, supplied as either a JSON object or a JSON string. Must be an OKP Ed25519 key or an EC P-256 key; anything else is rejected. Only the canonical key form and its thumbprint are stored.
+          oneOf:
+            - type: object
+            - type: string
+        enrollmentCode:
+          type: string
+          description: One-time enrollment code minted from a logged-in Workbench session.
+        label:
+          type: string
+          description: Optional human-readable device label.
+
+    DeviceEnrollResponse:
+      type: object
+      description: Envelope returned after a device signing key is enrolled.
+      properties:
+        success:
+          type: boolean
+          description: True when the device was registered.
+        device:
+          type: object
+          properties:
+            id:
+              type: string
+              description: Device identifier.
+            jkt:
+              type: string
+              description: RFC 7638 JWK SHA-256 thumbprint (base64url); the stable device fingerprint.
+            alg:
+              type: string
+              enum: [EdDSA, ES256]
+              description: Signature algorithm derived from the key type.
+            expiresAt:
+              type: string
+              format: date-time
+              description: ISO 8601 timestamp when the enrollment expires.
+
     ScenarioCreateRequest:
       type: object
       description: >
@@ -2540,6 +3287,126 @@ components:
           type: boolean
           default: false
 
+    TagRecommendationPublicRequest:
+      type: object
+      required: [scenario_type]
+      description: >
+        Body for `POST /v1/scenarios/tag-recommendation`. At least one of `context_prompt` or
+        `agent_uuid` is required. Tenant UUIDs are injected by the gateway from the API key.
+      properties:
+        scenario_type:
+          type: string
+          enum: [info_exchange, interview]
+          description: Scenario dialogue kind used to filter eligible skill tags.
+        context_prompt:
+          type: string
+          nullable: true
+          description: Optional scenario context (same meaning as scenario `context_prompt`).
+        agent_uuid:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional workspace agent UUID; A2A agents may trigger a live agent-card fetch.
+
+    TagRecommendationAnnotation:
+      type: object
+      required: [reasons, use_count]
+      properties:
+        reasons:
+          type: array
+          items:
+            type: string
+            enum: [underutilized, problematic]
+          description: History-based reasons this tag was prioritized.
+        use_count:
+          type: integer
+          description: Prior simulations for this agent that included the tag.
+        avg_grade:
+          type: number
+          nullable: true
+          description: Mean of recent evaluation grades (1–5) when available.
+
+    TagRecommendationData:
+      type: object
+      required:
+        - skill_tags
+        - recommended_scenario_type
+        - scenario_type_reasoning
+        - skill_tags_reasoning
+      properties:
+        skill_tags:
+          type: array
+          items:
+            type: string
+          description: Skill tags allowed for the selected scenario_type.
+        recommended_scenario_type:
+          type: string
+          description: Suggested scenario type (may match or refine the request).
+        scenario_type_reasoning:
+          type: string
+        skill_tags_reasoning:
+          type: string
+        tag_annotations:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/TagRecommendationAnnotation"
+          nullable: true
+          description: Optional per-tag history annotations for recommended tags.
+        warnings:
+          type: array
+          items:
+            type: string
+          nullable: true
+
+    TagRecommendationPublicResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/TagRecommendationData"
+
+    TagSearchPublicRequest:
+      type: object
+      required: [scenario_type, query]
+      description: >
+        Body for `POST /v1/scenarios/tag-search`. Tenant UUIDs are injected by the gateway from
+        the API key.
+      properties:
+        scenario_type:
+          type: string
+          enum: [info_exchange, interview]
+        query:
+          type: string
+          minLength: 2
+          description: Natural-language search text (trimmed; minimum 2 characters).
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          nullable: true
+          description: Max tags to return (default 50).
+
+    TagSearchData:
+      type: object
+      required: [skill_tags]
+      properties:
+        skill_tags:
+          type: array
+          items:
+            type: string
+          description: Skill tags ranked by embedding similarity to the query.
+
+    TagSearchPublicResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/TagSearchData"
+
     JobCancelResponse:
       type: object
       properties:
@@ -2552,18 +3419,27 @@ components:
       description: >
         Body for POST /v1/scenarios/generate (maps to verifyax-api SimulationScenarioCreate).
         The gateway injects organization_uuid, workspace_uuid, and user_uuid from the API key.
-        Tag list size is capped at 5 for info_exchange and 2 for interview.
+        Tag list size is capped at 5 for info_exchange and 1 for interview.
 
         **Discover tags:** `GET /v1/tags` (see Skill Tags). Pass each tag's `name` in
         `tags` / `tag_pool`. Filter by `allowed_scenario_types` for your `scenario_type` before
-        calling generate — unknown or incompatible tags are rejected asynchronously by the
-        `scenario_creation` worker (**201** then **FAILED** job, not **400** on POST).
+        calling generate — missing, unknown, or incompatible tags are rejected synchronously
+        with **400** before a `scenario_creation` job is queued.
 
         **Single vs batch:** Single mode sends name, scenario_type, tags, and optional
         context_prompt. Batch mode (num_scenarios > 1) adds tag_pool and optional include_tags,
         total_tags, and max_tags_per_npc. Internal engine, model, and DAG knobs are not part of
         the public contract; the gateway strips them before forwarding.
       required: [name, scenario_type]
+      anyOf:
+        - required: [tags]
+          properties:
+            num_scenarios:
+              maximum: 1
+        - required: [num_scenarios, tag_pool]
+          properties:
+            num_scenarios:
+              minimum: 2
       properties:
         name:
           type: string
@@ -2572,18 +3448,20 @@ components:
           type: string
           enum: [info_exchange, interview]
           default: info_exchange
-          description: Multi-agent `info_exchange` (default) or 1-to-1 `interview`. Controls tag caps and NPC layout.
+          description: Multi-agent `info_exchange` (default) or 1-on-1 `interview`. Controls tag caps and NPC layout.
         context_prompt:
           type: string
           description: Optional context to guide generation (info_exchange and interview).
         tags:
           type: array
+          minItems: 1
           items:
             type: string
           description: >-
             Explicit skill tag `name` values from GET /v1/tags. At most 5
-            (info_exchange) or 2 (interview). Each tag's `allowed_scenario_types` must include
-            your `scenario_type`. Invalid tags fail on the async job, not synchronously.
+            (info_exchange) or 1 (interview). Each tag's `allowed_scenario_types` must include
+            your `scenario_type`. Required for single-scenario generation; batch requests use
+            `tag_pool`.
         num_scenarios:
           type: integer
           minimum: 1
@@ -2612,13 +3490,52 @@ components:
           maximum: 5
           description: >-
             Batch only; tags drawn per scenario from tag_pool (default len(tag_pool)).
-            Capped at 5 info_exchange / 2 interview.
+            Capped at 5 info_exchange / 1 interview.
         max_tags_per_npc:
           type: integer
           minimum: 1
+          maximum: 1
           description: >-
-            Batch only; caps tags per NPC. NPC count = ceil(total_tags / max_tags_per_npc).
-            Ignored for interview (single NPC). Worker default 1 when omitted.
+            Batch only; tags per NPC. Must be 1 - every NPC holds exactly one skill tag,
+            so NPC count = total_tags. Ignored for interview (single NPC). Default 1 when omitted.
+        objective_steps:
+          type: array
+          minItems: 1
+          description: >-
+            Advanced; interview scenarios with num_scenarios=1 and explicit tags only.
+            Author-supplied NPC objective steps used verbatim and in order instead of the
+            generated objective queue, giving deterministic control over the NPC's beat
+            ordering. Gated by a server-side feature flag; rejected when the flag is disabled.
+          items:
+            type: object
+            required: [description, context]
+            properties:
+              description:
+                type: string
+                minLength: 1
+                description: Step objective narrative.
+              personality:
+                type: string
+                description: >-
+                  NPC personality for this step; defaults to the generated NPC personality
+                  when omitted.
+              context:
+                type: string
+                minLength: 1
+                description: >-
+                  Additional context for this step. Should instruct the NPC when to emit the
+                  completion marker; the step advances on the marker or on
+                  max_rounds_per_objective.
+              max_rounds_per_objective:
+                type: integer
+                minimum: 1
+                maximum: 50
+                description: Max rounds for this step before force-advancing.
+              tags:
+                type: array
+                items:
+                  type: string
+                description: Tags for this step.
 
     ScenarioUpdateRequest:
       type: object
@@ -2637,32 +3554,52 @@ components:
     DirectlineAgentParameters:
       type: object
       description: >
-        Direct Line 3.0 configuration for Microsoft Copilot Studio agents. Nested under
-        `agent_parameters.directline` on `POST /v1/agents` when `agent_type` is `DIRECTLINE`.
-        Set `agent_url` to the regional Direct Line host derived from `region`.
-      required: [secret, region]
+        Copilot Studio configuration nested under `agent_parameters.directline` when
+        `agent_type` is `DIRECTLINE`. Set `auth_mode` to match the agent's Security
+        settings: `secret` (Direct Line / no authentication), `microsoft` (Entra SSO),
+        or `manual` (custom OAuth).
       properties:
+        auth_mode:
+          type: string
+          enum: [secret, microsoft, manual]
+          default: secret
+          description: Copilot Studio authentication mode.
         secret:
           type: string
           minLength: 1
-          description: >
-            Direct Line secret from Copilot Studio → Channels → Direct Line. Stored on the
-            agent row and used at simulation runtime — never send in the flat test endpoint body
-            after registration.
+          description: Direct Line secret (required when auth_mode is `secret`).
         region:
           type: string
           default: global
           enum: [global, europe, india, unitedstates, asia, australia, northamerica]
-          description: >
-            Direct Line deployment region. Maps to `agent_url`: `global` →
-            `https://directline.botframework.com`; other regions →
-            `https://{region}.directline.botframework.com` (for example `europe` →
-            `https://europe.directline.botframework.com`).
+          description: Direct Line deployment region (secret mode).
+        environment_id:
+          type: string
+          description: Power Platform environment ID (microsoft/manual modes).
+        agent_identifier:
+          type: string
+          description: Copilot Studio agent schema name (microsoft/manual modes).
+        tenant_id:
+          type: string
+          description: Entra tenant ID (microsoft mode, OBO).
+        client_id:
+          type: string
+          description: Entra application client ID (microsoft mode, OBO).
+        client_secret:
+          type: string
+          description: Entra application client secret (microsoft mode, OBO).
+        use_obo:
+          type: boolean
+          default: true
+          description: >-
+            When true (default for microsoft), exchange the user token on-behalf-of.
+            Set false for manual OAuth when the user token is already Copilot-scoped.
         base_url:
           type: string
           format: uri
           nullable: true
-          description: Optional override when the regional host differs from the default mapping.
+          description: Optional Direct Line endpoint override (secret mode).
+      required: []
 
     AgentCreateRequest:
       type: object
@@ -2729,6 +3666,158 @@ components:
             Merged or replaced connector settings (upstream merge rules apply). For Direct Line,
             update `directline.secret` or `directline.region` here.
 
+    GoldStandardResponse:
+      type: object
+      description: A pinned baseline run group for one agent.
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: Favorite UUID.
+        organization_uuid:
+          type: string
+          format: uuid
+        workspace_uuid:
+          type: string
+          format: uuid
+        agent_uuid:
+          type: string
+          format: uuid
+          description: Agent the baseline belongs to, read from the pinned run.
+        run_group_uuid:
+          type: string
+          format: uuid
+          description: The run group being used as the baseline.
+        label:
+          type: string
+          nullable: true
+          description: Display name.
+        pinned_by_user_uuid:
+          type: string
+          format: uuid
+        pinned_at:
+          type: string
+          format: date-time
+          description: When the Favorite was first saved. Not changed by a repin.
+        scenario_uuids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Scenarios covered by the pinned run.
+        scenario_batch_uuid:
+          type: string
+          format: uuid
+          nullable: true
+        timeout_minutes:
+          type: integer
+          nullable: true
+        stale_scenario_uuids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Scenarios whose definition changed since the Favorite was pinned.
+        capability_band:
+          allOf:
+            - $ref: "#/components/schemas/CapabilityBandResponse"
+          nullable: true
+          description: Populated on a single read, and on list only when include_band is set.
+    GoldStandardsListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoldStandardResponse"
+        total:
+          type: integer
+    GoldStandardCreateRequest:
+      type: object
+      required: [run_group_uuid]
+      description: Tenancy and the pinning user are taken from the API key.
+      properties:
+        run_group_uuid:
+          type: string
+          format: uuid
+          description: Run group to pin, or a simulation uuid when solo is true.
+        label:
+          type: string
+          nullable: true
+        solo:
+          type: boolean
+          default: false
+          description: Pin only the named simulation rather than expanding the batch it leads.
+    GoldStandardUpdateRequest:
+      type: object
+      description: Every field is optional; omitted fields are left as they are.
+      properties:
+        run_group_uuid:
+          type: string
+          format: uuid
+          description: New baseline run group, or a simulation uuid when solo is true.
+        label:
+          type: string
+          nullable: true
+        solo:
+          type: boolean
+          default: false
+    CapabilityBandResponse:
+      type: object
+      description: Capability band for a Favorite. band is null while the baseline is Pending.
+      properties:
+        band:
+          type: integer
+          nullable: true
+          description: Band 1-5, null until confidence is met.
+        band_name:
+          type: string
+          description: Robust, Advanced, Functional, Basic, Limited, or Pending.
+        observation_count:
+          type: integer
+        sigma:
+          type: number
+          nullable: true
+        performance:
+          type: number
+          nullable: true
+          description: Mean of the aggregate per-tag means.
+        consistency_across_skills:
+          type: number
+          nullable: true
+          description: Weakest aggregate per-tag mean.
+        tag_aggregates:
+          type: object
+          additionalProperties:
+            type: number
+          description: Per-tag mean across the baseline's observations.
+        is_confident:
+          type: boolean
+          description: Whether the confidence gate passed.
+        evaluation_tags:
+          type: array
+          items:
+            type: string
+          description: Tag set this baseline matches on.
+    ApiErrorResponse:
+      type: object
+      description: Error envelope returned by verifyax-api for a rejected request. Gateway-generated errors such as 401 use ErrorMessage instead and carry only `message`.
+      required: [error, message, request_id]
+      properties:
+        error:
+          type: string
+          description: Machine-readable code, such as bad_request, not_found, conflict or validation_error.
+        message:
+          type: string
+          description: Human-readable summary.
+        request_id:
+          type: string
+          format: uuid
+          description: Identifier for this request, useful when reporting the failure.
+        details:
+          type: object
+          additionalProperties: true
+          description: Present on validation_error, carrying an `errors` array of per-field failures.
     AgentResponse:
       type: object
       description: Registered agent row returned from create/get/list endpoints.
@@ -3478,6 +4567,194 @@ components:
           nullable: true
           description: Correlates batched or multi-run executions in the UI and APIs.
 
+    StartNfrVerificationRequest:
+      type: object
+      description: >
+        Start an async NFR verification run. The gateway injects `organization_uuid`,
+        `workspace_uuid`, and `user_uuid` on proxied POST bodies, so clients may omit
+        tenant fields.
+      required: [agent_uuid]
+      properties:
+        agent_uuid:
+          type: string
+          format: uuid
+          description: Registered agent whose `agent_url` is the load-test target.
+        nfr_config:
+          type: object
+          description: NFR preset, probes, overlays, and load profile passed to the engine worker.
+          additionalProperties: true
+        auth_override:
+          type: object
+          nullable: true
+          description: Ad-hoc target auth when not stored on the agent record.
+          additionalProperties: true
+        ownership_attested:
+          type: boolean
+          default: false
+          description: >
+            Caller asserts authorization to load-test the target. Required for non-smoke
+            presets and load-bearing segment runs.
+
+    StartNfrVerificationResponse:
+      type: object
+      description: Acknowledgement from the NFR start endpoint — async work continues under `job_uuid`.
+      properties:
+        job_uuid:
+          type: string
+          format: uuid
+          description: Orchestration job to poll via `GET /v1/jobs/{job_uuid}`.
+        simulation_uuid:
+          type: string
+          format: uuid
+          description: NFR verification run id.
+        status:
+          type: string
+          description: Engine acknowledgement status (e.g. `dispatched`).
+          example: dispatched
+        message:
+          type: string
+          description: Human-readable detail from the engine.
+
+    NfrDomainVerifyRequest:
+      type: object
+      description: >
+        Start or check DNS-TXT domain ownership for an agent load-test target. The
+        gateway injects `organization_uuid`, `workspace_uuid`, and `user_uuid` on
+        proxied POST bodies, so clients may omit tenant fields.
+      required: [agent_uuid]
+      properties:
+        organization_uuid:
+          type: string
+          format: uuid
+          description: Injected by the gateway on proxied requests.
+        workspace_uuid:
+          type: string
+          format: uuid
+          description: Injected by the gateway on proxied requests.
+        user_uuid:
+          type: string
+          format: uuid
+          description: Injected by the gateway on proxied requests.
+        agent_uuid:
+          type: string
+          format: uuid
+          description: Agent whose `agent_url` host is being verified.
+
+    NfrDomainVerifyResponse:
+      type: object
+      description: DNS-TXT challenge details and verification status for an agent host.
+      properties:
+        hostname:
+          type: string
+          description: Host derived from the agent URL (without scheme or path).
+        txt_record_name:
+          type: string
+          description: DNS TXT record name to publish (typically `_vax-verify.<hostname>`).
+        txt_record_value:
+          type: string
+          description: Challenge token value to publish in the TXT record.
+        status:
+          type: string
+          description: "`pending` until the TXT record resolves, then `verified`."
+          example: pending
+        verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        instructions:
+          type: string
+          description: Operator-facing steps to publish the TXT record and re-check.
+
+    NfrVerificationResultResponse:
+      type: object
+      description: NFR report payload returned when artifacts are available.
+      properties:
+        simulation_uuid:
+          type: string
+          format: uuid
+        status:
+          type: string
+          description: Simulation row status (e.g. `COMPLETED`, `IN_PROGRESS`, `FAILED`).
+        simulation_outcome:
+          type: string
+          nullable: true
+        simulation_reason:
+          type: string
+          nullable: true
+        report:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Primary `verifyax_report.json` payload when present.
+        partial_report:
+          type: object
+          nullable: true
+          additionalProperties: true
+        smoke_report:
+          type: object
+          nullable: true
+          additionalProperties: true
+        capacity_report:
+          type: object
+          nullable: true
+          additionalProperties: true
+        artifact_paths:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+
+    NfrRunActivityResponse:
+      type: object
+      description: Live activity snapshot for an in-flight NFR verification run.
+      properties:
+        simulation_uuid:
+          type: string
+          format: uuid
+        status:
+          type: string
+          description: Simulation row status (e.g. `IN_PROGRESS`, `COMPLETED`).
+        queue_position:
+          type: integer
+          nullable: true
+        job_uuid:
+          type: string
+          format: uuid
+          nullable: true
+        celery_task_id:
+          type: string
+          nullable: true
+        celery_state:
+          type: string
+          nullable: true
+        phase:
+          type: string
+          nullable: true
+          description: Current engine phase when the worker is active.
+        heartbeat_mtime:
+          type: number
+          nullable: true
+        phase_age_s:
+          type: number
+          nullable: true
+        heartbeat_alive:
+          type: boolean
+        heartbeat_last_seen:
+          type: integer
+          nullable: true
+        heartbeat_last_seen_iso:
+          type: string
+          format: date-time
+          nullable: true
+        recent_events:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        simulation_outcome:
+          type: string
+          nullable: true
+
     CreditPreviewRequest:
       type: object
       description: >
@@ -3774,6 +5051,26 @@ components:
           default: 60.0
           description: Poll timeout in seconds.
 
+    TestCopilotStudioAgentRequest:
+      type: object
+      description: >
+        Body for `POST /v1/agents/tests/api-agent-test-copilot-studio`. Uses the nested
+        `directline` registration object (including `auth_mode`).
+      required: [directline]
+      properties:
+        directline:
+          $ref: "#/components/schemas/DirectlineAgentParameters"
+        user_token:
+          type: string
+          nullable: true
+          description: End-user Entra token (required for microsoft/manual modes).
+        message:
+          type: string
+          default: Hello
+        timeout:
+          type: number
+          default: 60.0
+
     McpToolInfo:
       type: object
       required: [name]
@@ -3817,7 +5114,7 @@ components:
           type: string
           format: uri
           nullable: true
-          description: Catalogue MCP adapter A2A URL for card/message probes after discovery.
+          description: Catalogue MCP adapter A2A URL for an agent-card probe after discovery.
         agent_uuid:
           type: string
           format: uuid
@@ -3831,7 +5128,7 @@ components:
         message:
           type: string
           nullable: true
-          description: Optional probe message for the adapter A2A message test.
+          description: Ignored. MCP connection tests do not send A2A probe messages.
 
     TestMcpConnectionResponse:
       type: object
@@ -3910,6 +5207,7 @@ components:
             - practice_run_failed
             - server_error
             - unexpected_error
+            - lifecycle_blocked
         connection:
           $ref: "#/components/schemas/ConnectionTestStepStatus"
         agent_card:

@@ -392,6 +392,15 @@ export interface Tag {
   [key: string]: unknown;
 }
 
+/** Body for `POST /v1/scenarios/tag-recommendation`. At least one of context_prompt or agent_uuid is required. */
+export type TagRecommendationPublicRequest = Schemas['TagRecommendationPublicRequest'];
+
+/** Body for `POST /v1/scenarios/tag-search`. */
+export type TagSearchPublicRequest = Schemas['TagSearchPublicRequest'];
+
+/** Wire envelope for `POST /v1/scenarios/tag-search` (200). */
+export type TagSearchPublicResponse = Schemas['TagSearchPublicResponse'];
+
 /** Register an org-specific QnA (interview) benchmark tag. */
 export interface RegisterQnaTagRequest {
   skill_tag: string;

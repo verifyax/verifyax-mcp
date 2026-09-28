@@ -56,6 +56,16 @@ describe('MCP conformance (spawned server)', () => {
         res.end(JSON.stringify(STUB_TAGS));
         return;
       }
+      if (req.url === '/scenarios/tag-recommendation' && req.method === 'POST') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify([STUB_TAGS[0]]));
+        return;
+      }
+      if (req.url === '/scenarios/tag-search' && req.method === 'POST') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ success: true, data: { skill_tags: ['empathy'] } }));
+        return;
+      }
       res.writeHead(404);
       res.end();
     });
@@ -77,7 +87,7 @@ describe('MCP conformance (spawned server)', () => {
     await new Promise<void>((resolve) => stub.close(() => resolve()));
   });
 
-  it('lists the full v1 tool catalogue', async () => {
+  it('lists the full v1.1 tool catalogue', async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
@@ -93,7 +103,9 @@ describe('MCP conformance (spawned server)', () => {
         'list_recent_runs',
         'list_scenarios',
         'preview_run_cost',
+        'recommend_scenario_tags',
         'register_agent',
+        'search_scenario_tags',
       ].sort()
     );
     for (const tool of tools) {
@@ -106,6 +118,8 @@ describe('MCP conformance (spawned server)', () => {
     expect(byName.get('evaluate_agent')?.execution?.taskSupport).toBe('optional');
     // Read-only tools advertise readOnlyHint so hosts can surface them safely.
     expect(byName.get('list_compatible_tags')?.annotations?.readOnlyHint).toBe(true);
+    expect(byName.get('recommend_scenario_tags')?.annotations?.readOnlyHint).toBe(true);
+    expect(byName.get('search_scenario_tags')?.annotations?.readOnlyHint).toBe(true);
     expect(byName.get('get_run_details')?.annotations?.readOnlyHint).toBe(true);
     // Destructive tools are flagged; non-destructive writers correct the default.
     expect(byName.get('delete_agent')?.annotations?.destructiveHint).toBe(true);
@@ -189,6 +203,6 @@ describe('MCP conformance (launched via a symlink)', () => {
   it('starts and serves tools when launched through the link', async () => {
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name)).toContain('list_compatible_tags');
-    expect(tools).toHaveLength(12);
+    expect(tools).toHaveLength(14);
   });
 });

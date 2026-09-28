@@ -9,12 +9,31 @@ Each entry notes the rationale for non-obvious wording.
 
 ## list_compatible_tags
 
-> Lists the skill tags that can be used to generate a scenario of a given type (info_exchange or
-> interview). Use this before generating a scenario to pick valid tags. Returns each tag’s name,
+> Lists the full skill-tag catalogue filtered to tags compatible with a given scenario type
+> (info_exchange or interview). Use recommend_scenario_tags or search_scenario_tags for a ranked
+> shortlist when the user gave natural language or the list is too large. Returns each tag’s name,
 > category, and description, and flags QnA tags that must be the only tag.
 
-**Rationale.** "Use this before generating a scenario" steers Claude to call it as the first step
-of an authoring flow. Calling out QnA's sole-tag rule pre-empts a common async generation failure.
+**Rationale.** Positions this tool as the exhaustive filter, not the only discovery path. Calling out QnA's sole-tag rule pre-empts a common generation mistake.
+
+## recommend_scenario_tags
+
+> Suggests skill tags for a scenario type using the Workbench pipeline (embeddings plus LLM, up to
+> about 20 tags). Use when the user describes a scenario or agent and wants a ranked shortlist
+> before generate_scenario. Prefer this over list_compatible_tags when the catalogue is large or the
+> user gave natural-language context. Read-only. Provide context_prompt and/or agent_uuid (at least
+> one). On recommender timeout or unavailability, try search_scenario_tags or list_compatible_tags.
+
+**Rationale.** Aligns MCP with REST tag-recommendation and steers models away from loading the full catalogue when context is available.
+
+## search_scenario_tags
+
+> Finds skill tags for a scenario type by embedding similarity to a natural-language query (no LLM).
+> Cheaper than recommend_scenario_tags — good for “find tags about X”. Read-only. A per-user
+> tag-search rate limit applies in addition to the workspace public API limit; on rate limit, honor
+> Retry-After, wait and retry, or use list_compatible_tags.
+
+**Rationale.** Names the extra gateway rate limit so hosts do not hammer search when recommendation is slow.
 
 ## register_agent
 
@@ -43,14 +62,15 @@ with the user before calling. Also carries the `destructiveHint` annotation.
 ## generate_scenario
 
 > Generates a new test scenario of a given type (info_exchange or interview) with optional skill
-> tags and context. Typically takes 30s–2min; task-capable MCP clients receive a pollable task
+> tags and context. Invalid tag names or incompatible tags fail immediately with 400/422 before a
+> job is queued; use recommend_scenario_tags, search_scenario_tags, or list_compatible_tags to pick
+> valid tag names. Typically takes 30s–2min; task-capable MCP clients receive a pollable task
 > handle immediately, while others block until generation finishes. Set num_scenarios greater than 1
 > for batch mode (requires tag_pool). Returns the new scenario’s uuid, or batch uuids when batching,
-> or a structured error with details if generation fails (e.g. incompatible tags).
+> or a structured error if generation fails for other reasons after the job starts.
 
 **Rationale.** The duration note sets latency expectations for blocking hosts; the task note tells
-task-capable clients not to re-call. Mentioning incompatible-tag failure points Claude back to
-`list_compatible_tags`.
+task-capable clients not to re-call. Synchronous tag validation avoids polling for bad tag lists.
 
 ## list_scenarios
 

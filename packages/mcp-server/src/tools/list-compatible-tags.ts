@@ -7,9 +7,10 @@ import { runTool } from './result.js';
 const NAME = 'list_compatible_tags';
 
 const DESCRIPTION =
-  'Lists the skill tags that can be used to generate a scenario of a given type ' +
-  '(info_exchange or interview). Use this before generating a scenario to pick valid tags. ' +
-  'Returns each tag’s name, category, and description, and flags QnA tags that must be the only tag.';
+  'Lists the full skill-tag catalogue filtered to tags compatible with a given scenario type ' +
+  '(info_exchange or interview). Use recommend_scenario_tags or search_scenario_tags for a ranked ' +
+  'shortlist when the user gave natural language or the list is too large. Returns each tag’s name, ' +
+  'category, and description, and flags QnA tags that must be the only tag.';
 
 // Declared via z.object(...).shape to match the other tools (was a bare literal).
 const inputObject = z.object({
@@ -21,8 +22,7 @@ const inputSchema = inputObject.shape;
 
 /**
  * Filter the tag catalogue to those compatible with `scenarioType`, applying
- * the rules from docs/verifyax-api.md (the worker enforces these asynchronously,
- * so we filter client-side to avoid a 201-then-FAILED job):
+ * the rules from docs/verifyax-api.md (same rules enforced synchronously on generate):
  *  - allowed_scenario_types must include the type ([] = not selectable; omitted = both)
  *  - benchmark tags (benchmark_family set, except "qna") are info_exchange only
  *  - QnA tags (benchmark_family "qna") are interview only
