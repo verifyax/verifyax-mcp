@@ -32,7 +32,8 @@ export function nonProductionEnvFileName(target: NonProductionProfile): string {
 }
 
 export type NonProductionBaseUrlCheck =
-  { ok: true } | { ok: false; reason: 'missing' | 'production' };
+  | { ok: true }
+  | { ok: false; reason: 'missing' | 'production' };
 
 /** Must match {@link VerifyaxClient}'s stripTrailingSlash in @verifyax/sdk. */
 export function normalizeBaseUrl(url: string): string {

@@ -17,10 +17,7 @@ const inputObject = z.object({
   scenario_type: z
     .enum(['info_exchange', 'interview'])
     .describe('The kind of scenario the tags will be used for.'),
-  query: z
-    .string()
-    .min(2)
-    .describe('Natural-language search text (at least 2 characters).'),
+  query: z.string().min(2).describe('Natural-language search text (at least 2 characters).'),
   limit: z
     .number()
     .int()

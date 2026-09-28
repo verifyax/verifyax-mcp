@@ -205,22 +205,22 @@ These scripts use `scripts/run-with-env-file.mjs`, which refuses to start when a
 
 The full v1.1 catalogue of 14 tools:
 
-| Tool                       | Description                                                                      | Long-running |
-| -------------------------- | -------------------------------------------------------------------------------- | ------------ |
-| `list_compatible_tags`     | Full filtered skill-tag catalogue for a scenario type.                           | no           |
-| `recommend_scenario_tags`  | Workbench-style ranked tag suggestions (context and/or agent).                 | no           |
-| `search_scenario_tags`     | Embedding similarity tag search by query (no LLM).                               | no           |
-| `register_agent`           | Registers an agent (A2A or API); verifies the A2A card before creating.          | no           |
-| `list_agents`          | Lists registered agents, optionally filtered by type.                            | no           |
-| `delete_agent`         | Permanently deletes an agent by uuid.                                            | no           |
-| `generate_scenario`    | Generates a scenario; returns an MCP task or blocks until finished.              | **tasks**    |
-| `list_scenarios`       | Lists scenarios, optionally filtered by type/status.                             | no           |
-| `delete_scenario`      | Permanently deletes a scenario by uuid.                                          | no           |
-| `evaluate_agent`       | Runs and evaluates an agent end to end; returns an MCP task or blocks.           | **tasks**    |
-| `list_recent_runs`     | Lists recent simulation runs, optionally filtered.                               | no           |
-| `get_run_details`      | Fetches a run plus its evaluation when available.                                | no           |
-| `get_usage_summary`    | Summarizes usage events (counts by area, total USD spend).                       | no           |
-| `preview_run_cost`     | Estimates the credit cost of a run before triggering it.                         | no           |
+| Tool                      | Description                                                             | Long-running |
+| ------------------------- | ----------------------------------------------------------------------- | ------------ |
+| `list_compatible_tags`    | Full filtered skill-tag catalogue for a scenario type.                  | no           |
+| `recommend_scenario_tags` | Workbench-style ranked tag suggestions (context and/or agent).          | no           |
+| `search_scenario_tags`    | Embedding similarity tag search by query (no LLM).                      | no           |
+| `register_agent`          | Registers an agent (A2A or API); verifies the A2A card before creating. | no           |
+| `list_agents`             | Lists registered agents, optionally filtered by type.                   | no           |
+| `delete_agent`            | Permanently deletes an agent by uuid.                                   | no           |
+| `generate_scenario`       | Generates a scenario; returns an MCP task or blocks until finished.     | **tasks**    |
+| `list_scenarios`          | Lists scenarios, optionally filtered by type/status.                    | no           |
+| `delete_scenario`         | Permanently deletes a scenario by uuid.                                 | no           |
+| `evaluate_agent`          | Runs and evaluates an agent end to end; returns an MCP task or blocks.  | **tasks**    |
+| `list_recent_runs`        | Lists recent simulation runs, optionally filtered.                      | no           |
+| `get_run_details`         | Fetches a run plus its evaluation when available.                       | no           |
+| `get_usage_summary`       | Summarizes usage events (counts by area, total USD spend).              | no           |
+| `preview_run_cost`        | Estimates the credit cost of a run before triggering it.                | no           |
 
 Long-running tools advertise MCP Tasks (`execution.taskSupport: optional`). Task-capable clients
 receive a pollable handle immediately; others block until completion (typically 30s–30min for
