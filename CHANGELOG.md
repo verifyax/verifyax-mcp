@@ -7,6 +7,29 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-09-29
+
+Patch release: malformed HTTP bodies return JSON-RPC instead of an HTML error page, and
+dependency overrides no longer freeze packages below a patched version.
+
+### Fixed
+
+- `@verifyax/mcp-server`: the Streamable HTTP transport answers body-parser failures with JSON-RPC
+  (`-32700` Parse error for malformed JSON, `-32600` Invalid Request for other 4xx body errors)
+  instead of Express's HTML error page, and logs one warning without a stack trace.
+
+### Security
+
+- Replaced blanket `fast-uri` and `ip-address` pnpm overrides that pinned those packages below
+  their patched versions. The lockfile now resolves `fast-uri` 3.1.7 and `ip-address` 10.5.1.
+
+### Changed
+
+- CI fails when a blanket pnpm override pins a version covered by a GitHub advisory, and runs on a
+  daily schedule so a new advisory surfaces without waiting for a push.
+- README explains why the manual `claude mcp add` command tracks the current server (unpinned) and
+  why it must name the `verifyax-mcp-server` binary.
+
 ## [0.3.6] - 2026-09-28
 
 MCP catalogue v1.1 — Workbench-style tag discovery tools and SDK methods, plus docs aligned with
@@ -243,7 +266,8 @@ First public release. `@verifyax/sdk` and `@verifyax/mcp-server` published to np
 - Documentation: top-level README, per-package READMEs, `docs/tool-descriptions.md`,
   `CONTRIBUTING.md`.
 
-[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.6...HEAD
+[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.7...HEAD
+[0.3.7]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.3...v0.3.4
