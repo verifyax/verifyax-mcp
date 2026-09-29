@@ -34,9 +34,12 @@ export default tseslint.config(
   },
   {
     // Build/tooling scripts run under Node and may log to the console.
+    // `fetch` is a Node global from 18 onward and this package requires >=20;
+    // the list is an allowlist, so it has to be named or scripts that call the
+    // advisory API fail no-undef.
     files: ['**/scripts/**/*.{js,mjs}'],
     languageOptions: {
-      globals: { console: 'readonly', process: 'readonly' },
+      globals: { console: 'readonly', process: 'readonly', fetch: 'readonly' },
     },
     rules: {
       'no-console': 'off',
