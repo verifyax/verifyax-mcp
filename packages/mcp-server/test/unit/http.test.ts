@@ -456,3 +456,67 @@ describe('Streamable HTTP per-request auth (SEC-2, SEC-3)', () => {
     }
   });
 });
+
+describe('unreadable request bodies', () => {
+  // A stray brace used to reach Express's default error handler: an uncaught
+  // SyntaxError with a stack trace in the log, and an HTML page returned to a
+  // client that speaks JSON-RPC. Anyone can trigger it, so every malformed
+  // request looked like a server fault in monitoring.
+  it('answers malformed JSON with JSON-RPC -32700, not HTML', async () => {
+    const started = await startHttpServer();
+    try {
+      const res = await fetch(`${started.url}/mcp`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer sk-ver-api-test' },
+        body: '{"jsonrpc":"2.0","id":1,BROKEN}',
+      });
+      expect(res.status).toBe(400);
+      expect(res.headers.get('content-type')).toContain('application/json');
+      expect(await res.json()).toEqual({
+        jsonrpc: '2.0',
+        error: { code: -32700, message: expect.stringContaining('not valid JSON') },
+        id: null,
+      });
+    } finally {
+      await stopHttpServer(started);
+    }
+  });
+
+  it('answers an oversized body with -32600 at body-parser status', async () => {
+    const started = await startHttpServer();
+    try {
+      const res = await fetch(`${started.url}/mcp`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer sk-ver-api-test' },
+        body: `{"a":"${'x'.repeat(6_000_000)}"}`,
+      });
+      expect(res.status).toBe(413);
+      expect(res.headers.get('content-type')).toContain('application/json');
+      const body = (await res.json()) as { error: { code: number } };
+      expect(body.error.code).toBe(-32600);
+    } finally {
+      await stopHttpServer(started);
+    }
+  });
+
+  // The handler must not swallow everything with a status: only body-parser's
+  // own 4xx failures. A well-formed body still reaches the MCP routes.
+  it('leaves a well-formed body to the normal handlers', async () => {
+    const started = await startHttpServer();
+    try {
+      const noAuth = mcpHeaders();
+      delete noAuth.authorization;
+      const res = await fetch(`${started.url}/mcp`, {
+        method: 'POST',
+        headers: noAuth,
+        body: JSON.stringify(INITIALIZE_REQUEST),
+      });
+      // No credential supplied, so this is the auth path -- not a parse error.
+      expect(res.status).toBe(401);
+      const body = (await res.json()) as { error: { code: number } };
+      expect(body.error.code).toBe(-32000);
+    } finally {
+      await stopHttpServer(started);
+    }
+  });
+});

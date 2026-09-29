@@ -233,8 +233,8 @@ export function sweepRateState(
   return removed;
 }
 
-function jsonRpcError(res: Response, status: number, message: string): void {
-  res.status(status).json({ jsonrpc: '2.0', error: { code: -32000, message }, id: null });
+function jsonRpcError(res: Response, status: number, message: string, code = -32000): void {
+  res.status(status).json({ jsonrpc: '2.0', error: { code, message }, id: null });
 }
 
 function missingApiKeyMessage(): string {
@@ -440,6 +440,38 @@ export function registerStreamableHttpRoutes(
   app.post(MCP_PATH, postHandler);
   app.get(MCP_PATH, sessionHandler);
   app.delete(MCP_PATH, sessionHandler);
+
+  // body-parser rejects a malformed or oversized body before any handler runs.
+  // Left unhandled that reaches Express's default error handler, which logs the
+  // SyntaxError with a stack trace and answers with an HTML page -- so a client
+  // sending bad JSON gets HTML where it expects JSON-RPC, and every such
+  // request looks like a server fault in error monitoring. Anyone can trigger
+  // it by posting a stray brace, so it is a client error and logs as a warning.
+  app.use((err: unknown, req: Request, res: Response, next: (e?: unknown) => void): void => {
+    const status = (err as { status?: unknown })?.status;
+    // Only body-parser's own 4xx failures belong here. Anything else keeps the
+    // default handling rather than being flattened into a client error.
+    if (typeof status !== 'number' || status < 400 || status >= 500 || res.headersSent) {
+      next(err);
+      return;
+    }
+
+    const type = (err as { type?: string })?.type;
+    const isParseFailure = type === 'entity.parse.failed';
+    logger.warn('rejected an unreadable request body', {
+      status,
+      type: type ?? 'unknown',
+      path: req.path,
+    });
+    jsonRpcError(
+      res,
+      status,
+      isParseFailure
+        ? 'Parse error: the request body is not valid JSON.'
+        : 'Invalid Request: the request body could not be read.',
+      isParseFailure ? -32700 : -32600
+    );
+  });
 
   return sessions;
 }
