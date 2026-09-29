@@ -229,6 +229,18 @@ Restart your MCP client after changing config.
 claude mcp add verifyax --env VERIFYAX_API_KEY=sk-ver-api-... -- npx -y -p @verifyax/mcp-server verifyax-mcp-server
 ```
 
+> [!NOTE]
+> **The version here is deliberately unpinned**, so this command always fetches the current server.
+> Only the [`verifyax-mcp` plugin](https://github.com/verifyax/verifyax-plugins-claude) pins an exact
+> version (`@verifyax/mcp-server@<plugin version>`), because a marketplace plugin promises that users
+> get a new server build only when the plugin version is bumped. Setting up by hand carries no such
+> promise, so tracking the latest release is the right default. Pin it yourself if you need
+> reproducibility: `-p @verifyax/mcp-server@0.3.5`.
+>
+> `-p … verifyax-mcp-server` names the binary explicitly because the package ships two
+> (`verifyax-mcp-server`, `verifyax-mcp-server-http`) and neither matches the package name, so a
+> bare `npx -y @verifyax/mcp-server` fails with "could not determine executable to run".
+
 **Claude Desktop:**
 
 ```json
