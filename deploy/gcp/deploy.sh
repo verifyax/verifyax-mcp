@@ -13,7 +13,37 @@ VERIFYAX_MCP_ALLOWED_HOSTS="${VERIFYAX_MCP_ALLOWED_HOSTS:?Set VERIFYAX_MCP_ALLOW
 GCP_REGION="${GCP_REGION:-us-central1}"
 SERVICE_NAME="${SERVICE_NAME:-verifyax-mcp}"
 AR_REPO="${AR_REPO:-verifyax-mcp}"
-IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT}/${AR_REPO}/${SERVICE_NAME}:latest"
+
+# Tag by version + commit, never a bare `:latest`.
+#
+# With a fixed `:latest` tag the --image argument to `gcloud run deploy` never
+# changes, so Cloud Run can decide there is nothing to roll out and quietly keep
+# serving the previous revision: a deploy that reports success while changing
+# nothing. That has happened -- the endpoint sat on 0.3.5 after a 0.3.6 deploy,
+# and before that drifted four releases behind without anyone being able to tell
+# from the outside.
+#
+# A tag that changes with the build guarantees a new revision, and makes the
+# running version readable from the image reference alone rather than needing an
+# authenticated `initialize` call to find out.
+VERSION="$(node -p "require('./packages/mcp-server/package.json').version")"
+GIT_SHA="$(git -C "$ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo nogit)"
+# Remember whether the caller chose the tag, so the dirty-tree guard below can
+# treat an explicit IMAGE_TAG as "I know, ship it anyway".
+IMAGE_TAG_EXPLICIT="${IMAGE_TAG:-}"
+IMAGE_TAG="${IMAGE_TAG:-${VERSION}-${GIT_SHA}}"
+IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT}/${AR_REPO}/${SERVICE_NAME}:${IMAGE_TAG}"
+
+# Refuse to deploy a dirty tree: the tag would claim a commit whose contents are
+# not what is being shipped.
+if [ -z "$IMAGE_TAG_EXPLICIT" ] && [ -n "$(git -C "$ROOT" status --porcelain 2>/dev/null)" ]; then
+  echo "error: working tree is dirty, so the tag ${IMAGE_TAG} would name a commit" >&2
+  echo "       whose contents are not what gets built. Commit or stash first, or" >&2
+  echo "       set IMAGE_TAG=<something> to ship anyway." >&2
+  exit 1
+fi
+
+echo "Deploying ${SERVICE_NAME} ${VERSION} (${GIT_SHA}) to ${GCP_REGION}"
 
 gcloud config set project "$GCP_PROJECT"
 
@@ -59,4 +89,16 @@ gcloud run deploy "$SERVICE_NAME" \
   --memory 512Mi \
   --update-env-vars "VERIFYAX_MCP_LOG_LEVEL=info,VERIFYAX_MCP_ALLOWED_HOSTS=${VERIFYAX_MCP_ALLOWED_HOSTS}"
 
-echo "Deployed: $(gcloud run services describe "$SERVICE_NAME" --region "$GCP_REGION" --format 'value(status.url)')"
+URL="$(gcloud run services describe "$SERVICE_NAME" --region "$GCP_REGION" --format 'value(status.url)')"
+echo "Deployed: $URL"
+echo "Image:    $IMAGE"
+
+# A deploy that changes nothing used to look identical to one that worked, so
+# confirm the live service is actually serving the image just built.
+SERVING="$(gcloud run services describe "$SERVICE_NAME" --region "$GCP_REGION"   --format 'value(spec.template.spec.containers[0].image)' 2>/dev/null || true)"
+if [ "$SERVING" != "$IMAGE" ]; then
+  echo "error: the service is serving ${SERVING:-<unknown>}, not the image just built." >&2
+  echo "       The rollout did not take. Check: gcloud run revisions list --service ${SERVICE_NAME} --region ${GCP_REGION}" >&2
+  exit 1
+fi
+echo "Verified: the service is serving ${IMAGE}"
