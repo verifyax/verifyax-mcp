@@ -25,7 +25,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "check:overrides": "node scripts/check-overrides.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

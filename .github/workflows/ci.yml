@@ -6,6 +6,13 @@ on:
     tags: ['v*']
   pull_request:
     branches: [main]
+  schedule:
+    # Advisories publish against code that is not changing. CI only ran on push
+    # and pull_request, so fast-uri and ip-address (#76) sat open on a green
+    # main for days -- the last run predated the advisory. Re-run daily so a new
+    # advisory surfaces without waiting for someone to push.
+    - cron: '23 5 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -33,6 +40,15 @@ jobs:
 
       - name: Audit production dependencies
         run: pnpm audit:prod
+
+      - name: Blanket overrides must not pin a vulnerable version
+        # pnpm audit says a vulnerable package is present; it cannot say that an
+        # override is why no Dependabot PR exists to fix it. That has cost three
+        # incidents here (#59, #76), each found only because a human noticed an
+        # open alert with no PR beside it.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pnpm check:overrides
 
       - name: Check version consistency
         # On a tag build, also assert the tag matches the package version.
