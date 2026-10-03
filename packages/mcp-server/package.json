@@ -50,7 +50,7 @@
     "test:conformance": "tsc -b && vitest run --config vitest.conformance.config.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "@verifyax/sdk": "workspace:*",
     "express": "^5.2.1",
     "zod": "^4.6.5"
