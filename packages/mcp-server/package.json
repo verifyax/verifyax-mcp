@@ -59,9 +59,9 @@
     "access": "public"
   },
   "devDependencies": {
-    "@modelcontextprotocol/inspector": "^2.7.0",
+    "@modelcontextprotocol/inspector": "^2.8.0",
     "@types/express": "^5.0.6",
-    "dotenv": "^18.0.3",
+    "dotenv": "^18.0.4",
     "dotenv-cli": "^11.0.0",
     "dotenv-expand": "^1000.0.0"
   }
