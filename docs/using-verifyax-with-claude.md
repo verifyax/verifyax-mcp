@@ -18,7 +18,7 @@ Claude or your own code. They overlap on purpose — pick by how you work, not b
 ## How to choose
 
 - **You want to talk to Claude and have it just do it** (register, generate, evaluate, read scores)
-  → **`verifyax-mcp`**. Claude calls the 14 tools itself. Long-running tools (`generate_scenario`,
+  → **`verifyax-mcp`**. Claude calls the 17 tools itself. Long-running tools (`generate_scenario`,
   `evaluate_agent`) return a pollable MCP task when the client supports Tasks; otherwise they block
   until completion. No scripts, no manual UUID polling, no copy-pasting UUIDs.
 
@@ -39,7 +39,7 @@ Claude or your own code. They overlap on purpose — pick by how you work, not b
   plugin launches a local MCP server, which chat cannot run; the hosted endpoint has no such
   constraint. In **Settings → Connectors → Add custom connector**, point at
   `https://mcp.verifyax.com/mcp`, choose **No sign-in**, and add a request header `Authorization`
-  with the value `Bearer sk-ver-api-...`. All 14 tools appear, with per-tool approval controls.
+  with the value `Bearer sk-ver-api-...`. All 17 tools appear, with per-tool approval controls.
   Needs server 0.3.5 or later. The `verifyax-api` skill is also available here: download the bundle
   from the [plugin releases](https://github.com/verifyax/verifyax-plugins-claude/releases) and
   upload it under **Customize → Skills**.

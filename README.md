@@ -105,7 +105,7 @@ use the hosted endpoint at `https://mcp.verifyax.com/mcp`.
 >    an OAuth attempt fails.
 > 3. Under **Request headers**, add `Authorization` with the value `Bearer sk-ver-api-...`.
 >
-> All 14 tools then appear, and Claude.ai lets you set approval per tool (it groups them as 9
+> All 17 tools then appear, and Claude.ai lets you set approval per tool (it groups them as 12
 > read-only and 5 write/delete — worth setting the write/delete group to require approval, since
 > `generate_scenario` and `evaluate_agent` spend credits).
 >
@@ -122,15 +122,15 @@ use the hosted endpoint at `https://mcp.verifyax.com/mcp`.
 
 ## Supported tools
 
-Fourteen tools mapped to user intents. Blocking tools poll internally and return only when work
+Seventeen tools mapped to user intents. Blocking tools poll internally and return only when work
 completes (typically 30s–5min).
 
-| Area           | Tools                                                                                                                                    |           Blocking            |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------: |
-| **Agents**     | `register_agent` · `list_agents` · `delete_agent`                                                                                        |               —               |
-| **Scenarios**  | `list_compatible_tags` · `recommend_scenario_tags` · `search_scenario_tags` · `generate_scenario` · `list_scenarios` · `delete_scenario` | **yes** (`generate_scenario`) |
-| **Evaluation** | `evaluate_agent` · `list_recent_runs` · `get_run_details`                                                                                |  **yes** (`evaluate_agent`)   |
-| **Usage**      | `get_usage_summary` · `preview_run_cost`                                                                                                 |               —               |
+| Area           | Tools                                                                                                                                                     |           Blocking            |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------: |
+| **Agents**     | `register_agent` · `list_agents` · `delete_agent`                                                                                                         |               —               |
+| **Scenarios**  | `list_compatible_tags` · `recommend_scenario_tags` · `search_scenario_tags` · `generate_scenario` · `list_scenarios` · `get_scenario` · `delete_scenario` | **yes** (`generate_scenario`) |
+| **Evaluation** | `evaluate_agent` · `list_recent_runs` · `get_run_details` · `get_evaluation_report` · `get_run_output`                                                    |  **yes** (`evaluate_agent`)   |
+| **Usage**      | `get_usage_summary` · `preview_run_cost`                                                                                                                  |               —               |
 
 > [!NOTE]
 > For tool descriptions (what Claude reads to pick a tool) and rationale, see
@@ -396,7 +396,7 @@ This repository is a pnpm monorepo with two packages:
 | Package                                       | Description                                       |
 | --------------------------------------------- | ------------------------------------------------- |
 | [`@verifyax/sdk`](packages/sdk)               | Typed TypeScript client for the VerifyAX REST API |
-| [`@verifyax/mcp-server`](packages/mcp-server) | MCP server (14 tools) built on the SDK            |
+| [`@verifyax/mcp-server`](packages/mcp-server) | MCP server (17 tools) built on the SDK            |
 
 Requires Node ≥ 20 and [pnpm](https://pnpm.io) 10.
 

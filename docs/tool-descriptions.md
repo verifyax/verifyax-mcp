@@ -77,6 +77,16 @@ task-capable clients not to re-call. Synchronous tag validation avoids polling f
 > Lists the test scenarios in your VerifyAX workspace, optionally filtered by type (info_exchange
 > or interview) and status. Returns each scenario’s uuid, name, type, and status.
 
+## get_scenario
+
+> Fetches one test scenario by uuid with enough detail to reuse it for preview_run_cost or
+> evaluate_agent. Read-only. Returns uuid, name, type, status, description, tags when present,
+> and context_prompt when the record includes it. If tags are missing from the response, reuse tags
+> from generation time or ask the user.
+
+**Rationale.** `list_scenarios` is summary-only; the chat agent needs one record before costing or
+evaluating “the Support suite”. The tags note avoids silent empty tag lists when GET omits them.
+
 ## delete_scenario
 
 > Permanently deletes a scenario from your VerifyAX workspace by its uuid. This cannot be undone
@@ -111,6 +121,26 @@ for both blocking and polling clients.
 
 **Rationale.** "when they are available" sets the expectation that evaluation may be absent for an
 in-progress run, so a null evaluation isn't read as an error.
+
+## get_evaluation_report
+
+> Fetches the evaluation report for a completed simulation run by its simulation uuid. Read-only.
+> Returns overall score, per-tag scores, status, and recommendations as the platform provides
+> them. Does not include the dialogue transcript — use get_run_output for that. If the report is
+> not ready yet, returns a structured error; wait and retry or check run status with get_run_details.
+
+**Rationale.** Stable report shape for dashboards; distinct from get_run_details (job-based
+getEvaluation) and from transcript fetch.
+
+## get_run_output
+
+> Fetches the structured dialogue output for a simulation run by its uuid. Read-only. Returns the
+> transcript or scenario output JSON, truncated to a default cap of 12000 characters so a full run
+> does not overflow context; optional max_chars overrides the cap (up to 32000). States clearly what
+> was omitted when truncated. Use get_evaluation_report for scores without the transcript.
+
+**Rationale.** Score explanations need dialogue; keeps tool selection unambiguous vs report-only
+tools.
 
 ## get_usage_summary
 

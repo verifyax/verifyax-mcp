@@ -203,7 +203,7 @@ These scripts use `scripts/run-with-env-file.mjs`, which refuses to start when a
 
 ## Tools
 
-The full v1.1 catalogue of 14 tools:
+The full v1.2 catalogue of 17 tools:
 
 | Tool                      | Description                                                             | Long-running |
 | ------------------------- | ----------------------------------------------------------------------- | ------------ |
@@ -215,16 +215,23 @@ The full v1.1 catalogue of 14 tools:
 | `delete_agent`            | Permanently deletes an agent by uuid.                                   | no           |
 | `generate_scenario`       | Generates a scenario; returns an MCP task or blocks until finished.     | **tasks**    |
 | `list_scenarios`          | Lists scenarios, optionally filtered by type/status.                    | no           |
+| `get_scenario`            | Fetches one scenario by uuid for reuse before costing or evaluation.    | no           |
 | `delete_scenario`         | Permanently deletes a scenario by uuid.                                 | no           |
 | `evaluate_agent`          | Runs and evaluates an agent end to end; returns an MCP task or blocks.  | **tasks**    |
 | `list_recent_runs`        | Lists recent simulation runs, optionally filtered.                      | no           |
 | `get_run_details`         | Fetches a run plus its evaluation when available.                       | no           |
+| `get_evaluation_report`   | Fetches the evaluation report for a run (scores, no transcript).        | no           |
+| `get_run_output`          | Fetches run dialogue output with a default size cap.                    | no           |
 | `get_usage_summary`       | Summarizes usage events (counts by area, total USD spend).              | no           |
 | `preview_run_cost`        | Estimates the credit cost of a run before triggering it.                | no           |
 
 Long-running tools advertise MCP Tasks (`execution.taskSupport: optional`). Task-capable clients
 receive a pollable handle immediately; others block until completion (typically 30s–30min for
 evaluate). Task state lives in memory for the server process or HTTP session.
+
+Clients that do not poll MCP tasks (for example Google ADK `McpToolset`) still use blocking
+`evaluate_agent` and `generate_scenario` in a single HTTP request. Optional start/status/cancel
+simulation tools are not in 0.4.0; they ship only if production timeouts require splitting long runs.
 
 ## Privacy
 

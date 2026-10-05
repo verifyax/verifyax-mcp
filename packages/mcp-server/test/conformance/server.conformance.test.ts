@@ -87,7 +87,7 @@ describe('MCP conformance (spawned server)', () => {
     await new Promise<void>((resolve) => stub.close(() => resolve()));
   });
 
-  it('lists the full v1.1 tool catalogue', async () => {
+  it('lists the full v1.2 tool catalogue', async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
@@ -96,7 +96,10 @@ describe('MCP conformance (spawned server)', () => {
         'delete_scenario',
         'evaluate_agent',
         'generate_scenario',
+        'get_evaluation_report',
         'get_run_details',
+        'get_run_output',
+        'get_scenario',
         'get_usage_summary',
         'list_agents',
         'list_compatible_tags',
@@ -121,6 +124,9 @@ describe('MCP conformance (spawned server)', () => {
     expect(byName.get('recommend_scenario_tags')?.annotations?.readOnlyHint).toBe(true);
     expect(byName.get('search_scenario_tags')?.annotations?.readOnlyHint).toBe(true);
     expect(byName.get('get_run_details')?.annotations?.readOnlyHint).toBe(true);
+    expect(byName.get('get_scenario')?.annotations?.readOnlyHint).toBe(true);
+    expect(byName.get('get_evaluation_report')?.annotations?.readOnlyHint).toBe(true);
+    expect(byName.get('get_run_output')?.annotations?.readOnlyHint).toBe(true);
     // Destructive tools are flagged; non-destructive writers correct the default.
     expect(byName.get('delete_agent')?.annotations?.destructiveHint).toBe(true);
     expect(byName.get('register_agent')?.annotations?.destructiveHint).toBe(false);
@@ -203,6 +209,6 @@ describe('MCP conformance (launched via a symlink)', () => {
   it('starts and serves tools when launched through the link', async () => {
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name)).toContain('list_compatible_tags');
-    expect(tools).toHaveLength(14);
+    expect(tools).toHaveLength(17);
   });
 });
