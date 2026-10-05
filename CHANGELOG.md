@@ -7,6 +7,20 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-05
+
+Read tools for the VerifyAX chat agent — fetch one scenario, evaluation reports, and run dialogue
+output without replacing blocking evaluate/generate flows.
+
+### Added
+
+- `@verifyax/mcp-server`: `get_scenario` (`readOnlyHint`) — compact scenario record for reusing a
+  suite before `preview_run_cost` or `evaluate_agent`.
+- `@verifyax/mcp-server`: `get_evaluation_report` (`readOnlyHint`) — stable evaluation report via
+  the simulation reporting shortcut; structured not-ready errors with retry guidance.
+- `@verifyax/mcp-server`: `get_run_output` (`readOnlyHint`) — structured run output with default
+  12000-character cap and explicit truncation metadata.
+
 ## [0.3.7] - 2026-09-29
 
 Patch release: malformed HTTP bodies return JSON-RPC instead of an HTML error page, and
@@ -266,7 +280,8 @@ First public release. `@verifyax/sdk` and `@verifyax/mcp-server` published to np
 - Documentation: top-level README, per-package READMEs, `docs/tool-descriptions.md`,
   `CONTRIBUTING.md`.
 
-[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.7...HEAD
+[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.7...v0.4.0
 [0.3.7]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.4...v0.3.5

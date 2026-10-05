@@ -9,7 +9,7 @@ A Model Context Protocol (MCP) server that exposes the VerifyAX agent-evaluation
 Two packages in one monorepo:
 
 - **`@verifyax/sdk`** — typed TypeScript client for the VerifyAX REST API. Reusable by any consumer, not MCP-specific.
-- **`@verifyax/mcp-server`** — MCP server exposing 14 tools mapped to user intents. Depends on the SDK.
+- **`@verifyax/mcp-server`** — MCP server exposing 17 tools mapped to user intents. Depends on the SDK.
 
 The MCP server complements (does not replace) the existing `verifyax-api` skill at `https://github.com/verifyax/verifyax-plugins-claude`. The skill is for developers writing code; the MCP server is for conversational workflows.
 
@@ -21,7 +21,7 @@ The MCP server complements (does not replace) the existing `verifyax-api` skill 
 - **API key auth.** User pastes their VerifyAX key into MCP client config as `VERIFYAX_API_KEY`. OAuth is v2.
 - **Blocking-by-default tools.** Async polling lives inside the server, invisible to Claude and the user. No `start_job` / `get_status` pairs in v1.
 - **Structured errors over exceptions.** Tools return `{ success: false, reason, suggested_fix }` instead of throwing where possible.
-- **Fourteen tools.** Resist the urge to wrap every endpoint. See the catalogue below.
+- **Seventeen tools (v1.2 catalogue).** Resist the urge to wrap every endpoint. See the catalogue below.
 
 ## Architecture decisions (already made — do not re-litigate)
 
@@ -64,10 +64,13 @@ The MCP server exposes exactly these tools. Each tool description should be shor
 | `delete_agent` | `DELETE /agents/{uuid}` | No |
 | `generate_scenario` | `POST /scenarios/generate` + poll job | **Tasks** (blocking fallback) |
 | `list_scenarios` | `GET /scenarios` | No |
+| `get_scenario` | `GET /scenarios/{uuid}` | No |
 | `delete_scenario` | `DELETE /scenarios/{uuid}` | No |
 | `evaluate_agent` | `POST /engine/workspace-credit-preview` + `POST /engine/simulate/scenario` + poll run + poll eval + `GET /simulations/evaluations/{eval_job}` | **Tasks** (blocking fallback) |
 | `list_recent_runs` | `GET /simulations` | No |
-| `get_run_details` | `GET /simulations/{uuid}` + transcript + evaluation if available | No |
+| `get_run_details` | `GET /simulations/{uuid}` + evaluation if available | No |
+| `get_evaluation_report` | `GET /simulations/{uuid}/evaluation` | No |
+| `get_run_output` | `GET /simulations/{uuid}/output` | No |
 | `get_usage_summary` | `GET /usage/events` aggregated client-side | No |
 | `preview_run_cost` | `POST /engine/workspace-credit-preview` | No |
 

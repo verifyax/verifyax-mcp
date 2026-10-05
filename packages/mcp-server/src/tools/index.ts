@@ -5,7 +5,10 @@ import { registerDeleteAgent } from './delete-agent.js';
 import { registerDeleteScenario } from './delete-scenario.js';
 import { registerEvaluateAgent } from './evaluate-agent.js';
 import { registerGenerateScenario } from './generate-scenario.js';
+import { registerGetEvaluationReport } from './get-evaluation-report.js';
 import { registerGetRunDetails } from './get-run-details.js';
+import { registerGetRunOutput } from './get-run-output.js';
+import { registerGetScenario } from './get-scenario.js';
 import { registerGetUsageSummary } from './get-usage-summary.js';
 import { registerListAgents } from './list-agents.js';
 import { registerListCompatibleTags } from './list-compatible-tags.js';
@@ -17,7 +20,7 @@ import { registerRegisterAgent } from './register-agent.js';
 import { registerSearchScenarioTags } from './search-scenario-tags.js';
 
 // Explicit registry — each tool exports its own register function and is wired
-// here by hand (no barrel auto-discovery). This is the full v1.1 catalogue of 14 tools.
+// here by hand (no barrel auto-discovery). This is the full v1.2 catalogue of 17 tools.
 export function registerTools(
   server: McpServer,
   ctx: ToolContext,
@@ -31,10 +34,13 @@ export function registerTools(
   registerDeleteAgent(server, ctx);
   registerGenerateScenario(server, ctx, taskStore);
   registerListScenarios(server, ctx);
+  registerGetScenario(server, ctx);
   registerDeleteScenario(server, ctx);
   registerEvaluateAgent(server, ctx, taskStore);
   registerListRecentRuns(server, ctx);
   registerGetRunDetails(server, ctx);
+  registerGetEvaluationReport(server, ctx);
+  registerGetRunOutput(server, ctx);
   registerGetUsageSummary(server, ctx);
   registerPreviewRunCost(server, ctx);
 }
