@@ -148,17 +148,12 @@ HTTP server listens on `127.0.0.1:8080` by default (`HOST`, `PORT` override). En
 
 First, ensure you have built the server by running `pnpm build` from the monorepo root.
 
-To run the inspector against a specific environment, provide your `VERIFYAX_API_KEY` (in the shell or in the matching `.env.*` file). The `inspect*` scripts load that file with dotenv and forward `VERIFYAX_*` variables to Inspector via `-e` (required — Inspector does not pass your shell env to the spawned stdio server):
+To run the inspector against a specific environment, set `VERIFYAX_API_KEY` in the matching `.env.*` file. The `inspect*` scripts load that file with dotenv (`--override`, so file values win over shell `VERIFYAX_*` prefixes) and forward `VERIFYAX_*` variables to Inspector via `-e` (required — Inspector does not pass your shell env to the spawned stdio server). See [debugging-mcp-inspector.md](../../docs/debugging-mcp-inspector.md).
 
 ```bash
-# Production — VERIFYAX_API_KEY from shell prefix or .env.prod
-VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect
-
-# Development — base URLs from .env.dev
-VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect:dev
-
-# Testing
-VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect:test
+pnpm --filter @verifyax/mcp-server inspect       # .env.prod
+pnpm --filter @verifyax/mcp-server inspect:dev   # .env.dev
+pnpm --filter @verifyax/mcp-server inspect:test  # .env.test
 ```
 
 **MCP Inspector (Streamable HTTP)** — start the HTTP server in the desired environment (e.g., `pnpm --filter @verifyax/mcp-server start:dev`), then connect with your API key in the Authorization header.

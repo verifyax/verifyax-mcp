@@ -11,7 +11,13 @@ required.
 > **Pass the key with `-e`:** Inspector does **not** inherit your shell environment — the spawned
 > server only sees variables passed explicitly via `-e KEY=value`. The `inspect*` convenience
 > scripts load `.env.*` with dotenv and forward `VERIFYAX_*` vars as `-e` flags automatically;
-> set `VERIFYAX_API_KEY` in the shell or in your `.env.*` file before running them.
+> set `VERIFYAX_API_KEY` in your `.env.*` file before running them.
+>
+> **Shell prefix vs `.env.*`:** when the profile file exists (e.g. `.env.prod`), dotenv runs with
+> `--override`, so values **in the file replace** any `VERIFYAX_*` you set on the command line.
+> A one-off `VERIFYAX_API_KEY=sk-ver-api-... pnpm ... inspect` does **not** override
+> `VERIFYAX_API_KEY` in `.env.prod` — update that file, comment out the key line, or temporarily
+> rename the file if you need a different key.
 
 ## stdio (local default)
 
@@ -25,14 +31,14 @@ Inspector spawns the server as a subprocess. Build first, then run the inspector
 ```bash
 pnpm build
 
-# Production — VERIFYAX_API_KEY from shell prefix or .env.prod
-VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect
+# Production — VERIFYAX_API_KEY from .env.prod (see shell vs file note above)
+pnpm --filter @verifyax/mcp-server inspect
 
-# Development — base URLs from .env.dev; API key from shell or .env.dev
-VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect:dev
+# Development — base URLs and API key from .env.dev
+pnpm --filter @verifyax/mcp-server inspect:dev
 
 # Testing
-VERIFYAX_API_KEY=sk-ver-api-... pnpm --filter @verifyax/mcp-server inspect:test
+pnpm --filter @verifyax/mcp-server inspect:test
 ```
 
 ```powershell
