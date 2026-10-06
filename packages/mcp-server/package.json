@@ -50,7 +50,7 @@
     "test:conformance": "tsc -b && vitest run --config vitest.conformance.config.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "@verifyax/sdk": "workspace:*",
     "express": "^5.2.1",
     "zod": "^4.6.5"
@@ -59,9 +59,9 @@
     "access": "public"
   },
   "devDependencies": {
-    "@modelcontextprotocol/inspector": "^2.7.0",
+    "@modelcontextprotocol/inspector": "^2.8.0",
     "@types/express": "^5.0.6",
-    "dotenv": "^18.0.3",
+    "dotenv": "^18.0.4",
     "dotenv-cli": "^11.0.0",
     "dotenv-expand": "^1000.0.0"
   }
