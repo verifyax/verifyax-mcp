@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll } from 'vitest';
 import { server } from './server.js';
 
 beforeAll(() => {
-  server.listen({ onUnhandledRequest: 'error' });
+  server.listen({ onUnhandledFrame: 'error' });
 });
 afterEach(() => {
   server.resetHandlers();
