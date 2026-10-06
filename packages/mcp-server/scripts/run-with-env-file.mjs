@@ -157,12 +157,12 @@ export function preflight(options) {
  * @returns {string[]}
  */
 export function buildDotenvArgs(options, envFileExists) {
-  const dotenvArgs = ['dotenv'];
+  const dotenvArgs = ['dotenv', 'run'];
   if (envFileExists) {
     // File values must win over shell VERIFYAX_* overrides so preflight matches runtime.
-    dotenvArgs.push('-o', '-e', options.envFile);
+    dotenvArgs.push('--override', '-f', options.envFile);
   }
-  dotenvArgs.push('-v', `VERIFYAX_MCP_TARGET_ENV=${options.profile}`, '--', ...options.command);
+  dotenvArgs.push('--', ...options.command);
   return dotenvArgs;
 }
 
@@ -186,7 +186,10 @@ function main() {
   const child = spawn('npx', dotenvArgs, {
     cwd: packageRoot,
     stdio: 'inherit',
-    env: process.env,
+    env: {
+      ...process.env,
+      VERIFYAX_MCP_TARGET_ENV: options.profile,
+    },
     shell: process.platform === 'win32',
   });
 

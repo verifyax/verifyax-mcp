@@ -104,25 +104,23 @@ describe('buildDotenvArgs', () => {
     command: ['node', 'dist/http.js'],
   };
 
-  it('passes -o so .env file values override shell VERIFYAX_* vars', () => {
+  it('passes --override so .env file values override shell VERIFYAX_* vars', () => {
     expect(buildDotenvArgs(baseOptions, true)).toEqual([
       'dotenv',
-      '-o',
-      '-e',
+      'run',
+      '--override',
+      '-f',
       '.env.dev',
-      '-v',
-      'VERIFYAX_MCP_TARGET_ENV=development',
       '--',
       'node',
       'dist/http.js',
     ]);
   });
 
-  it('omits -e and -o when the env file is missing', () => {
+  it('omits -f and --override when the env file is missing', () => {
     expect(buildDotenvArgs(baseOptions, false)).toEqual([
       'dotenv',
-      '-v',
-      'VERIFYAX_MCP_TARGET_ENV=development',
+      'run',
       '--',
       'node',
       'dist/http.js',
