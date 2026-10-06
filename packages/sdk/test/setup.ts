@@ -1,3 +1,4 @@
+import './polyfills.js';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { server } from './server.js';
 
