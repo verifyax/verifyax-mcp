@@ -1,15 +1,9 @@
 name: Publish
 
-# Manual, opt-in publishing from an immutable tag after that tag's CI passes.
-# A real run publishes npm first and then creates the GitHub Release, whose
-# release event triggers the MCP Registry workflow.
-#
-# Auth is npm Trusted Publishing (OIDC): both packages list this repo + workflow as a
-# trusted publisher on npmjs.com, so no NPM_TOKEN secret and no OTP are involved. The
-# token path died with EOTP once the account required 2FA for writes (see v0.3.2/v0.3.3
-# release attempts); do not reintroduce NODE_AUTH_TOKEN — with OIDC configured it is
-# unnecessary. pnpm publish delegates to the npm CLI, which must be >= 11.5.1 for OIDC
-# (Node 22 ships npm 10; without upgrading, PUT returns E404).
+# npm Trusted Publishing (OIDC) — see docs/releasing.md. Manual dispatch still supports
+# dry-run rehearsal. A green push to main with a new package version auto-publishes, tags,
+# and creates the GitHub Release, then uploads neo-release for the MCP Registry workflow
+# (GITHUB_TOKEN releases do not start other workflows).
 on:
   workflow_dispatch:
     inputs:
@@ -21,34 +15,101 @@ on:
         description: 'Run pnpm publish in --dry-run mode (no upload)'
         type: boolean
         default: true
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
 
 permissions:
   actions: read
   contents: write
-  # Required for npm provenance (OIDC) on the real publish.
   id-token: write
+
+concurrency:
+  group: publish-${{ github.event_name == 'workflow_dispatch' && format('tag-{0}', inputs.tag) || 'main-auto' }}
+  cancel-in-progress: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.repository.full_name == github.repository)
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          # npm Trusted Publishing requires npm CLI >= 11.5.1 (bundled with Node 24).
           node-version: 24
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Verify immutable tag and successful CI
+      - name: Resolve publish action
+        id: gate
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RELEASE_TAG="${{ inputs.tag }}"
+            echo "action=dispatch" >> "$GITHUB_OUTPUT"
+            echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+            echo "package_version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+            echo "dry_run=${{ inputs.dry_run }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          TIP="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"
+          if [ "$SHA" != "$TIP" ]; then
+            echo "action=skip" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=stale_main_tip" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          VERSION="$(jq -r '.version' packages/mcp-server/package.json)"
+          RELEASE_TAG="v${VERSION}"
+          echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "package_version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+          ON_NPM=false
+          if npm view "@verifyax/mcp-server@${VERSION}" version >/dev/null 2>&1; then
+            ON_NPM=true
+          fi
+          ON_RELEASE=false
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            ON_RELEASE=true
+          fi
+
+          if [ "$ON_NPM" = true ] && [ "$ON_RELEASE" = true ]; then
+            echo "action=skip" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=already_published" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$ON_NPM" = true ] && [ "$ON_RELEASE" = false ]; then
+            echo "action=release_only" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "action=full_publish" >> "$GITHUB_OUTPUT"
+
+      - name: Skip
+        if: steps.gate.outputs.action == 'skip'
+        run: |
+          echo "Nothing to publish (${{ steps.gate.outputs.skip_reason }})."
+          exit 0
+
+      - name: Verify immutable tag and successful CI (manual dispatch)
+        if: steps.gate.outputs.action == 'dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.gate.outputs.release_tag }}
         run: |
           case "$RELEASE_TAG" in
             v[0-9]*.[0-9]*.[0-9]*) ;;
@@ -74,48 +135,105 @@ jobs:
           }
 
       - name: Install dependencies
+        if: steps.gate.outputs.action != 'skip'
         run: pnpm install --frozen-lockfile
 
       - name: Check version consistency
+        if: steps.gate.outputs.action != 'skip'
         run: pnpm check:versions
         env:
-          EXPECT_VERSION: ${{ inputs.tag }}
+          EXPECT_VERSION: ${{ steps.gate.outputs.release_tag }}
 
       - name: Check generated SDK artifacts
+        if: steps.gate.outputs.action == 'dispatch' || steps.gate.outputs.action == 'full_publish'
         run: |
           pnpm gen:types
           pnpm gen:spec-meta
           git diff --exit-code -- packages/sdk/src/types.gen.ts packages/sdk/openapi/verifyax.meta.json
 
       - name: Lint
+        if: steps.gate.outputs.action == 'dispatch' || steps.gate.outputs.action == 'full_publish'
         run: pnpm lint
 
       - name: Check formatting
+        if: steps.gate.outputs.action == 'dispatch' || steps.gate.outputs.action == 'full_publish'
         run: pnpm format:check
 
       - name: Audit production dependencies
+        if: steps.gate.outputs.action == 'dispatch' || steps.gate.outputs.action == 'full_publish'
         run: pnpm audit:prod
 
       - name: Build
+        if: steps.gate.outputs.action == 'dispatch' || steps.gate.outputs.action == 'full_publish'
         run: pnpm build
 
       - name: Unit tests
+        if: steps.gate.outputs.action == 'dispatch' || steps.gate.outputs.action == 'full_publish'
         run: pnpm test:coverage
 
       - name: Conformance test
+        if: steps.gate.outputs.action == 'dispatch' || steps.gate.outputs.action == 'full_publish'
         run: pnpm test:conformance
 
-      - name: Publish (dry run)
-        if: ${{ inputs.dry_run }}
+      - name: Publish (dry run, manual)
+        if: steps.gate.outputs.action == 'dispatch' && steps.gate.outputs.dry_run == 'true'
         run: pnpm -r publish --access public --no-git-checks --dry-run
 
       - name: Publish
-        if: ${{ !inputs.dry_run }}
+        if: >-
+          (steps.gate.outputs.action == 'dispatch' && steps.gate.outputs.dry_run == 'false') ||
+          steps.gate.outputs.action == 'full_publish'
         run: pnpm -r publish --access public --no-git-checks --provenance
 
-      - name: Create GitHub Release
-        if: ${{ !inputs.dry_run }}
+      - name: Create git tag (main auto)
+        if: steps.gate.outputs.action == 'full_publish'
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG" --generate-notes
+          RELEASE_TAG: ${{ steps.gate.outputs.release_tag }}
+        run: |
+          if git rev-parse "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Tag $RELEASE_TAG already exists."
+          else
+            git tag "$RELEASE_TAG"
+            git push origin "$RELEASE_TAG"
+          fi
+
+      - name: Create GitHub Release
+        if: >-
+          steps.gate.outputs.action == 'release_only' ||
+          (steps.gate.outputs.action == 'dispatch' && steps.gate.outputs.dry_run == 'false') ||
+          steps.gate.outputs.action == 'full_publish'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.gate.outputs.release_tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists."
+          elif [ "${{ steps.gate.outputs.action }}" = "dispatch" ]; then
+            gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG" --generate-notes
+          else
+            gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --generate-notes
+          fi
+
+      - name: Write neo-release metadata
+        if: >-
+          steps.gate.outputs.action == 'release_only' ||
+          (steps.gate.outputs.action == 'dispatch' && steps.gate.outputs.dry_run == 'false') ||
+          steps.gate.outputs.action == 'full_publish'
+        run: |
+          VERSION="${{ steps.gate.outputs.package_version }}"
+          SHA="$(git rev-parse HEAD)"
+          jq -n --arg version "$VERSION" --arg sha "$SHA" \
+            '{version:$version,sha:$sha}' > neo-release.json
+          cat neo-release.json
+
+      - name: Upload neo-release artifact
+        if: >-
+          steps.gate.outputs.action == 'release_only' ||
+          (steps.gate.outputs.action == 'dispatch' && steps.gate.outputs.dry_run == 'false') ||
+          steps.gate.outputs.action == 'full_publish'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: neo-release
+          path: neo-release.json
+          retention-days: 30

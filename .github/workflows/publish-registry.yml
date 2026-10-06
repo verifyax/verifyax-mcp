@@ -7,20 +7,21 @@ name: Publish to MCP Registry
 # account gets a 403 there — the reason 0.3.0/0.3.1 were skipped).
 #
 # Ordering: the registry validates ownership against the *published* npm package,
-# so the matching npm version must already be live. This repo publishes to npm
-# manually (dry-run-gated — see docs/releasing.md), and the GitHub Release is
-# created *after* that npm publish, so `release: published` fires in the right
-# order. A raw `push: tags` trigger would race ahead of the npm publish and fail.
-# `workflow_dispatch` is kept for catch-up / recovery (e.g. a release whose
-# registry publish was skipped).
+# so the matching npm version must already be live. Runs after a real Publish
+# workflow uploads neo-release (GITHUB_TOKEN releases do not start workflows),
+# on release: published, or via manual catch-up.
 
 on:
   release:
     types: [published]
   workflow_dispatch:
+  workflow_run:
+    workflows: [Publish]
+    types: [completed]
 
 permissions:
   contents: read
+  actions: read
   id-token: write # GitHub OIDC -> MCP Registry auth for the io.github.verifyax/* namespace
 
 env:
@@ -28,13 +29,69 @@ env:
   MCP_PUBLISHER_VERSION: v1.8.0
 
 jobs:
-  publish-registry:
+  gate:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.repository.full_name == github.repository
     runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.probe.outputs.proceed }}
     steps:
+      - name: Require neo-release artifact from Publish
+        id: probe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          COUNT=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${{ github.event.workflow_run.id }}/artifacts" \
+            --jq '[.artifacts[] | select(.name=="neo-release")] | length')
+          if [ "$COUNT" -ge 1 ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "Publish did not upload neo-release (dry-run, skip, or no release step)."
+          fi
+
+  publish-registry:
+    needs: gate
+    runs-on: ubuntu-latest
+    if: >-
+      !cancelled() &&
+      !failure() &&
+      (
+        github.event_name == 'release' ||
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'workflow_run' &&
+          needs.gate.result == 'success' &&
+          needs.gate.outputs.proceed == 'true'
+        )
+      )
+    steps:
+      - name: Download neo-release metadata (after Publish)
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+          name: neo-release
+          path: .
+
+      - name: Resolve checkout ref
+        id: ref
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            VERSION="$(jq -r .version neo-release.json)"
+            echo "ref=v${VERSION}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            echo "ref=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.ref }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # On a release, check out the released tag; on manual dispatch, the ref chosen in the UI.
-          ref: ${{ github.event.release.tag_name || github.ref }}
+          ref: ${{ steps.ref.outputs.ref }}
 
       - name: Verify server.json matches a published npm release
         # Fail fast with a clear message if run before npm publish: the registry
@@ -53,18 +110,36 @@ jobs:
           fi
           echo "Publishing server.json ${SERVER_VERSION} to the MCP Registry."
 
+      - name: Skip when registry already lists this version
+        id: skip
+        run: |
+          SERVER_VERSION=$(jq -r '.version' server.json)
+          CURRENT=$(curl -fsSL \
+            "https://registry.modelcontextprotocol.io/v0/servers/io.github.verifyax%2Fmcp-server/versions/${SERVER_VERSION}" \
+            | jq -r '.server.version' 2>/dev/null || echo '')
+          if [ "$CURRENT" = "$SERVER_VERSION" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Registry already lists ${SERVER_VERSION}."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install mcp-publisher ${{ env.MCP_PUBLISHER_VERSION }}
+        if: steps.skip.outputs.skip != 'true'
         run: |
           curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz" \
             | tar xz mcp-publisher
 
       - name: Authenticate via GitHub OIDC
+        if: steps.skip.outputs.skip != 'true'
         run: ./mcp-publisher login github-oidc
 
       - name: Publish server.json
+        if: steps.skip.outputs.skip != 'true'
         run: ./mcp-publisher publish
 
       - name: Confirm the registry now lists the new version
+        if: steps.skip.outputs.skip != 'true'
         run: |
           SERVER_VERSION=$(jq -r '.version' server.json)
           LATEST=$(curl -fsSL "https://registry.modelcontextprotocol.io/v0/servers/io.github.verifyax%2Fmcp-server/versions/latest" | jq -r '.server.version')

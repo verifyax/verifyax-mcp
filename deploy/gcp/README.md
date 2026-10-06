@@ -2,6 +2,8 @@
 
 This runs `@verifyax/mcp-server` in **Streamable HTTP** mode on Cloud Run. Clients authenticate with their own **VerifyAX API key** on each session — the server does not store one. Local **stdio** mode is unchanged — see [`packages/mcp-server/README.md`](../../packages/mcp-server/README.md).
 
+For **Neo GKE** hosting (dev auto-deploy, manual prod), see [`deploy/neo/README.md`](../neo/README.md).
+
 ## Prerequisites
 
 - Google Cloud project with billing enabled

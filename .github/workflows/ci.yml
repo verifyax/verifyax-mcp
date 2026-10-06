@@ -2,10 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     tags: ['v*']
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   schedule:
     # Advisories publish against code that is not changing. CI only ran on push
     # and pull_request, so fast-uri and ip-address (#76) sat open on a green
@@ -86,6 +86,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Neo deploy values mirror verification and gateway routing
+        run: ./deploy/neo/check-values.sh
 
       # Nothing else in CI builds these, and three separate changes broke them
       # without a single red check: the node 26 bumps (corepack is absent from

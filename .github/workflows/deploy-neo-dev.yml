@@ -1,0 +1,99 @@
+name: Deploy Neo MCP (dev)
+
+# Rolls verifyax-mcp-dev on Neo GKE after CI passes for push to dev or a same-repo PR into dev.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: neo-mcp-dev
+  cancel-in-progress: false
+
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.repository.full_name == github.repository
+    outputs:
+      deploy: ${{ steps.pick.outputs.deploy }}
+      sha: ${{ steps.pick.outputs.sha }}
+      skip_reason: ${{ steps.pick.outputs.skip_reason }}
+    steps:
+      - name: Decide whether to deploy dev
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          EVENT="${{ github.event.workflow_run.event }}"
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          SHA="${{ github.event.workflow_run.head_sha }}"
+
+          if [ "$EVENT" = "push" ] && [ "$BRANCH" = "dev" ]; then
+            TIP="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/dev" --jq .object.sha 2>/dev/null || echo '')"
+            if [ -z "$TIP" ]; then
+              echo "deploy=false" >> "$GITHUB_OUTPUT"
+              echo "skip_reason=no_dev_branch" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [ "$SHA" != "$TIP" ]; then
+              echo "deploy=false" >> "$GITHUB_OUTPUT"
+              echo "skip_reason=stale_dev_tip" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$EVENT" = "pull_request" ]; then
+            PR_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/pulls" --jq '.[0]')"
+            BASE="$(echo "$PR_JSON" | jq -r '.base.ref')"
+            HEAD_REPO="$(echo "$PR_JSON" | jq -r '.head.repo.full_name')"
+            if [ "$BASE" = "dev" ] && [ "$HEAD_REPO" = "${GITHUB_REPOSITORY}" ]; then
+              echo "deploy=true" >> "$GITHUB_OUTPUT"
+              echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          echo "deploy=false" >> "$GITHUB_OUTPUT"
+          echo "skip_reason=not_dev_trigger" >> "$GITHUB_OUTPUT"
+
+      - name: Skip reason
+        if: steps.pick.outputs.deploy != 'true'
+        run: echo "Skipping dev deploy (${{ steps.pick.outputs.skip_reason }})."
+
+  deploy:
+    needs: select
+    if: needs.select.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.select.outputs.sha }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Roll out dev MCP
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GKE_CLUSTER: ${{ vars.GKE_CLUSTER }}
+          GKE_REGION: ${{ vars.GKE_REGION }}
+        run: ./deploy/neo/rollout.sh dev

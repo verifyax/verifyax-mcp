@@ -1,0 +1,78 @@
+name: Deploy Neo MCP (prod)
+
+# Manual production rollout only. Publishing a release does not deploy prod.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Immutable release tag (vX.Y.Z)'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: neo-mcp-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Validate tag format
+        run: |
+          case "${{ inputs.tag }}" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::tag must use the vX.Y.Z format"; exit 1 ;;
+          esac
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+
+      - name: Verify release and npm package exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          [ "$(git describe --tags --exact-match HEAD)" = "$RELEASE_TAG" ] || {
+            echo "::error::Checked-out commit is not exactly tagged $RELEASE_TAG."
+            exit 1
+          }
+          gh release view "$RELEASE_TAG" >/dev/null || {
+            echo "::error::GitHub Release $RELEASE_TAG does not exist — publish first."
+            exit 1
+          }
+          VERSION="${RELEASE_TAG#v}"
+          npm view "@verifyax/mcp-server@${VERSION}" version >/dev/null || {
+            echo "::error::@verifyax/mcp-server@${VERSION} is not on npm yet."
+            exit 1
+          }
+          PKG="$(jq -r '.version' packages/mcp-server/package.json)"
+          [ "$PKG" = "$VERSION" ] || {
+            echo "::error::package.json ($PKG) does not match tag ($VERSION)."
+            exit 1
+          }
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Roll out prod MCP
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GKE_CLUSTER: ${{ vars.GKE_CLUSTER }}
+          GKE_REGION: ${{ vars.GKE_REGION }}
+        run: ./deploy/neo/rollout.sh prod
