@@ -26,7 +26,8 @@ describe('shapeRunOutput', () => {
     const shaped = shapeRunOutput({ blob: 'y'.repeat(20_000) }, 100);
     expect(shaped.truncated).toBe(true);
     expect(shaped.omitted_chars).toBeGreaterThan(0);
-    expect(shaped.truncation_note).toBeTruthy();
+    expect(shaped.truncation_note).toContain('higher max_chars');
+    expect(shaped.truncation_note).not.toContain('smaller max_chars');
   });
 
   it('flattens rounds[].messages for turn excerpting', () => {
