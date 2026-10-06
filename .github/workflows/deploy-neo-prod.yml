@@ -23,8 +23,10 @@ jobs:
     environment: prod
     steps:
       - name: Validate tag format
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          case "${{ inputs.tag }}" in
+          case "$RELEASE_TAG" in
             v[0-9]*.[0-9]*.[0-9]*) ;;
             *) echo "::error::tag must use the vX.Y.Z format"; exit 1 ;;
           esac

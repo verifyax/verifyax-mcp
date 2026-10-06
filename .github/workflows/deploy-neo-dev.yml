@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: neo-mcp-dev
@@ -17,6 +16,9 @@ concurrency:
 jobs:
   select:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.repository.full_name == github.repository
@@ -29,11 +31,20 @@ jobs:
         id: pick
         env:
           GH_TOKEN: ${{ github.token }}
+          WORKFLOW_RUN_EVENT: ${{ github.event.workflow_run.event }}
+          WORKFLOW_RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WORKFLOW_RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          EVENT="${{ github.event.workflow_run.event }}"
-          BRANCH="${{ github.event.workflow_run.head_branch }}"
-          SHA="${{ github.event.workflow_run.head_sha }}"
+          EVENT="$WORKFLOW_RUN_EVENT"
+          BRANCH="$WORKFLOW_RUN_HEAD_BRANCH"
+          SHA="$WORKFLOW_RUN_HEAD_SHA"
+
+          if [[ ! "$SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=invalid_sha" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           if [ "$EVENT" = "push" ] && [ "$BRANCH" = "dev" ]; then
             TIP="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/dev" --jq .object.sha 2>/dev/null || echo '')"
@@ -68,12 +79,17 @@ jobs:
 
       - name: Skip reason
         if: steps.pick.outputs.deploy != 'true'
-        run: echo "Skipping dev deploy (${{ steps.pick.outputs.skip_reason }})."
+        env:
+          SKIP_REASON: ${{ steps.pick.outputs.skip_reason }}
+        run: echo "Skipping dev deploy (${SKIP_REASON})."
 
   deploy:
     needs: select
     if: needs.select.outputs.deploy == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     environment: dev
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

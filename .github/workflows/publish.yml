@@ -55,18 +55,31 @@ jobs:
         id: gate
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          WORKFLOW_RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            RELEASE_TAG="${{ inputs.tag }}"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            RELEASE_TAG="$INPUT_TAG"
+            case "$RELEASE_TAG" in
+              v[0-9]*.[0-9]*.[0-9]*) ;;
+              *) echo "::error::tag must use the vX.Y.Z format"; exit 1 ;;
+            esac
             echo "action=dispatch" >> "$GITHUB_OUTPUT"
             echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
             echo "package_version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
-            echo "dry_run=${{ inputs.dry_run }}" >> "$GITHUB_OUTPUT"
+            echo "dry_run=${INPUT_DRY_RUN}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          SHA="${{ github.event.workflow_run.head_sha }}"
+          SHA="$WORKFLOW_RUN_HEAD_SHA"
+          if [[ ! "$SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "action=skip" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=invalid_sha" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           TIP="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"
           if [ "$SHA" != "$TIP" ]; then
             echo "action=skip" >> "$GITHUB_OUTPUT"
@@ -101,8 +114,10 @@ jobs:
 
       - name: Skip
         if: steps.gate.outputs.action == 'skip'
+        env:
+          SKIP_REASON: ${{ steps.gate.outputs.skip_reason }}
         run: |
-          echo "Nothing to publish (${{ steps.gate.outputs.skip_reason }})."
+          echo "Nothing to publish (${SKIP_REASON})."
           exit 0
 
       - name: Verify immutable tag and successful CI (manual dispatch)
@@ -206,10 +221,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.gate.outputs.release_tag }}
+          GATE_ACTION: ${{ steps.gate.outputs.action }}
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             echo "Release $RELEASE_TAG already exists."
-          elif [ "${{ steps.gate.outputs.action }}" = "dispatch" ]; then
+          elif [ "$GATE_ACTION" = "dispatch" ]; then
             gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG" --generate-notes
           else
             gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --generate-notes
@@ -220,8 +236,10 @@ jobs:
           steps.gate.outputs.action == 'release_only' ||
           (steps.gate.outputs.action == 'dispatch' && steps.gate.outputs.dry_run == 'false') ||
           steps.gate.outputs.action == 'full_publish'
+        env:
+          PACKAGE_VERSION: ${{ steps.gate.outputs.package_version }}
         run: |
-          VERSION="${{ steps.gate.outputs.package_version }}"
+          VERSION="$PACKAGE_VERSION"
           SHA="$(git rev-parse HEAD)"
           jq -n --arg version "$VERSION" --arg sha "$SHA" \
             '{version:$version,sha:$sha}' > neo-release.json
