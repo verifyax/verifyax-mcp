@@ -155,7 +155,7 @@ export function shapeRunOutput(output: RunOutput, maxChars: number): Record<stri
     ...(shaped.truncated
       ? {
           truncation_note:
-            'Output was truncated as pretty-printed JSON; use a smaller max_chars or inspect get_run_details for run metadata.',
+            'Output was truncated as pretty-printed JSON; call again with a higher max_chars (up to 32000) to recover omitted content, or use get_run_details for run metadata.',
           omitted_chars: shaped.omitted_chars,
         }
       : {}),
