@@ -9,10 +9,10 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ### Added
 
-- Neo GKE deploy automation: `deploy/neo/` rollout scripts and values mirrored from verification;
-  CI on the `dev` branch; automatic dev deploy after green CI; automatic npm publish and GitHub
-  Release when a new version merges to `main`; MCP Registry publish chained from Publish; manual
-  prod deploy workflow only.
+- Neo GKE deploy automation: `deploy/neo/` rollout scripts; runtime targeting via GitHub
+  Environment variables (not committed hostnames or gateway URLs); CI on the `dev` branch;
+  automatic dev deploy after green CI; automatic npm publish and GitHub Release when a new version
+  merges to `main`; MCP Registry publish chained from Publish; manual prod deploy workflow only.
 
 ## [0.4.0] - 2026-10-05
 

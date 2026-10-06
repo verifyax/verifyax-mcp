@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 # Build deploy/gcp/Dockerfile, push it, and roll the existing Neo GKE Deployment.
 # Does not run Terraform. Authenticate gcloud (or GitHub Workload Identity) first.
+#
+# Runtime targeting (hosts, gateway URLs, health URL, GCP project/cluster) comes from
+# environment variables — set on GitHub Environment dev/prod for Actions, or export /
+# deploy/neo/local/<dev|prod>.env for local operators (gitignored).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
+
+REGISTRY_IMAGE="europe-west2-docker.pkg.dev/verifyax-core/verifyax-docker/verifyax-mcp"
+CONTAINER="verifyax-mcp"
 
 usage() {
   cat <<'EOF'
@@ -19,29 +26,70 @@ Image tags:
 
 Refuses the tag "latest". A prod IMAGE_TAG must match package.json.
 
-GCP_PROJECT_ID, GKE_CLUSTER, and GKE_REGION override the values file when set.
+Required environment variables (GitHub Environment vars on deploy workflows):
+  GCP_PROJECT_ID, GKE_CLUSTER, GKE_REGION
+  ALLOWED_HOSTS          Comma-separated public MCP hostnames (no $(POD_IP))
+  LOG_LEVEL              debug (dev) or info (prod)
+  VERIFYAX_BASE_URL      Gateway /api/v1 base
+  VERIFYAX_WEB_BASE_URL  Gateway /web/api/v1 base
+  HEALTH_URL             HTTPS URL for post-deploy curl (/health)
+
+Local operators may place exports in deploy/neo/local/<dev|prod>.env (gitignored).
 EOF
 }
 
-read_value() {
-  local file="$1" key="$2" line val
-  line="$(grep -E "^${key}:" "$file" | head -n 1 || true)"
-  if [[ -z "$line" ]]; then
-    echo "error: ${file} is missing ${key}" >&2
-    exit 1
-  fi
-  val="${line#*:}"
-  val="${val#"${val%%[![:space:]]*}"}"
-  val="${val%"${val##*[![:space:]]}"}"
-  val="${val%\"}"
-  val="${val#\"}"
-  val="${val%\'}"
-  val="${val#\'}"
+require_env() {
+  local name="$1"
+  local val="${!name:-}"
   if [[ -z "$val" ]]; then
-    echo "error: ${file} ${key} is empty" >&2
+    echo "error: ${name} is not set (GitHub Environment variable or deploy/neo/local/<env>.env)" >&2
     exit 1
   fi
   printf '%s' "$val"
+}
+
+validate_target_env() {
+  local target="$1"
+  local log_level="$2"
+  local base_url="$3"
+  local web_base_url="$4"
+  local health_url="$5"
+
+  case "$target" in
+    dev)
+      if [[ "$log_level" != "debug" ]]; then
+        echo "error: dev rollout requires LOG_LEVEL=debug, got ${log_level}" >&2
+        exit 1
+      fi
+      if [[ "$base_url" == *console.verifyax.com* || "$web_base_url" == *console.verifyax.com* ]]; then
+        echo "error: dev VERIFYAX_* URLs must not point at the production console gateway" >&2
+        exit 1
+      fi
+      ;;
+    prod)
+      if [[ "$log_level" != "info" ]]; then
+        echo "error: prod rollout requires LOG_LEVEL=info, got ${log_level}" >&2
+        exit 1
+      fi
+      if [[ "$base_url" == *webapp.dev.neo* || "$web_base_url" == *webapp.dev.neo* ]]; then
+        echo "error: prod VERIFYAX_* URLs must not point at the dev gateway" >&2
+        exit 1
+      fi
+      ;;
+  esac
+
+  case "$health_url" in
+    https://*) ;;
+    *)
+      echo "error: HEALTH_URL must be https, got ${health_url}" >&2
+      exit 1
+      ;;
+  esac
+
+  if [[ "$base_url" != https://* || "$web_base_url" != https://* ]]; then
+    echo "error: VERIFYAX_BASE_URL and VERIFYAX_WEB_BASE_URL must use https" >&2
+    exit 1
+  fi
 }
 
 if [[ $# -lt 1 || $# -gt 2 ]]; then
@@ -69,39 +117,30 @@ case "$TARGET" in
     ;;
 esac
 
-VALUES="${ROOT}/deploy/neo/values-${TARGET}.yaml"
-if [[ ! -f "$VALUES" ]]; then
-  echo "error: missing ${VALUES}" >&2
-  exit 1
+LOCAL_ENV="${ROOT}/deploy/neo/local/${TARGET}.env"
+if [[ -f "$LOCAL_ENV" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$LOCAL_ENV"
+  set +a
 fi
 
-ENVIRONMENT="$(read_value "$VALUES" environment)"
-if [[ "$ENVIRONMENT" != "$TARGET" ]]; then
-  echo "error: ${VALUES} environment is ${ENVIRONMENT}, expected ${TARGET}" >&2
-  exit 1
-fi
+ENVIRONMENT="$TARGET"
+NAMESPACE="verifyax-mcp-${TARGET}"
+DEPLOYMENT="verifyax-mcp-${TARGET}"
 
-GCP_PROJECT="${GCP_PROJECT_ID:-$(read_value "$VALUES" gcp_project)}"
-GKE_CLUSTER="${GKE_CLUSTER:-$(read_value "$VALUES" gke_cluster)}"
-GKE_REGION="${GKE_REGION:-$(read_value "$VALUES" gke_region)}"
-NAMESPACE="$(read_value "$VALUES" namespace)"
-DEPLOYMENT="$(read_value "$VALUES" deployment)"
-CONTAINER="$(read_value "$VALUES" container)"
-REGISTRY_IMAGE="$(read_value "$VALUES" registry_image)"
-LOG_LEVEL="$(read_value "$VALUES" log_level)"
-ALLOWED_HOSTS="$(read_value "$VALUES" allowed_hosts)"
-BASE_URL="$(read_value "$VALUES" verifyax_base_url)"
-WEB_BASE_URL="$(read_value "$VALUES" verifyax_web_base_url)"
-HEALTH_URL="$(read_value "$VALUES" health_url)"
-REPLICAS="$(read_value "$VALUES" replicas)"
+GCP_PROJECT="$(require_env GCP_PROJECT_ID)"
+GKE_CLUSTER_NAME="$(require_env GKE_CLUSTER)"
+GKE_REGION_NAME="$(require_env GKE_REGION)"
+LOG_LEVEL="$(require_env LOG_LEVEL)"
+ALLOWED_HOSTS="$(require_env ALLOWED_HOSTS)"
+BASE_URL="$(require_env VERIFYAX_BASE_URL)"
+WEB_BASE_URL="$(require_env VERIFYAX_WEB_BASE_URL)"
+HEALTH_URL="$(require_env HEALTH_URL)"
 
-if [[ "$REPLICAS" != "1" ]]; then
-  echo "error: replicas must stay 1 (in-process MCP sessions); ${VALUES} has ${REPLICAS}" >&2
-  exit 1
-fi
+validate_target_env "$TARGET" "$LOG_LEVEL" "$BASE_URL" "$WEB_BASE_URL" "$HEALTH_URL"
 
 # Literal $(POD_IP): kubelet expands it from the Downward API env already on the pod.
-# Terraform's Deployment template uses the same reference for /health Host checks.
 HOSTS_ENV="${ALLOWED_HOSTS},\$(POD_IP)"
 
 PKG_VERSION="$(node -p "require('${ROOT}/packages/mcp-server/package.json').version")"
@@ -151,8 +190,8 @@ echo "namespace=${NAMESPACE}"
 echo "deployment=${DEPLOYMENT}"
 echo "container=${CONTAINER}"
 echo "gcp_project=${GCP_PROJECT}"
-echo "gke_cluster=${GKE_CLUSTER}"
-echo "gke_region=${GKE_REGION}"
+echo "gke_cluster=${GKE_CLUSTER_NAME}"
+echo "gke_region=${GKE_REGION_NAME}"
 echo "log_level=${LOG_LEVEL}"
 echo "verifyax_base_url=${BASE_URL}"
 echo "verifyax_web_base_url=${WEB_BASE_URL}"
@@ -176,8 +215,8 @@ gcloud auth configure-docker europe-west2-docker.pkg.dev --quiet
 echo "Pushing ${IMAGE}"
 docker push "$IMAGE"
 
-gcloud container clusters get-credentials "$GKE_CLUSTER" \
-  --region "$GKE_REGION" \
+gcloud container clusters get-credentials "$GKE_CLUSTER_NAME" \
+  --region "$GKE_REGION_NAME" \
   --project "$GCP_PROJECT"
 
 PATCH_FILE="$(mktemp)"

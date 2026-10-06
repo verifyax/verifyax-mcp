@@ -87,7 +87,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Neo deploy values mirror verification and gateway routing
+      - name: Neo deploy rollout env validation (synthetic URLs)
         run: ./deploy/neo/check-values.sh
 
       # Nothing else in CI builds these, and three separate changes broke them

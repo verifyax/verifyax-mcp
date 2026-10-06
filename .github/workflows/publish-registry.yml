@@ -56,6 +56,7 @@ jobs:
     needs: gate
     runs-on: ubuntu-latest
     if: >-
+      always() &&
       !cancelled() &&
       !failure() &&
       (

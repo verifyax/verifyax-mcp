@@ -77,4 +77,9 @@ jobs:
           GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
           GKE_CLUSTER: ${{ vars.GKE_CLUSTER }}
           GKE_REGION: ${{ vars.GKE_REGION }}
+          ALLOWED_HOSTS: ${{ vars.ALLOWED_HOSTS }}
+          LOG_LEVEL: ${{ vars.LOG_LEVEL }}
+          VERIFYAX_BASE_URL: ${{ vars.VERIFYAX_BASE_URL }}
+          VERIFYAX_WEB_BASE_URL: ${{ vars.VERIFYAX_WEB_BASE_URL }}
+          HEALTH_URL: ${{ vars.HEALTH_URL }}
         run: ./deploy/neo/rollout.sh prod
