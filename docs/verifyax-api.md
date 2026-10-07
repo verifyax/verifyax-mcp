@@ -39,7 +39,7 @@ Pipeline: Register Agent → Create Scenario → Trigger Simulation → Evaluate
 - **Treat enum sets as open and tolerate unknown response fields** — new enum values and new top-level keys ship without a version bump. Handle an unrecognised status as "not yet terminal" rather than asserting the set is closed.
 - List endpoints return plain JSON arrays (no envelope). **Exception:** `GET /v1/simulations` returns a paginated object `{ items: [], total: number, limit: number, offset: number }`. Paginate all list endpoints with `limit` (default 100, max 1000; `1 ≤ limit ≤ 1000`) and `offset`. Ordering is stable within one call but not across calls.
 - Filters combine with AND. Omit a param to leave that dimension unfiltered.
-- **Request bodies:** unknown keys are generally ignored on most endpoints. **Exceptions:** `POST /v1/scenarios/generate` and `POST /v1/scenarios/generate-from-qna` forward **only documented public fields** — internal engine/model/DAG knobs are **stripped at the gateway** before verifyax-api sees the body.
+- **Request bodies:** unknown keys are generally ignored on most endpoints. **Exceptions:** `POST /v1/scenarios/generate` and `POST /v1/scenarios/generate-from-qna` forward documented public fields, plus unpublished `definition_format` on generate. Other internal engine/model/DAG knobs are **stripped at the gateway** before verifyax-api sees the body.
 - **Error bodies: the HTTP status code is the source of truth** — read it from the status line, not the body. There is **no `statusCode` field** in error bodies except on gateway rate-limit responses. Body shape varies by origin: gateway errors return `message`; gateway proxy/transport failures return `detail`; underlying-API errors usually carry `detail` (sometimes `error` + `message`); rate-limit responses carry `error`, `message`, and `statusCode`. Branch on the status code; for logging, read whichever of `message` / `detail` / `error` is present.
 
 ### Rate limiting
@@ -143,10 +143,11 @@ POST /v1/scenarios/generate
   "tag_pool": ["tag1", ...],            // universe to draw from (each must allow your scenario_type)
   "include_tags": ["tag1"],             // must appear in every scenario; subset of tag_pool
   "total_tags": 3,                      // tags per scenario; same caps as `tags`
-  "max_tags_per_npc": 1                 // default 1; ignored for interview
+  "max_tags_per_npc": 1,                // default 1; ignored for interview
+  "definition_format": "simulation_input" // new-engine document; gateway forwards it though it is not in the published schema. Omit it and the API still writes a Playground scenario_input. The MCP generate_scenario tool always sends simulation_input.
 }
 // Returns 201 Created: { uuid (scenario id), job_uuid, batch_uuid, batch_scenario_uuids (batch mode only), ... }
-// Only documented fields above are forwarded — do not send internal engine/model/DAG knobs.
+// Documented fields above are forwarded. definition_format is forwarded too, though unpublished. Do not send other internal engine/model/DAG knobs.
 // Poll job_uuid until COMPLETED before running simulations.
 // Run-time timeout is set per run via POST /v1/engine/simulate/scenario (timeout_minutes), not on generate.
 ```

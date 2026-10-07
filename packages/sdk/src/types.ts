@@ -186,6 +186,11 @@ export interface GenerateScenarioRequest {
   include_tags?: string[];
   total_tags?: number;
   max_tags_per_npc?: number;
+  /**
+   * Document format creation writes. Absent from the published OpenAPI schema; the gateway
+   * still forwards it. `simulation_input` is the new engine's own format.
+   */
+  definition_format?: 'scenario_input' | 'simulation_input';
   // Note: run-time timeout moved to SimulateRequest.timeout_minutes (not accepted here).
 }
 

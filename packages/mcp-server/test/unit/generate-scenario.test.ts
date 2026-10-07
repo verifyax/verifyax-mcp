@@ -52,6 +52,23 @@ describe('generate_scenario', () => {
     expect(payload.reason).toContain('skill tags registry');
   });
 
+  it('asks generation to write a new-engine simulation_input document', async () => {
+    const { ctx, calls } = stubContext([
+      {
+        method: 'POST',
+        match: '/scenarios/generate',
+        body: { uuid: 's-native', job_uuid: 'job-n' },
+      },
+      { method: 'GET', match: '/jobs/job-n', body: { uuid: 'job-n', current_status: 'COMPLETED' } },
+    ]);
+    await createGenerateScenarioHandler(ctx)({
+      name: 'demo',
+      scenario_type: 'info_exchange',
+      tags: ['empathy', 'active_listening'],
+    });
+    expect(calls[0]?.body).toMatchObject({ definition_format: 'simulation_input' });
+  });
+
   it('does not send description in the generate request body', async () => {
     const { ctx, calls } = stubContext([
       { method: 'POST', match: '/scenarios/generate', body: { uuid: 's3', job_uuid: 'job-3' } },
