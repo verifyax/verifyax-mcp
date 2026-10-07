@@ -7,6 +7,13 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- Neo GKE deploy automation: `deploy/neo/` rollout scripts; runtime targeting via GitHub
+  Environment variables (not committed hostnames or gateway URLs); CI on the `dev` branch;
+  automatic dev deploy after green CI; automatic npm publish and GitHub Release when a new version
+  merges to `main`; MCP Registry publish chained from Publish; manual prod deploy workflow only.
+
 ## [0.4.0] - 2026-10-05
 
 Read tools for the VerifyAX chat agent — fetch one scenario, evaluation reports, and run dialogue

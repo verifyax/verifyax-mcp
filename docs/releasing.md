@@ -3,8 +3,13 @@
 How to cut a new version of `@verifyax/sdk` and `@verifyax/mcp-server`. Both packages are
 versioned in lockstep; every release ships them together at the same semver.
 
-Publishing is **manual** (opt-in via GitHub Actions). Merging to `main` does not publish to npm
-by itself.
+Merging a **version bump** to `main` publishes to npm automatically after CI passes (unless that
+version is already on npm). Manual **Publish** workflow dispatch remains for dry-run rehearsal and
+recovery. **Production Neo GKE** deploy is separate and manual — see
+[deploy/neo/README.md](../deploy/neo/README.md).
+
+Hosted **dev** MCP on Neo GKE deploys from the long-lived **`dev`** branch (see the same runbook).
+Integration work merges to `dev` first; release PRs target `main`.
 
 ## Prerequisites
 
@@ -16,12 +21,13 @@ by itself.
 ## Overview
 
 ```
-PR: bump version + CHANGELOG + verify locally
+Feature PR → merge to dev → CI green → Neo dev MCP deploy (automatic)
+Release PR: bump version + CHANGELOG + verify locally
   → merge to main → CI green
-  → tag vX.Y.Z on main → CI verifies tag matches package version
-  → Publish workflow (dry run, then real)
-  → GitHub Release + MCP registry (if server.json changed)
+  → Publish workflow (automatic) → npm + git tag vX.Y.Z + GitHub Release
+  → MCP Registry (after Publish uploads neo-release)
   → smoke test published packages
+  → Deploy Neo MCP (prod) — manual workflow_dispatch when ready
 ```
 
 ## 1. Prepare the release (in your PR)
@@ -90,27 +96,27 @@ Merge the PR to `main`. The CI workflow (`.github/workflows/ci.yml`) runs on eve
 - Production dependency audit
 - Integration tests against the live API; missing key or agent fixture fails this protected gate
 
-Do not tag until this workflow is green.
+Wait for this workflow to finish green. The **Publish** workflow runs automatically on that push
+when the bumped version is not already on npm.
 
-## 3. Tag the release
+Pushing a `v*` tag still triggers CI (tag builds assert `pnpm check:versions` against the tag).
+You do **not** need to push a tag before the automatic publish — the Publish workflow creates
+`vX.Y.Z` after a successful npm upload.
 
-From an up-to-date `main`:
+## 3. Publish to npm (automatic on main)
 
-```bash
-git checkout main
-git pull
-git tag vX.Y.Z
-git push origin vX.Y.Z
-```
+After a green CI run on `main`, **Publish** (`.github/workflows/publish.yml`) checks whether
+`@verifyax/mcp-server@X.Y.Z` is already on npm. If not, it reruns the deterministic test gate,
+publishes both packages, creates the `vX.Y.Z` git tag, and opens the GitHub Release.
 
-Pushing a `v*` tag triggers CI again. On tag builds, `pnpm check:versions` also asserts the tag
-name matches the package version (`EXPECT_VERSION` in the workflow).
+If npm already has the version but the GitHub Release is missing, Publish creates the release only
+(no republish).
 
-## 4. Publish to npm
+### Manual dispatch (dry-run or recovery)
 
-Use the **Publish** workflow (`.github/workflows/publish.yml`) from the GitHub Actions tab. Enter
-the immutable `vX.Y.Z` tag. The workflow refuses to continue unless CI passed for that exact tagged
-commit, then reruns the complete deterministic CI suite before publishing.
+Use the **Publish** workflow from the GitHub Actions tab when rehearsing or recovering. Enter the
+immutable `vX.Y.Z` tag that already exists on the commit you want. Manual dispatch refuses to
+continue unless CI passed for that exact tagged commit, then reruns the full suite before publishing.
 
 ### Dry run first
 
@@ -130,8 +136,9 @@ This publishes both packages with provenance:
 - `@verifyax/mcp-server@X.Y.Z`
 
 The MCP server's `workspace:*` dependency on the SDK is rewritten to the concrete version at
-publish time. After npm succeeds, the workflow creates the GitHub Release. That event triggers
-the MCP Registry workflow, keeping all three channels ordered from one immutable tag.
+publish time. After npm succeeds, the workflow creates the GitHub Release and uploads a
+`neo-release` artifact. **Publish to MCP Registry** runs from that Publish success (a release
+created with `GITHUB_TOKEN` does not reliably start other workflows).
 
 ### Local publish (alternative)
 
@@ -149,12 +156,13 @@ pnpm -r publish --access public --no-git-checks --provenance
 Requires a logged-in npm session or `NODE_AUTH_TOKEN`. Prefer the GitHub Actions workflow when
 possible — it is the documented gate.
 
-## 5. GitHub Release
+## 4. GitHub Release
 
-The real Publish workflow creates the `vX.Y.Z` GitHub Release only after both npm packages
-publish successfully. Do not create it ahead of the npm publish.
+The Publish workflow creates the `vX.Y.Z` GitHub Release only after both npm packages publish
+successfully (automatic main path or manual dispatch with `dry_run: false`). Do not create it ahead
+of the npm publish.
 
-## 6. MCP Registry
+## 5. MCP Registry
 
 **Automated.** The [`Publish to MCP Registry`](../.github/workflows/publish-registry.yml) workflow
 publishes `server.json` to the official registry via **GitHub OIDC** — no local `mcp-publisher`
@@ -162,9 +170,9 @@ binary, PAT, or personal-account org authorization (the org-authorized OIDC iden
 the `io.github.verifyax/*` namespace publishable; a personal account 403s, which is why 0.3.0/0.3.1
 were skipped).
 
-It runs automatically **when you publish the GitHub Release** (step 5) — which is after the npm
-publish (step 4), the order the registry requires (it validates ownership against the live npm
-package). Nothing else to do; just confirm the run is green in the Actions tab.
+It runs automatically after a **successful Publish** run that uploaded `neo-release`, and still runs
+on `release: published` for compatibility. The registry requires the npm package to exist first.
+Confirm the run is green in the Actions tab.
 
 **Manual catch-up / recovery.** If a release's registry publish was skipped or failed, run the
 workflow from **Actions → Publish to MCP Registry → Run workflow**, selecting the release tag. It
@@ -173,6 +181,12 @@ message) if run too early.
 
 The registry lists `@verifyax/mcp-server` under the `io.github.verifyax` namespace; its version must
 match what shipped to npm (`server.json` `.version` == `packages/mcp-server/package.json` `.version`).
+
+## 6. Deploy Neo MCP (prod, manual)
+
+Publishing does **not** roll out production GKE. When you want prod live, run **Deploy Neo MCP
+(prod)** with `vX.Y.Z` after npm and the GitHub Release exist. See
+[deploy/neo/README.md](../deploy/neo/README.md).
 
 ## 7. Smoke test
 
@@ -200,11 +214,11 @@ Copy for each release (replace `X.Y.Z`):
 [ ] Finalize CHANGELOG.md ([Unreleased] → [X.Y.Z])
 [ ] pnpm build && pnpm check:versions
 [ ] pnpm lint && pnpm format:check && pnpm test:coverage && pnpm test:conformance
-[ ] Merge PR → main CI green
-[ ] git tag vX.Y.Z && git push origin vX.Y.Z → tag CI green
-[ ] Actions: Publish the exact tag (dry_run=true, then dry_run=false)
-[ ] Confirm the workflow created the GitHub Release after npm
+[ ] Merge release PR → main CI green
+[ ] Confirm Publish (auto) succeeded: npm, tag vX.Y.Z, GitHub Release
+[ ] (Optional recovery) Actions: Publish manual dispatch with dry_run=false on vX.Y.Z
 [ ] Confirm "Publish to MCP Registry" Actions run is green (registry shows the new version)
+[ ] Actions: Deploy Neo MCP (prod) with tag vX.Y.Z when prod should roll
 [ ] Smoke test: `npx -y -p @verifyax/mcp-server@X.Y.Z verifyax-mcp-server` and `npm view @verifyax/sdk@X.Y.Z version`
 ```
 
@@ -241,5 +255,5 @@ Do not add a long-lived `NPM_TOKEN` — the account requires 2FA for token write
 
 ### Integration tests fail on `main` after merge
 
-Fix forward on `main` before tagging. The Publish workflow requires a successful CI run for the
-exact tag, so integration drift or missing fixtures cannot be bypassed during release.
+Fix forward on `main` before expecting auto-publish. Manual Publish dispatch still requires a
+successful CI run for the exact tagged commit.
