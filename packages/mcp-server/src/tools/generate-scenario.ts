@@ -11,12 +11,21 @@ const NAME = 'generate_scenario';
 
 const DESCRIPTION =
   'Generates a new test scenario of a given type (info_exchange or interview) with optional skill ' +
-  'tags and context. Invalid tag names or incompatible tags fail immediately with 400/422 before a ' +
-  'job is queued; use recommend_scenario_tags, search_scenario_tags, or list_compatible_tags to pick ' +
-  'valid tag names. Typically takes 30s–2min; task-capable MCP clients receive a pollable task ' +
-  'handle immediately, while others block until generation finishes. Set num_scenarios greater than ' +
-  '1 for batch mode (requires tag_pool). Returns the new scenario’s uuid, or batch uuids when ' +
-  'batching, or a structured error if generation fails for other reasons after the job starts.';
+  'tags and context. The scenario is written as a new-engine simulation_input document. ' +
+  'info_exchange needs at least two skill tags; interview needs exactly one. Invalid tag names, ' +
+  'incompatible tags, or a tag count the new engine cannot build fail immediately with 400/422 ' +
+  'before a job is queued; use recommend_scenario_tags, search_scenario_tags, or ' +
+  'list_compatible_tags to pick valid tag names. Typically takes 30s–2min; task-capable MCP ' +
+  'clients receive a pollable task handle immediately, while others block until generation ' +
+  'finishes. Set num_scenarios greater than 1 for batch mode (requires tag_pool). Returns the ' +
+  'new scenario’s uuid, or batch uuids when batching, or a structured error if generation fails ' +
+  'for other reasons after the job starts.';
+
+/**
+ * New-engine document format. Sent on every generate until the API defaults to it
+ * (verifyax/verification#5501). An omitted field still writes a Playground scenario_input.
+ */
+const DEFINITION_FORMAT = 'simulation_input' as const;
 
 // Generation can take a couple of minutes; allow generous headroom.
 const BASE_GENERATION_POLL_MS = 300_000;
@@ -74,6 +83,7 @@ function buildGenerateRequest(args: Input): GenerateScenarioRequest {
   return {
     name: args.name,
     scenario_type: args.scenario_type,
+    definition_format: DEFINITION_FORMAT,
     ...(args.tags !== undefined ? { tags: args.tags } : {}),
     ...(args.context_prompt !== undefined ? { context_prompt: args.context_prompt } : {}),
     ...(args.num_scenarios !== undefined ? { num_scenarios: args.num_scenarios } : {}),

@@ -7,6 +7,21 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `@verifyax/mcp-server`: `generate_scenario` sends `definition_format: simulation_input`, so MCP
+  scenario generation writes a new-engine document until the API default changes
+  (verifyax/verification#5501).
+- `@verifyax/sdk`: optional `definition_format` on `GenerateScenarioRequest`. The field is absent
+  from the published OpenAPI schema; the gateway still forwards it.
+
+### Added
+
+- Neo GKE deploy automation: `deploy/neo/` rollout scripts; runtime targeting via GitHub
+  Environment variables (not committed hostnames or gateway URLs); CI on the `dev` branch;
+  automatic dev deploy after green CI; automatic npm publish and GitHub Release when a new version
+  merges to `main`; MCP Registry publish chained from Publish; manual prod deploy workflow only.
+
 ## [0.4.0] - 2026-10-05
 
 Read tools for the VerifyAX chat agent — fetch one scenario, evaluation reports, and run dialogue
