@@ -7,6 +7,13 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
+### Added
+
+## [0.4.1] - 2026-10-08
+
+Patch release: MCP scenario generation targets the new engine by default, and the SDK spec syncs
+new gateway endpoints and types.
+
 ### Changed
 
 - `@verifyax/mcp-server`: `generate_scenario` sends `definition_format: simulation_input`, so MCP
@@ -16,6 +23,9 @@ packages are versioned in lockstep for v1.x. Format follows
   from the published OpenAPI schema; the gateway still forwards it.
 
 ### Added
+
+- `@verifyax/sdk`: synced published OpenAPI spec — NFR gate policy, connection readiness and
+  preflight, NFR run decision, and related request/response types.
 
 ## [0.4.0] - 2026-10-05
 
@@ -290,7 +300,8 @@ First public release. `@verifyax/sdk` and `@verifyax/mcp-server` published to np
 - Documentation: top-level README, per-package READMEs, `docs/tool-descriptions.md`,
   `CONTRIBUTING.md`.
 
-[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/verifyax/verifyax-mcp/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.7...v0.4.0
 [0.3.7]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.5...v0.3.6
