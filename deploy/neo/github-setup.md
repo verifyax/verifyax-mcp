@@ -17,14 +17,14 @@ This repo is **public**; live hostnames and gateway URLs are **not** in `rollout
 
 ## Bootstrap order
 
-| Step | Action |
-| ---- | ------ |
-| 1 | Merge Neo workflow files to **`main`**. `workflow_run` jobs (**dev deploy**, auto **Publish**) only register when the workflow file exists on **`main`**. |
-| 2 | Create GitHub Environments **`dev`** and **`prod`**; set all variables (below). |
-| 3 | Extend GCP Workload Identity so **`verifyax/verifyax-mcp`** can impersonate the deployer SA (below). |
-| 4 | Confirm npm **Trusted Publishing** for **Publish** (OIDC; no `NPM_TOKEN` on deploy paths). |
-| 5 | Create branch **`dev`** from **`main`**; integration PRs target **`dev`**, releases target **`main`**. |
-| 6 | Smoke: push to **`dev`** → CI green → **Deploy Neo MCP (dev)**; after a release, manual **Deploy Neo MCP (prod)** with `vX.Y.Z`. |
+| Step | Action                                                                                                                                                    |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Merge Neo workflow files to **`main`**. `workflow_run` jobs (**dev deploy**, auto **Publish**) only register when the workflow file exists on **`main`**. |
+| 2    | Create GitHub Environments **`dev`** and **`prod`**; set all variables (below).                                                                           |
+| 3    | Extend GCP Workload Identity so **`verifyax/verifyax-mcp`** can impersonate the deployer SA (below).                                                      |
+| 4    | Confirm npm **Trusted Publishing** for **Publish** (OIDC; no `NPM_TOKEN` on deploy paths).                                                                |
+| 5    | Create branch **`dev`** from **`main`**; integration PRs target **`dev`**, releases target **`main`**.                                                    |
+| 6    | Smoke: push to **`dev`** → CI green → **Deploy Neo MCP (dev)**; after a release, manual **Deploy Neo MCP (prod)** with `vX.Y.Z`.                          |
 
 ---
 
@@ -50,28 +50,28 @@ gh api --method PUT "repos/${REPO}/environments/prod"
 
 Ten variables per environment. Names are **case-sensitive** and must match what [deploy-neo-dev.yml](../../.github/workflows/deploy-neo-dev.yml) and [deploy-neo-prod.yml](../../.github/workflows/deploy-neo-prod.yml) pass into `rollout.sh`.
 
-| Variable | Maps to / used for |
-| -------- | ------------------ |
-| `GCP_PROJECT_ID` | `gcloud` project hosting the GKE cluster |
-| `GKE_CLUSTER` | Cluster name for `get-credentials` |
-| `GKE_REGION` | Cluster region (Neo uses `europe-west2`) |
-| `WORKLOAD_IDENTITY_PROVIDER` | Full resource name of the GitHub OIDC provider (same on dev and prod) |
-| `SERVICE_ACCOUNT_EMAIL` | GCP SA to impersonate (`github-actions-deployer@verifyax-core.iam.gserviceaccount.com`) |
-| `ALLOWED_HOSTS` | Comma-separated MCP ingress hostnames → pod env `VERIFYAX_MCP_ALLOWED_HOSTS` (do **not** include `$(POD_IP)`; rollout appends it) |
-| `LOG_LEVEL` | Pod env `VERIFYAX_MCP_LOG_LEVEL` — **`debug`** on dev, **`info`** on prod (`rollout.sh` enforces) |
-| `VERIFYAX_BASE_URL` | Pod env gateway `/api/v1` base |
-| `VERIFYAX_WEB_BASE_URL` | Pod env gateway `/web/api/v1` base |
-| `HEALTH_URL` | Post-deploy HTTPS check (must return `{"status":"ok"}`) |
+| Variable                     | Maps to / used for                                                                                                                |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `GCP_PROJECT_ID`             | `gcloud` project hosting the GKE cluster                                                                                          |
+| `GKE_CLUSTER`                | Cluster name for `get-credentials`                                                                                                |
+| `GKE_REGION`                 | Cluster region (Neo uses `europe-west2`)                                                                                          |
+| `WORKLOAD_IDENTITY_PROVIDER` | Full resource name of the GitHub OIDC provider (same on dev and prod)                                                             |
+| `SERVICE_ACCOUNT_EMAIL`      | GCP SA to impersonate (`github-actions-deployer@verifyax-core.iam.gserviceaccount.com`)                                           |
+| `ALLOWED_HOSTS`              | Comma-separated MCP ingress hostnames → pod env `VERIFYAX_MCP_ALLOWED_HOSTS` (do **not** include `$(POD_IP)`; rollout appends it) |
+| `LOG_LEVEL`                  | Pod env `VERIFYAX_MCP_LOG_LEVEL` — **`debug`** on dev, **`info`** on prod (`rollout.sh` enforces)                                 |
+| `VERIFYAX_BASE_URL`          | Pod env gateway `/api/v1` base                                                                                                    |
+| `VERIFYAX_WEB_BASE_URL`      | Pod env gateway `/web/api/v1` base                                                                                                |
+| `HEALTH_URL`                 | Post-deploy HTTPS check (must return `{"status":"ok"}`)                                                                           |
 
 ### Source of truth
 
-| GitHub variable | Primary source |
-| --------------- | -------------- |
-| `ALLOWED_HOSTS` | verification `infra/GCP-NEO/applications/verifyax-mcp/values-<env>.yaml` → `allowed_hosts` |
-| `LOG_LEVEL` | same file → `log_level` |
-| `GCP_PROJECT_ID`, `GKE_CLUSTER` | verification `environments/<env>/main.tf` project id and cluster naming (`verifyax-dev` / `verifyax-prod`) |
-| `VERIFYAX_*` URLs | verification `infra/GCP-NEO/applications/verifyax-mcp/values-<env>.yaml` → `verifyax_base_url`, `verifyax_web_base_url` (keep GitHub vars in sync for `rollout.sh`) |
-| `HEALTH_URL` | Pick one public MCP hostname from `ALLOWED_HOSTS` (Neo hostname is typical) + `/health`. |
+| GitHub variable                 | Primary source                                                                                                                                                      |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ALLOWED_HOSTS`                 | verification `infra/GCP-NEO/applications/verifyax-mcp/values-<env>.yaml` → `allowed_hosts`                                                                          |
+| `LOG_LEVEL`                     | same file → `log_level`                                                                                                                                             |
+| `GCP_PROJECT_ID`, `GKE_CLUSTER` | verification `environments/<env>/main.tf` project id and cluster naming (`verifyax-dev` / `verifyax-prod`)                                                          |
+| `VERIFYAX_*` URLs               | verification `infra/GCP-NEO/applications/verifyax-mcp/values-<env>.yaml` → `verifyax_base_url`, `verifyax_web_base_url` (keep GitHub vars in sync for `rollout.sh`) |
+| `HEALTH_URL`                    | Pick one public MCP hostname from `ALLOWED_HOSTS` (Neo hostname is typical) + `/health`.                                                                            |
 
 When verification `allowed_hosts` or gateways change, update the matching **GitHub Environment** variables and re-run deploy (or `rollout.sh`). No change is required in this public repo.
 
@@ -81,33 +81,33 @@ Use these when seeding GitHub Environments. Re-read verification before go-live 
 
 **Environment `dev`**
 
-| Variable | Value |
-| -------- | ----- |
-| `GCP_PROJECT_ID` | `verifyax-dev` |
-| `GKE_CLUSTER` | `verifyax-dev` |
-| `GKE_REGION` | `europe-west2` |
-| `WORKLOAD_IDENTITY_PROVIDER` | *(from gcloud command below)* |
-| `SERVICE_ACCOUNT_EMAIL` | `github-actions-deployer@verifyax-core.iam.gserviceaccount.com` |
-| `ALLOWED_HOSTS` | `verifyax-mcp.dev.conscium.ai,verifyax-mcp.dev.neo.conscium.ai` |
-| `LOG_LEVEL` | `debug` |
-| `VERIFYAX_BASE_URL` | `https://webapp.dev.conscium.ai/api/v1` |
-| `VERIFYAX_WEB_BASE_URL` | `https://webapp.dev.conscium.ai/web/api/v1` |
-| `HEALTH_URL` | `https://verifyax-mcp.dev.neo.conscium.ai/health` |
+| Variable                     | Value                                                           |
+| ---------------------------- | --------------------------------------------------------------- |
+| `GCP_PROJECT_ID`             | `verifyax-dev`                                                  |
+| `GKE_CLUSTER`                | `verifyax-dev`                                                  |
+| `GKE_REGION`                 | `europe-west2`                                                  |
+| `WORKLOAD_IDENTITY_PROVIDER` | _(from gcloud command below)_                                   |
+| `SERVICE_ACCOUNT_EMAIL`      | `github-actions-deployer@verifyax-core.iam.gserviceaccount.com` |
+| `ALLOWED_HOSTS`              | `verifyax-mcp.dev.conscium.ai,verifyax-mcp.dev.neo.conscium.ai` |
+| `LOG_LEVEL`                  | `debug`                                                         |
+| `VERIFYAX_BASE_URL`          | `https://webapp.dev.conscium.ai/api/v1`                         |
+| `VERIFYAX_WEB_BASE_URL`      | `https://webapp.dev.conscium.ai/web/api/v1`                     |
+| `HEALTH_URL`                 | `https://verifyax-mcp.dev.neo.conscium.ai/health`               |
 
 **Environment `prod`**
 
-| Variable | Value |
-| -------- | ----- |
-| `GCP_PROJECT_ID` | `verifyax-prod` |
-| `GKE_CLUSTER` | `verifyax-prod` |
-| `GKE_REGION` | `europe-west2` |
-| `WORKLOAD_IDENTITY_PROVIDER` | *(same as dev)* |
-| `SERVICE_ACCOUNT_EMAIL` | `github-actions-deployer@verifyax-core.iam.gserviceaccount.com` |
-| `ALLOWED_HOSTS` | `mcp.verifyax.com,verifyax-mcp.prod.conscium.ai,verifyax-mcp.prod.neo.conscium.ai` |
-| `LOG_LEVEL` | `info` |
-| `VERIFYAX_BASE_URL` | `https://console.verifyax.com/api/v1` |
-| `VERIFYAX_WEB_BASE_URL` | `https://console.verifyax.com/web/api/v1` |
-| `HEALTH_URL` | `https://verifyax-mcp.prod.neo.conscium.ai/health` |
+| Variable                     | Value                                                                              |
+| ---------------------------- | ---------------------------------------------------------------------------------- |
+| `GCP_PROJECT_ID`             | `verifyax-prod`                                                                    |
+| `GKE_CLUSTER`                | `verifyax-prod`                                                                    |
+| `GKE_REGION`                 | `europe-west2`                                                                     |
+| `WORKLOAD_IDENTITY_PROVIDER` | _(same as dev)_                                                                    |
+| `SERVICE_ACCOUNT_EMAIL`      | `github-actions-deployer@verifyax-core.iam.gserviceaccount.com`                    |
+| `ALLOWED_HOSTS`              | `mcp.verifyax.com,verifyax-mcp.prod.conscium.ai,verifyax-mcp.prod.neo.conscium.ai` |
+| `LOG_LEVEL`                  | `info`                                                                             |
+| `VERIFYAX_BASE_URL`          | `https://console.verifyax.com/api/v1`                                              |
+| `VERIFYAX_WEB_BASE_URL`      | `https://console.verifyax.com/web/api/v1`                                          |
+| `HEALTH_URL`                 | `https://verifyax-mcp.prod.neo.conscium.ai/health`                                 |
 
 Resolve `WORKLOAD_IDENTITY_PROVIDER`:
 
@@ -183,13 +183,13 @@ Neo core Terraform today wires GitHub OIDC to **`verifyax/verification` only** (
 
 ## Workflows (what uses these variables)
 
-| Workflow | Environment | Uses Neo variables? |
-| -------- | ----------- | ------------------- |
-| [Deploy Neo MCP (dev)](../../.github/workflows/deploy-neo-dev.yml) | `dev` | Yes — all ten |
-| [Deploy Neo MCP (prod)](../../.github/workflows/deploy-neo-prod.yml) | `prod` | Yes — all ten |
-| [CI](../../.github/workflows/ci.yml) | — | No (runs `check-values.sh` with synthetic URLs only) |
-| [Publish](../../.github/workflows/publish.yml) | — | No |
-| [Publish to MCP Registry](../../.github/workflows/publish-registry.yml) | — | No |
+| Workflow                                                                | Environment | Uses Neo variables?                                  |
+| ----------------------------------------------------------------------- | ----------- | ---------------------------------------------------- |
+| [Deploy Neo MCP (dev)](../../.github/workflows/deploy-neo-dev.yml)      | `dev`       | Yes — all ten                                        |
+| [Deploy Neo MCP (prod)](../../.github/workflows/deploy-neo-prod.yml)    | `prod`      | Yes — all ten                                        |
+| [CI](../../.github/workflows/ci.yml)                                    | —           | No (runs `check-values.sh` with synthetic URLs only) |
+| [Publish](../../.github/workflows/publish.yml)                          | —           | No                                                   |
+| [Publish to MCP Registry](../../.github/workflows/publish-registry.yml) | —           | No                                                   |
 
 ### Dev deploy triggers
 
@@ -208,10 +208,10 @@ Manual **workflow_dispatch** with tag `vX.Y.Z` only. Requires existing GitHub Re
 
 ## Repository secrets (not used for Neo deploy)
 
-| Secret | Neo deploy? | Notes |
-| ------ | ----------- | ----- |
-| `VERIFYAX_TEST_KEY` | No | Optional live integration tests |
-| `NPM_TOKEN` | No | **Publish** uses npm Trusted Publishing (OIDC) |
+| Secret              | Neo deploy? | Notes                                          |
+| ------------------- | ----------- | ---------------------------------------------- |
+| `VERIFYAX_TEST_KEY` | No          | Optional live integration tests                |
+| `NPM_TOKEN`         | No          | **Publish** uses npm Trusted Publishing (OIDC) |
 
 No GitHub secret is required for the hosted MCP process; end users supply their own VerifyAX API keys.
 
@@ -230,17 +230,17 @@ See [local/README.md](local/README.md). Use `./deploy/neo/rollout.sh <dev|prod> 
 
 ## Troubleshooting
 
-| Symptom | Likely cause | What to do |
-| ------- | ------------ | ---------- |
-| Google auth step fails | WIF still trusts only `verifyax/verification` | Complete WIF infra change; confirm provider resource name in `WORKLOAD_IDENTITY_PROVIDER` |
-| `error: ALLOWED_HOSTS is not set` (or other env) | Missing or misnamed GitHub variable | `gh variable list --env <env>`; names must match exactly |
-| Dev deploy skipped: `stale_dev_tip` | Newer commit on `dev` before deploy ran | Normal; latest push will deploy |
-| Dev deploy skipped: `not_dev_trigger` | CI was for `main` or non-qualifying PR | Expected |
-| `dev rollout requires LOG_LEVEL=debug` | Wrong `LOG_LEVEL` on dev environment | Set `debug` on **dev**, `info` on **prod** |
-| `dev VERIFYAX_* URLs must not point at the production console` | Dev vars point at `console.verifyax.com` | Fix dev gateway URLs |
-| Health check timeout | Wrong `HEALTH_URL`, ingress, or bad rollout | Check URL in browser; `kubectl -n verifyax-mcp-<env> get deploy,pods` |
-| Image push denied | Registry IAM | Confirm deployer SA `artifactregistry.repoAdmin` on `verifyax-docker` |
-| Terraform apply reverted image/env | `image_tag` in verification values | Re-run deploy workflow or `rollout.sh`; see README § Terraform drift |
+| Symptom                                                        | Likely cause                                  | What to do                                                                                |
+| -------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Google auth step fails                                         | WIF still trusts only `verifyax/verification` | Complete WIF infra change; confirm provider resource name in `WORKLOAD_IDENTITY_PROVIDER` |
+| `error: ALLOWED_HOSTS is not set` (or other env)               | Missing or misnamed GitHub variable           | `gh variable list --env <env>`; names must match exactly                                  |
+| Dev deploy skipped: `stale_dev_tip`                            | Newer commit on `dev` before deploy ran       | Normal; latest push will deploy                                                           |
+| Dev deploy skipped: `not_dev_trigger`                          | CI was for `main` or non-qualifying PR        | Expected                                                                                  |
+| `dev rollout requires LOG_LEVEL=debug`                         | Wrong `LOG_LEVEL` on dev environment          | Set `debug` on **dev**, `info` on **prod**                                                |
+| `dev VERIFYAX_* URLs must not point at the production console` | Dev vars point at `console.verifyax.com`      | Fix dev gateway URLs                                                                      |
+| Health check timeout                                           | Wrong `HEALTH_URL`, ingress, or bad rollout   | Check URL in browser; `kubectl -n verifyax-mcp-<env> get deploy,pods`                     |
+| Image push denied                                              | Registry IAM                                  | Confirm deployer SA `artifactregistry.repoAdmin` on `verifyax-docker`                     |
+| Terraform apply reverted image/env                             | `image_tag` in verification values            | Re-run deploy workflow or `rollout.sh`; see README § Terraform drift                      |
 
 ---
 
