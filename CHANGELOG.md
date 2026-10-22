@@ -9,6 +9,13 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ### Added
 
+### Security
+
+- Raised the targeted `hono` pnpm override floor from `4.13.7` to `4.13.11`
+  ([GHSA-5r4p-p66f-jhc7](https://github.com/advisories/GHSA-5r4p-p66f-jhc7): `serveStatic` decodes
+  the request path a second time, bypassing middleware on static paths). `hono` is a transitive
+  production dependency via `@modelcontextprotocol/sdk`; the lockfile now resolves it to `4.13.11`.
+
 ## [0.4.1] - 2026-10-08
 
 Patch release: MCP scenario generation targets the new engine by default, and the SDK spec syncs
