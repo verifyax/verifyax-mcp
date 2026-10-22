@@ -21,10 +21,12 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     strategy:
-      # Minimum supported Node (engines: >=20), the previous LTS, and the LTS the
-      # runtime images ship on — so the version we deploy is a version we test.
+      # Minimum supported Node (engines: >=22) and the LTS the runtime images
+      # ship on, so the version we deploy is a version we test. Node 20 was
+      # dropped after it reached EOL (2026-04-30); the toolchain moved past it
+      # too (msw 3.x and the MCP Inspector family require Node >=22.12).
       matrix:
-        node-version: [20, 22, 24]
+        node-version: [22, 24]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
