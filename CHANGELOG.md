@@ -23,6 +23,15 @@ packages are versioned in lockstep for v1.x. Format follows
   ([GHSA-5r4p-p66f-jhc7](https://github.com/advisories/GHSA-5r4p-p66f-jhc7): `serveStatic` decodes
   the request path a second time, bypassing middleware on static paths). `hono` is a transitive
   production dependency via `@modelcontextprotocol/sdk`; the lockfile now resolves it to `4.13.11`.
+- Added a targeted `body-parser` override floor (`>=2.0.0 <2.4.0` → `2.4.0`) for
+  [GHSA-27r3-jxmh-p828](https://github.com/advisories/GHSA-27r3-jxmh-p828) (DoS); it reaches the
+  production tree via `express`.
+- Raised the targeted `fast-uri` override floor from `3.1.8` to `3.1.9`
+  ([GHSA-w74x-v6f9-j3xg](https://github.com/advisories/GHSA-w74x-v6f9-j3xg) URI scheme spoofing,
+  [GHSA-wjr9-j795-jxcr](https://github.com/advisories/GHSA-wjr9-j795-jxcr) host confusion).
+- Raised the targeted `ip-address` override floor from `10.7.1` to `10.7.4`
+  ([GHSA-rxp7-6hxx-x8q5](https://github.com/advisories/GHSA-rxp7-6hxx-x8q5)). Both reach the
+  production tree transitively via `@modelcontextprotocol/sdk`.
 
 ## [0.4.1] - 2026-10-08
 
