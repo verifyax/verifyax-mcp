@@ -22,6 +22,7 @@
     "test:integration": "pnpm --filter @verifyax/sdk test:integration",
     "test:conformance": "pnpm --filter @verifyax/mcp-server test:conformance",
     "audit:prod": "pnpm audit --prod --audit-level moderate",
+    "fix:override-floors": "node scripts/bump-override-floors.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

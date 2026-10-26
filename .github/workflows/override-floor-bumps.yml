@@ -1,0 +1,99 @@
+name: Override floor bumps
+
+# Auto-raise stale *targeted* pnpm override floors to their patched versions.
+#
+# The repo pins transitive security fixes as targeted, self-healing floors in
+# pnpm-workspace.yaml (e.g. `hono@<4.13.11: 4.13.11`). When a new advisory's
+# patched version climbs above a floor, the scheduled prod audit goes red and
+# someone has to hand-raise it — this has recurred for hono, fast-uri, and
+# ip-address. This job runs just after the audit, applies
+# scripts/bump-override-floors.mjs, verifies, and opens a PR, turning a manual
+# investigation into a review-and-merge.
+#
+# NOTE: the PR is opened with the default GITHUB_TOKEN, so it will NOT trigger
+# the CI workflow (GitHub blocks that recursion). This job therefore runs the
+# full verification itself (audit:prod, check:overrides, build, tests) before
+# opening the PR — it is already green when you see it. To also get CI checks on
+# the PR, give the "Open PR" step a PAT secret instead of github.token.
+
+on:
+  schedule:
+    # 22 minutes after CI's audit (23 5), so a floor that went stale overnight
+    # gets a fix PR the same morning.
+    - cron: '45 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Raise stale override floors
+        run: node scripts/bump-override-floors.mjs | tee bump.log
+
+      - name: Detect whether any floor was raised
+        id: changed
+        run: |
+          if git diff --quiet -- pnpm-workspace.yaml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update lockfile and verify the bump is green
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          pnpm install --no-frozen-lockfile
+          pnpm audit:prod
+          pnpm check:overrides
+          pnpm build
+          pnpm test:coverage
+
+      - name: Open or update the fix PR
+        if: steps.changed.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BRANCH="chore/override-floor-bumps"
+          SUMMARY_JSON=$(grep '::BUMP_SUMMARY::' bump.log | tail -1 | sed 's/.*::BUMP_SUMMARY:://')
+          BODY=$(node -e '
+            const s = JSON.parse(process.argv[1]);
+            const raised = s.changes.map(c => `- \`${c.name}\`: ${c.from} → ${c.to}`).join("\n") || "_none_";
+            const manual = s.manual.length ? s.manual.map(n => `- \`${n}\``).join("\n") : "_none_";
+            process.stdout.write(
+              `Automated by the \`Override floor bumps\` workflow.\n\n` +
+              `## Raised targeted override floors\n${raised}\n\n` +
+              `## Needs manual attention (no targeted floor to raise)\n${manual}\n\n` +
+              `Verified in the workflow run: \`audit:prod\`, \`check:overrides\`, build, and tests all passed. ` +
+              `Opened with the default token, so CI will not auto-run here — re-run it or merge (main CI will confirm).\n`
+            );
+          ' "$SUMMARY_JSON")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add pnpm-workspace.yaml pnpm-lock.yaml
+          git commit -m "fix(deps): raise stale pnpm override floors to patched versions"
+          git push --force-with-lease -u origin "$BRANCH"
+          rm -f bump.log
+          if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            gh pr create --head "$BRANCH" --base main \
+              --title "fix(deps): raise stale pnpm override floors" --body "$BODY"
+          else
+            echo "PR for $BRANCH already open; branch updated."
+          fi

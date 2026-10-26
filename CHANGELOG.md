@@ -11,6 +11,10 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ### Changed
 
+- Added an `Override floor bumps` workflow (`scripts/bump-override-floors.mjs`, `pnpm
+  fix:override-floors`) that auto-raises stale *targeted* pnpm override floors to their patched
+  version and opens a PR. Turns the recurring manual floor bump (hono, fast-uri, ip-address) into a
+  review-and-merge; packages without a targeted floor are reported for manual handling, not changed.
 - **Dropped Node 20 support; `engines.node` is now `>=22`.** Node 20 reached end-of-life on
   2026-04-30, and the toolchain moved past it (`msw` 3.x and the MCP Inspector family require
   Node `>=22.12`, which was breaking dev bumps on the Node 20 CI leg). CI now tests Node 22 and 24
