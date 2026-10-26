@@ -12,7 +12,7 @@ packages are versioned in lockstep for v1.x. Format follows
 ### Changed
 
 - Added an `Override floor bumps` workflow (`scripts/bump-override-floors.mjs`, `pnpm
-  fix:override-floors`) that auto-raises stale *targeted* pnpm override floors to their patched
+fix:override-floors`) that auto-raises stale _targeted_ pnpm override floors to their patched
   version and opens a PR. Turns the recurring manual floor bump (hono, fast-uri, ip-address) into a
   review-and-merge; packages without a targeted floor are reported for manual handling, not changed.
 - **Dropped Node 20 support; `engines.node` is now `>=22`.** Node 20 reached end-of-life on
