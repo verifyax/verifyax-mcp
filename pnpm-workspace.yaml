@@ -5,7 +5,7 @@ packages:
 # each brace-expansion major line so minimatch@3 (ESLint) stays on v1 CJS API.
 overrides:
   '@hono/node-server': 1.19.15
-  qs: 6.16.0
+  'qs@<6.16.1': 6.16.1
   'brace-expansion@>=1.0.0 <1.1.18': 1.1.18
   'brace-expansion@>=2.0.0 <2.1.7': 2.1.7
   'brace-expansion@>=4.0.0 <5.0.12': 5.0.12
