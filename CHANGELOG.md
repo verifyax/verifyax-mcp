@@ -36,6 +36,10 @@ fix:override-floors`) that auto-raises stale _targeted_ pnpm override floors to 
 - Raised the targeted `ip-address` override floor from `10.7.1` to `10.7.4`
   ([GHSA-rxp7-6hxx-x8q5](https://github.com/advisories/GHSA-rxp7-6hxx-x8q5)). Both reach the
   production tree transitively via `@modelcontextprotocol/sdk`.
+- Converted the `qs` blanket override pin (`6.16.0`) to a targeted, self-healing floor
+  (`<6.16.1` → `6.16.1`) for [GHSA-6pq8-jhm2-2vcw](https://github.com/advisories/GHSA-6pq8-jhm2-2vcw)
+  (`qs.stringify` DoS); it reaches the production tree via `express`. Now covered automatically by
+  the override-floor-bump workflow.
 
 ## [0.4.1] - 2026-10-08
 
