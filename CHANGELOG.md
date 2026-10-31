@@ -40,6 +40,12 @@ fix:override-floors`) that auto-raises stale _targeted_ pnpm override floors to 
   (`<6.16.1` → `6.16.1`) for [GHSA-6pq8-jhm2-2vcw](https://github.com/advisories/GHSA-6pq8-jhm2-2vcw)
   (`qs.stringify` DoS); it reaches the production tree via `express`. Now covered automatically by
   the override-floor-bump workflow.
+- Converted the `@hono/node-server` blanket override pin (`1.19.15`) to a targeted, self-healing
+  floor (`<2.1.3` → `2.1.3`) for
+  [GHSA-rmxm-3fg6-px4f](https://github.com/advisories/GHSA-rmxm-3fg6-px4f) (`serveStatic` path
+  decoding). It is now a production transitive via `@modelcontextprotocol/sdk` (which accepts
+  `^1.19.9 || ^2.0.5`); the advisory is patched only in 2.x. This was the last blanket pin — all
+  security overrides are now targeted and auto-covered.
 
 ## [0.4.1] - 2026-10-08
 
