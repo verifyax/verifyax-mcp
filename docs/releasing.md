@@ -130,8 +130,8 @@ This publishes both packages with provenance:
 - `@verifyax/mcp-server@X.Y.Z`
 
 The MCP server's `workspace:*` dependency on the SDK is rewritten to the concrete version at
-publish time. After npm succeeds, the workflow creates the GitHub Release. That event triggers
-the MCP Registry workflow, keeping all three channels ordered from one immutable tag.
+publish time. After npm succeeds, the workflow creates the GitHub Release and then dispatches the
+MCP Registry workflow, keeping all three channels ordered from one immutable tag.
 
 ### Local publish (alternative)
 
@@ -162,9 +162,12 @@ binary, PAT, or personal-account org authorization (the org-authorized OIDC iden
 the `io.github.verifyax/*` namespace publishable; a personal account 403s, which is why 0.3.0/0.3.1
 were skipped).
 
-It runs automatically **when you publish the GitHub Release** (step 5) — which is after the npm
-publish (step 4), the order the registry requires (it validates ownership against the live npm
-package). Nothing else to do; just confirm the run is green in the Actions tab.
+It runs automatically: the real **Publish** workflow **dispatches** it as its final step, after the
+npm publish and the GitHub Release (the order the registry requires — it validates ownership against
+the live npm package, and polls npm to absorb publish propagation). A Release created with
+`GITHUB_TOKEN` does **not** fire the workflow's own `on: release` trigger, which is why the Publish
+workflow dispatches it explicitly rather than relying on that event. Nothing else to do; just
+confirm the `Publish to MCP Registry` run is green in the Actions tab.
 
 **Manual catch-up / recovery.** If a release's registry publish was skipped or failed, run the
 workflow from **Actions → Publish to MCP Registry → Run workflow**, selecting the release tag. It

@@ -23,7 +23,10 @@ on:
         default: true
 
 permissions:
-  actions: read
+  # `write` (not `read`) so this job can dispatch the Publish to MCP Registry
+  # workflow after the release — a Release created with GITHUB_TOKEN does not fire
+  # that workflow's `on: release` trigger, so we trigger it explicitly.
+  actions: write
   contents: write
   # Required for npm provenance (OIDC) on the real publish.
   id-token: write
@@ -119,3 +122,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag }}
         run: gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG" --generate-notes
+
+      - name: Publish to the MCP Registry
+        # The Release above is created with GITHUB_TOKEN, which does not trigger
+        # the registry workflow's `on: release`. Dispatch it explicitly so the
+        # whole release completes from this one run. The registry workflow polls
+        # npm, so it tolerates the publish still propagating.
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: gh workflow run publish-registry.yml --ref "$RELEASE_TAG"
