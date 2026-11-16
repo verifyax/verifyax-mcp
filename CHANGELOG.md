@@ -46,6 +46,17 @@ fix:override-floors`) that auto-raises stale _targeted_ pnpm override floors to 
   decoding). It is now a production transitive via `@modelcontextprotocol/sdk` (which accepts
   `^1.19.9 || ^2.0.5`); the advisory is patched only in 2.x. This was the last blanket pin — all
   security overrides are now targeted and auto-covered.
+- Raised the `@hono/node-server` (`<2.1.6` → `2.1.6`) and `hono` (`<4.13.16` → `4.13.16`) override
+  floors for [GHSA-qv5m-9pm6-hqp3](https://github.com/advisories/GHSA-qv5m-9pm6-hqp3),
+  [GHSA-jpvv-r467-5p4w](https://github.com/advisories/GHSA-jpvv-r467-5p4w), and the `hono` `mount()`
+  path-forwarding advisory.
+
+### Fixed
+
+- `Override floor bumps` workflow: the PR push used `--force-with-lease`, which rejects with
+  "stale info" once the bot branch exists (a fresh checkout never fetched it). Use `--force` — the
+  branch is bot-exclusive and force-updated each run. (This had the bot correctly raise the floors
+  but fail to open the PR.)
 
 ## [0.4.1] - 2026-10-08
 
