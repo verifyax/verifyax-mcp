@@ -7,19 +7,26 @@ packages are versioned in lockstep for v1.x. Format follows
 
 ## [Unreleased]
 
-### Added
+## [0.5.0] - 2026-11-16
 
-### Changed
+Node 22 is now the minimum runtime, and every dependency-security override is a targeted,
+self-healing floor maintained automatically by a new bump workflow. This release also rolls up a
+run of transitive advisory fixes across the hono stack, `qs`, `body-parser`, `fast-uri`, and
+`ip-address`.
 
-- Added an `Override floor bumps` workflow (`scripts/bump-override-floors.mjs`, `pnpm
-fix:override-floors`) that auto-raises stale _targeted_ pnpm override floors to their patched
-  version and opens a PR. Turns the recurring manual floor bump (hono, fast-uri, ip-address) into a
-  review-and-merge; packages without a targeted floor are reported for manual handling, not changed.
+### Breaking
+
 - **Dropped Node 20 support; `engines.node` is now `>=22`.** Node 20 reached end-of-life on
   2026-04-30, and the toolchain moved past it (`msw` 3.x and the MCP Inspector family require
   Node `>=22.12`, which was breaking dev bumps on the Node 20 CI leg). CI now tests Node 22 and 24
-  — the LTS line the runtime images already ship on. This is a breaking change for consumers still
-  on Node 20; cut it as at least a minor version bump.
+  — the LTS line the runtime images already ship on.
+
+### Added
+
+- `Override floor bumps` workflow (`scripts/bump-override-floors.mjs`, `pnpm fix:override-floors`)
+  that auto-raises stale _targeted_ pnpm override floors to their patched version and opens a PR.
+  Turns the recurring manual floor bump into a review-and-merge; packages without a targeted floor
+  are reported for manual handling, not changed.
 
 ### Security
 
@@ -349,7 +356,8 @@ First public release. `@verifyax/sdk` and `@verifyax/mcp-server` published to np
 - Documentation: top-level README, per-package READMEs, `docs/tool-descriptions.md`,
   `CONTRIBUTING.md`.
 
-[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/verifyax/verifyax-mcp/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/verifyax/verifyax-mcp/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/verifyax/verifyax-mcp/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.7...v0.4.0
 [0.3.7]: https://github.com/verifyax/verifyax-mcp/compare/v0.3.6...v0.3.7
