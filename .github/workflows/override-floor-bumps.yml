@@ -89,7 +89,11 @@ jobs:
           git checkout -B "$BRANCH"
           git add pnpm-workspace.yaml pnpm-lock.yaml
           git commit -m "fix(deps): raise stale pnpm override floors to patched versions"
-          git push --force-with-lease -u origin "$BRANCH"
+          # Plain --force (not --force-with-lease): this branch is bot-exclusive
+          # and force-updated every run, and a fresh checkout never fetched it, so
+          # --force-with-lease has no base ref and rejects with "stale info" once
+          # the branch already exists.
+          git push --force -u origin "$BRANCH"
           rm -f bump.log
           if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
             gh pr create --head "$BRANCH" --base main \
