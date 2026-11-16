@@ -47,11 +47,18 @@ jobs:
             echo "::error::server.json version ($SERVER_VERSION) != packages/mcp-server/package.json ($PKG_VERSION)"
             exit 1
           fi
-          if ! npm view "@verifyax/mcp-server@${SERVER_VERSION}" version >/dev/null 2>&1; then
-            echo "::error::@verifyax/mcp-server@${SERVER_VERSION} is not on npm yet — publish to npm first (docs/releasing.md §4)."
-            exit 1
-          fi
-          echo "Publishing server.json ${SERVER_VERSION} to the MCP Registry."
+          # Poll npm: when the Publish workflow dispatches this right after it
+          # uploads, the read CDN can lag a minute or two behind the write.
+          for i in $(seq 1 12); do
+            if npm view "@verifyax/mcp-server@${SERVER_VERSION}" version >/dev/null 2>&1; then
+              echo "Publishing server.json ${SERVER_VERSION} to the MCP Registry."
+              exit 0
+            fi
+            echo "npm does not list @verifyax/mcp-server@${SERVER_VERSION} yet; retry $i/12…"
+            sleep 15
+          done
+          echo "::error::@verifyax/mcp-server@${SERVER_VERSION} never appeared on npm — publish to npm first (docs/releasing.md §4)."
+          exit 1
 
       - name: Install mcp-publisher ${{ env.MCP_PUBLISHER_VERSION }}
         run: |
